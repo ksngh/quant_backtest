@@ -2,19 +2,19 @@
 
 # Current Phase
 
-Phase 58: Pattern Backtest All Implemented Pattern Selection Implementation
+Phase 59: Error Logging Task Definition
 
 # Current Step
 
-Task 058 implementation complete; all safely wireable implemented pattern selections are wired and verified.
+Task 059 task document creation for runtime error logging.
 
 # Current Goal
 
-Wire every safely compatible already-implemented pattern detector plus risk/exit planner pair into the existing PostgreSQL pattern backtest CLI/backtest selection seam while preserving the Fair Value Gap default and historical-simulation safety boundary.
+Define a scoped implementation task for runtime error logging so execution failures produce diagnosable logs without changing trading-safety boundaries.
 
 # Current Active Task
 
-Task 058 implementation complete. Pattern backtests now support one explicit selection among FAIR_VALUE_GAP, TRENDLINE_BREAK, ORDER_BLOCK, CUP_AND_HANDLE, DIAMOND, and ADAM_AND_EVE.
+Task 059 task document created: runtime error logging requirements, scope boundaries, and verification expectations are now documented for a future implementation pass.
 
 # Last Completed Step
 
@@ -36,7 +36,7 @@ Implemented `quant-bitcoin-pattern-backtest` as a project script entrypoint back
 
 # Next Step
 
-Recommended next task: owner review of the Task 058 implementation and, if desired, a follow-up task for compact deterministic synthetic entry fixtures for non-FVG pattern backtest integration. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
+Recommended next task: owner approval to implement `tasks/059_ERROR_LOG_RECORDING.md` (runtime error logging), then execute a minimal implementation limited to selected runtime entrypoints and tests. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
 
 # Parallel Work Status
 
@@ -171,6 +171,7 @@ Task 058 changed the shared CLI/backtest registry seam and should receive owner 
 - [x] Task 057: Pattern Backtest CLI clarity and pattern selection implementation complete and verified
 - [x] Task 058: Pattern Backtest All Implemented Pattern Selection task document created
 - [x] Task 058: Pattern Backtest All Implemented Pattern Selection implementation complete and verified
+- [x] Task 059: Error Logging task document created
 
 # Open Questions
 
