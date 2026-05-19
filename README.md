@@ -224,11 +224,21 @@ Common backtest options and matching environment variables:
 or local process manager instead.
 
 
-## Run a Fair Value Gap pattern backtest from PostgreSQL candles
+## Run a pattern backtest from PostgreSQL candles
 
 After PostgreSQL already contains stored closed `BTCUSDT` `1m` candles, run
 the default Fair Value Gap pattern strategy backtest with an explicit safe UTC
-time window:
+time window. If you are running from a source checkout and the installed console
+script is not on your `PATH`, use the `python -m` form:
+
+```bash
+python -m quant_bitcoin.backtesting.pattern_postgres_runner_cli \
+  --start-time 2024-01-01T00:00:00Z \
+  --end-time 2024-01-02T00:00:00Z
+```
+
+The equivalent installed console script is available after installing the
+project, for example with `python -m pip install -e .`:
 
 ```bash
 quant-bitcoin-pattern-backtest \
@@ -236,14 +246,28 @@ quant-bitcoin-pattern-backtest \
   --end-time 2024-01-02T00:00:00Z
 ```
 
-The default pattern selection is `FAIR_VALUE_GAP`, and the current CLI behavior
-is FVG-only. The command supports the explicit seam `--pattern FAIR_VALUE_GAP`
-for tested pattern selection; unsupported pattern names fail before the
-backtest runner is invoked. Output is deterministic JSON with strategy metadata
-such as `FAIR_VALUE_GAP_PATTERN_STRATEGY` and the selected pattern list.
+The default pattern selection remains `FAIR_VALUE_GAP`; use `--pattern FAIR_VALUE_GAP`
+when you want to spell out the default explicitly. You can also select one
+supported implemented detector/risk-exit pair, for example an Order Block
+historical simulation:
 
-This is a historical simulation over stored standard candles. It does not place
-orders, does not call exchange order or account endpoints, does not sign
+```bash
+python -m quant_bitcoin.backtesting.pattern_postgres_runner_cli \
+  --pattern ORDER_BLOCK \
+  --start-time 2024-01-01T00:00:00Z \
+  --end-time 2024-01-02T00:00:00Z
+```
+
+Supported `--pattern` values are: `FAIR_VALUE_GAP`, `TRENDLINE_BREAK`,
+`ORDER_BLOCK`, `CUP_AND_HANDLE`, `DIAMOND`, and `ADAM_AND_EVE`. The command
+supports one selected pattern per run; multiple `--pattern` values and
+unsupported pattern names fail before the provider or backtest runner is
+invoked. Output is deterministic JSON with strategy metadata such as
+`FAIR_VALUE_GAP_PATTERN_STRATEGY`, `ORDER_BLOCK_PATTERN_STRATEGY`, and the
+selected pattern list.
+
+This is a historical simulation over stored standard candles only. It does not
+place orders, does not call exchange order or account endpoints, does not sign
 requests, and does not require API keys or `.env` files.
 
 ## Read saved backtest results for graph inputs

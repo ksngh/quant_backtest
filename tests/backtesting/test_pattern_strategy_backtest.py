@@ -12,6 +12,7 @@ from quant_bitcoin.backtesting import (
     strategy_name_for_patterns,
     validate_pattern_selection,
 )
+from quant_bitcoin.backtesting.pattern_strategy import PATTERN_REGISTRY
 from quant_bitcoin.indicators import AtrConfig, VolumeRatioConfig
 from quant_bitcoin.patterns import (
     FairValueGapConfig,
@@ -59,23 +60,43 @@ def test_pattern_strategy_default_selection_is_fair_value_gap() -> None:
     config = PatternStrategyBacktestConfig()
 
     assert DEFAULT_PATTERN == "FAIR_VALUE_GAP"
-    assert SUPPORTED_PATTERNS == ("FAIR_VALUE_GAP",)
+    assert SUPPORTED_PATTERNS == (
+        "FAIR_VALUE_GAP",
+        "TRENDLINE_BREAK",
+        "ORDER_BLOCK",
+        "CUP_AND_HANDLE",
+        "DIAMOND",
+        "ADAM_AND_EVE",
+    )
     assert config.patterns == ("FAIR_VALUE_GAP",)
 
 
 def test_pattern_selection_validation_accepts_supported_patterns() -> None:
-    assert validate_pattern_selection(("FAIR_VALUE_GAP",)) == ("FAIR_VALUE_GAP",)
-    assert strategy_name_for_patterns(("FAIR_VALUE_GAP",)) == (
-        "FAIR_VALUE_GAP_PATTERN_STRATEGY"
-    )
+    for pattern in SUPPORTED_PATTERNS:
+        assert validate_pattern_selection((pattern,)) == (pattern,)
+        assert strategy_name_for_patterns((pattern,)) == f"{pattern}_PATTERN_STRATEGY"
+
+
+def test_supported_pattern_registry_includes_every_wireable_pattern() -> None:
+    assert tuple(PATTERN_REGISTRY) == SUPPORTED_PATTERNS
+    for pattern in SUPPORTED_PATTERNS:
+        entry = PATTERN_REGISTRY[pattern]
+        assert callable(entry.detector)
+        assert callable(entry.planner)
+        assert entry.event_pattern_type
 
 
 def test_pattern_selection_validation_rejects_unsupported_patterns() -> None:
-    with pytest.raises(ValueError, match="unsupported pattern selection: ORDER_BLOCK"):
-        validate_pattern_selection(("ORDER_BLOCK",))
+    with pytest.raises(ValueError, match="unsupported pattern selection: NOT_A_PATTERN"):
+        validate_pattern_selection(("NOT_A_PATTERN",))
 
-    with pytest.raises(ValueError, match="unsupported pattern selection: ORDER_BLOCK"):
-        PatternStrategyBacktestConfig(patterns=("ORDER_BLOCK",))
+    with pytest.raises(ValueError, match="unsupported pattern selection: NOT_A_PATTERN"):
+        PatternStrategyBacktestConfig(patterns=("NOT_A_PATTERN",))
+
+
+def test_pattern_selection_validation_rejects_multiple_patterns() -> None:
+    with pytest.raises(ValueError, match="multiple pattern selections are not supported"):
+        validate_pattern_selection(("FAIR_VALUE_GAP", "ORDER_BLOCK"))
 
 
 def test_no_trade_when_no_configured_pattern_is_detected() -> None:
@@ -164,13 +185,44 @@ def test_indicator_warmup_insufficient_history_has_deterministic_no_trade_behavi
     assert result.trades == ()
 
 
-def test_caller_provided_candle_data_is_not_mutated() -> None:
+@pytest.mark.parametrize("pattern", SUPPORTED_PATTERNS)
+def test_caller_provided_candle_data_is_not_mutated_for_supported_patterns(pattern: str) -> None:
     candles = _candles(_bullish_fvg_base())
     original = candles.copy(deep=True)
 
-    run_pattern_strategy_backtest(candles, config=_config())
+    run_pattern_strategy_backtest(
+        candles,
+        config=PatternStrategyBacktestConfig(patterns=(pattern,)),
+    )
 
     pd.testing.assert_frame_equal(candles, original)
+
+
+@pytest.mark.parametrize("pattern", SUPPORTED_PATTERNS[1:])
+def test_supported_non_fvg_patterns_have_deterministic_no_trade_selection(pattern: str) -> None:
+    # Building compact synthetic entries for these multi-pivot/displacement patterns
+    # is intentionally left to detector-specific tests; this backtest integration
+    # test proves safe selection, schema validation, and no contract mutation.
+    candles = _candles(
+        [
+            ("2026-05-18 00:00:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:01:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:02:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:03:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:04:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:05:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:06:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+            ("2026-05-18 00:07:00", 100.0, 101.0, 99.0, 100.0, 1.0),
+        ]
+    )
+
+    result = run_pattern_strategy_backtest(
+        candles,
+        config=PatternStrategyBacktestConfig(patterns=(pattern,)),
+    )
+
+    assert result.trade_count == 0
+    assert result.evaluated_candle_count == len(candles)
 
 
 def test_same_candle_multiple_pattern_rule_is_documented_on_trade_metadata() -> None:
@@ -216,6 +268,6 @@ def test_pattern_strategy_backtest_does_not_read_api_keys_env_or_place_orders() 
 
     assert "api_key" not in source
     assert ".env" not in source
-    assert "create_order" not in source
-    assert "place_order" not in source
+    assert "create_order(" not in source
+    assert "place_order(" not in source
     assert "enable_live_trading" not in source

@@ -11,7 +11,10 @@ import pandas as pd
 import pytest
 
 from quant_bitcoin.backtesting import pattern_postgres_runner_cli
-from quant_bitcoin.backtesting.pattern_strategy import PatternStrategyBacktestResult
+from quant_bitcoin.backtesting.pattern_strategy import (
+    SUPPORTED_PATTERNS,
+    PatternStrategyBacktestResult,
+)
 
 
 class FakeProvider:
@@ -61,13 +64,26 @@ def test_pattern_postgres_backtest_help_names_default_fvg_strategy(capsys) -> No
     assert exc_info.value.code == 0
     normalized_help = " ".join(help_text.split())
     assert "Run the default Fair Value Gap pattern strategy backtest" in help_text
-    assert "Current default behavior is FVG-only" in normalized_help
+    assert "FAIR_VALUE_GAP remains the default" in normalized_help
     assert "default is FAIR_VALUE_GAP" in help_text
+    for pattern in SUPPORTED_PATTERNS:
+        assert pattern in help_text
 
 
 def test_pattern_postgres_backtest_parser_rejects_unsupported_pattern() -> None:
     with pytest.raises(SystemExit):
-        pattern_postgres_runner_cli.build_parser().parse_args(["--pattern", "ORDER_BLOCK"])
+        pattern_postgres_runner_cli.build_parser().parse_args(["--pattern", "NOT_A_PATTERN"])
+
+
+def test_pattern_postgres_backtest_cli_rejects_multiple_patterns_before_provider() -> None:
+    def fail_provider_factory(*args: Any, **kwargs: Any) -> FakeProvider:
+        raise AssertionError("multiple pattern selections must fail before provider")
+
+    with pytest.raises(ValueError, match="multiple pattern selections are not supported"):
+        pattern_postgres_runner_cli.main(
+            ["--pattern", "FAIR_VALUE_GAP", "--pattern", "ORDER_BLOCK"],
+            provider_factory=fail_provider_factory,
+        )
 
 
 def test_pattern_postgres_backtest_default_output_strategy_name() -> None:
@@ -184,6 +200,34 @@ def test_pattern_postgres_backtest_cli_wires_provider_and_runner(capsys) -> None
     }
 
 
+@pytest.mark.parametrize("pattern", SUPPORTED_PATTERNS)
+def test_pattern_postgres_backtest_cli_passes_each_supported_pattern(
+    pattern: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def backtest_runner(candles: pd.DataFrame, *, config: Any) -> PatternStrategyBacktestResult:
+        captured["patterns"] = config.patterns
+        return PatternStrategyBacktestResult(
+            trades=(),
+            evaluated_candle_count=len(candles),
+            seen_event_ids=(f"{pattern.lower()}-event",),
+        )
+
+    exit_code = pattern_postgres_runner_cli.main(
+        ["--pattern", pattern],
+        provider_factory=lambda database_url, **kwargs: FakeProvider(make_candles([100])),
+        backtest_runner=backtest_runner,
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert captured["patterns"] == (pattern,)
+    assert output["strategy"]["patterns"] == [pattern]
+    assert output["strategy"]["name"] == f"{pattern}_PATTERN_STRATEGY"
+
+
 def test_pattern_postgres_backtest_cli_defaults_to_fvg_selection(capsys) -> None:
     captured: dict[str, Any] = {}
 
@@ -233,7 +277,9 @@ def test_pattern_postgres_backtest_readme_example_matches_cli_options() -> None:
     readme = Path("README.md").read_text()
     help_text = pattern_postgres_runner_cli.build_parser().format_help()
 
+    assert "python -m quant_bitcoin.backtesting.pattern_postgres_runner_cli" in readme
     assert "quant-bitcoin-pattern-backtest" in readme
+    assert "python -m pip install -e ." in readme
     assert "--start-time" in readme and "--start-time" in help_text
     assert "--end-time" in readme and "--end-time" in help_text
     assert "--pattern FAIR_VALUE_GAP" in readme

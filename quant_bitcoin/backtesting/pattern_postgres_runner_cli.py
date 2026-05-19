@@ -53,6 +53,7 @@ def main(
     """Run the PostgreSQL pattern backtest CLI and return a process exit code."""
 
     args = build_parser().parse_args(argv)
+    selected_patterns = _selected_patterns(args.patterns)
     provider = provider_factory(
         args.database_url,
         source=args.source,
@@ -63,7 +64,7 @@ def main(
     )
     candles = provider.load()
     config = PatternStrategyBacktestConfig(
-        patterns=_selected_patterns(args.patterns),
+        patterns=selected_patterns,
         symbol=args.symbol,
         timeframe=args.interval,
     )
@@ -92,12 +93,14 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Run the default Fair Value Gap pattern strategy backtest from "
             "completed 1-minute candles already stored in PostgreSQL. "
-            "Current default behavior is FVG-only."
+            "FAIR_VALUE_GAP remains the default; explicit single-pattern "
+            "selection is supported for implemented detector/planner pairs."
         ),
         epilog=(
-            "Pattern selection: the default is FAIR_VALUE_GAP. "
-            "This task currently supports FVG-only backtests; unsupported "
-            "pattern selections fail before any provider or backtest runs."
+            "Pattern selection: the default is FAIR_VALUE_GAP. Supported "
+            f"single-pattern choices: {', '.join(SUPPORTED_PATTERNS)}. "
+            "Multiple --pattern values and unsupported pattern selections fail "
+            "before any provider or backtest runs."
         ),
     )
     parser.add_argument(
@@ -129,9 +132,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATTERN",
         help=(
-            "pattern strategy to backtest; default is FAIR_VALUE_GAP "
-            "(current default behavior is FVG-only; supported choices: "
-            f"{', '.join(SUPPORTED_PATTERNS)})"
+            "single pattern strategy to backtest; default is FAIR_VALUE_GAP "
+            f"(supported choices: {', '.join(SUPPORTED_PATTERNS)})"
         ),
     )
     parser.add_argument(
