@@ -2,19 +2,19 @@
 
 # Current Phase
 
-Phase 59: Error Logging Task Definition
+Phase 59: Runtime Error Logging Implementation
 
 # Current Step
 
-Task 059 task document creation for runtime error logging.
+Task 059 runtime error logging implementation.
 
 # Current Goal
 
-Define a scoped implementation task for runtime error logging so execution failures produce diagnosable logs without changing trading-safety boundaries.
+Implement scoped runtime exception logging for supported CLI entrypoints so failures produce diagnosable logs without changing trading-safety boundaries.
 
 # Current Active Task
 
-Task 059 task document created: runtime error logging requirements, scope boundaries, and verification expectations are now documented for a future implementation pass.
+Task 059 implementation in progress: added top-level runtime exception logging wrappers to supported CLI entrypoints and added tests asserting error logging + non-zero exits on runtime failure paths.
 
 # Last Completed Step
 
@@ -36,7 +36,7 @@ Implemented `quant-bitcoin-pattern-backtest` as a project script entrypoint back
 
 # Next Step
 
-Recommended next task: owner approval to implement `tasks/059_ERROR_LOG_RECORDING.md` (runtime error logging), then execute a minimal implementation limited to selected runtime entrypoints and tests. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
+Recommended next task: owner review/merge of Task 059 runtime error logging implementation, then define next reliability task (e.g., log format hardening/redaction policy) if needed. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
 
 # Parallel Work Status
 
@@ -172,6 +172,7 @@ Task 058 changed the shared CLI/backtest registry seam and should receive owner 
 - [x] Task 058: Pattern Backtest All Implemented Pattern Selection task document created
 - [x] Task 058: Pattern Backtest All Implemented Pattern Selection implementation complete and verified
 - [x] Task 059: Error Logging task document created
+- [x] Task 059: Runtime error logging implementation complete and verified
 
 # Open Questions
 

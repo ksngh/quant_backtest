@@ -37,6 +37,7 @@ from quant_bitcoin.persistence import (
     build_rsi_strategy_config_payload,
 )
 from quant_bitcoin.strategies import RsiStrategy
+from quant_bitcoin.runtime_logging import log_runtime_exception
 
 DEFAULT_DATABASE_URL = (
     "postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
@@ -55,7 +56,7 @@ BacktesterFactory = Callable[..., Any]
 RepositoryFactory = Callable[..., Any]
 
 
-def main(
+def _main_impl(
     argv: Sequence[str] | None = None,
     *,
     provider_factory: ProviderFactory = PostgresCandleDataProvider.from_database_url,
@@ -500,6 +501,16 @@ def _to_datetime(value: Any) -> datetime:
 
 def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
+def main(argv=None, **kwargs):
+    try:
+        return _main_impl(argv, **kwargs)
+    except (SystemExit, ValueError):
+        raise
+    except Exception:
+        log_runtime_exception(__name__)
+        return 1
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -26,6 +26,7 @@ from quant_bitcoin.market_data.binance_websocket import (
     check_websocket_ingestion_readiness,
 )
 from quant_bitcoin.persistence import PostgresCandleRepository
+from quant_bitcoin.runtime_logging import log_runtime_exception
 
 DEFAULT_SYMBOL = "BTCUSDT"
 DEFAULT_INTERVAL = "1m"
@@ -39,7 +40,7 @@ RepositoryFactory = Callable[[str], Any]
 IngestorFactory = Callable[..., Any]
 
 
-def main(
+def _main_impl(
     argv: Sequence[str] | None = None,
     *,
     readiness_checker: ReadinessChecker = check_websocket_ingestion_readiness,
@@ -242,6 +243,16 @@ def _non_negative_int(value: str) -> int:
     if integer < 0:
         raise argparse.ArgumentTypeError("value must be a non-negative integer")
     return integer
+
+
+def main(argv=None, **kwargs):
+    try:
+        return _main_impl(argv, **kwargs)
+    except (SystemExit, ValueError):
+        raise
+    except Exception:
+        log_runtime_exception(__name__)
+        return 1
 
 
 if __name__ == "__main__":

@@ -151,3 +151,30 @@ def test_backfill_console_script_is_registered():
         'quant-bitcoin-binance-backfill = '
         '"quant_bitcoin.market_data.binance_backfill_cli:main"'
     ) in pyproject
+
+
+def test_backfill_cli_logs_runtime_error_and_returns_nonzero(caplog) -> None:
+    class FailingRepository:
+        def __init__(self, database_url: str) -> None:
+            self.database_url = database_url
+
+        def initialize_schema(self) -> None:
+            return None
+
+    class FailingBackfiller:
+        def __init__(self, repository, **kwargs) -> None:
+            self.repository = repository
+
+        def run(self, **kwargs):
+            raise RuntimeError("backfill failed")
+
+    with caplog.at_level("ERROR"):
+        exit_code = main(
+            [],
+            repository_factory=FailingRepository,
+            backfiller_factory=FailingBackfiller,
+        )
+
+    assert exit_code == 1
+    assert "runtime failure in quant_bitcoin.market_data.binance_backfill_cli" in caplog.text
+    assert "backfill failed" in caplog.text
