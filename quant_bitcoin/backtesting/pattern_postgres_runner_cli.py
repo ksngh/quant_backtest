@@ -31,6 +31,7 @@ from quant_bitcoin.backtesting.pattern_strategy import (
     validate_pattern_selection,
 )
 from quant_bitcoin.market_data import PostgresCandleDataProvider
+from quant_bitcoin.runtime_logging import log_runtime_exception
 from quant_bitcoin.market_data.postgres_provider import STANDARD_CANDLE_COLUMNS
 from quant_bitcoin.persistence import SOURCE_BINANCE_SPOT
 
@@ -44,7 +45,7 @@ ProviderFactory = Callable[..., Any]
 BacktestRunner = Callable[..., PatternStrategyBacktestResult]
 
 
-def main(
+def _main_impl(
     argv: Sequence[str] | None = None,
     *,
     provider_factory: ProviderFactory = PostgresCandleDataProvider.from_database_url,
@@ -302,6 +303,16 @@ __all__ = [
     "build_parser",
     "main",
 ]
+
+
+def main(argv=None, **kwargs):
+    try:
+        return _main_impl(argv, **kwargs)
+    except (SystemExit, ValueError):
+        raise
+    except Exception:
+        log_runtime_exception(__name__)
+        return 1
 
 
 if __name__ == "__main__":  # pragma: no cover

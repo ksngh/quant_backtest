@@ -56,6 +56,23 @@ def test_pattern_postgres_backtest_help_succeeds_without_provider(capsys) -> Non
     assert "quant-bitcoin-pattern-backtest" in capsys.readouterr().out
 
 
+def test_pattern_postgres_backtest_logs_runtime_error_and_returns_nonzero(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def failing_provider_factory(*args: Any, **kwargs: Any) -> FakeProvider:
+        raise RuntimeError("provider exploded")
+
+    with caplog.at_level("ERROR"):
+        exit_code = pattern_postgres_runner_cli.main(
+            [],
+            provider_factory=failing_provider_factory,
+        )
+
+    assert exit_code == 1
+    assert "runtime failure in quant_bitcoin.backtesting.pattern_postgres_runner_cli" in caplog.text
+    assert "provider exploded" in caplog.text
+
+
 def test_pattern_postgres_backtest_help_names_default_fvg_strategy(capsys) -> None:
     with pytest.raises(SystemExit) as exc_info:
         pattern_postgres_runner_cli.build_parser().parse_args(["--help"])

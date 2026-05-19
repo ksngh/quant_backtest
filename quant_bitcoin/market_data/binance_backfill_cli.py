@@ -21,6 +21,7 @@ from quant_bitcoin.market_data.binance_backfill import (
 )
 from quant_bitcoin.market_data.binance_downloader import DEFAULT_MARKET_DATA_BASE_URL
 from quant_bitcoin.persistence import PostgresCandleRepository
+from quant_bitcoin.runtime_logging import log_runtime_exception
 
 DEFAULT_SYMBOL = "BTCUSDT"
 DEFAULT_INTERVAL = "1m"
@@ -34,7 +35,7 @@ RepositoryFactory = Callable[[str], Any]
 BackfillerFactory = Callable[..., Any]
 
 
-def main(
+def _main_impl(
     argv: Sequence[str] | None = None,
     *,
     repository_factory: RepositoryFactory = PostgresCandleRepository,
@@ -207,6 +208,16 @@ def _json_default(value: object) -> str:
     if isinstance(value, datetime):
         return value.isoformat()
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def main(argv=None, **kwargs):
+    try:
+        return _main_impl(argv, **kwargs)
+    except (SystemExit, ValueError):
+        raise
+    except Exception:
+        log_runtime_exception(__name__)
+        return 1
 
 
 if __name__ == "__main__":
