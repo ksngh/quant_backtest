@@ -101,3 +101,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `docs/19_PATTERN_EVENT_STUDY_SCHEMA.md` documenting boundaries between detection/event-study/backtest/promotion, canonical event and future-label fields, and no-look-ahead requirements.
   - Added `tests/backtesting/test_pattern_event_study.py` covering FVG-like conversion, generic conversion with missing optional fields, deterministic DataFrame serialization, and optional metadata behavior.
 - 2026-05-21: Completed Task 069 `FAIR_VALUE_GAP_EVENT_STUDY_EXTRACTION`; added rolling-prefix no-look-ahead FVG event extraction into canonical event-study records with duplicate suppression and focused backtesting tests.
+
+- 2026-05-21: Completed Task 070 `FAIR_VALUE_GAP_STRATEGY_V1_SPECIFICATION`; added formal FVG V1 strategy specification doc with frozen hypothesis, entry/exit defaults, conservative intrabar promotion policy, net cost/fill requirements, OOS walk-forward requirements, and explicit rejection/promotions gates.
