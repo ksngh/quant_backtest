@@ -84,3 +84,8 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `quant_bitcoin/patterns/entry_simulation.py` with pure pattern entry contract types (`PatternEntryMode`, `PatternEntryStatus`, `PatternEntryConfig`, `PatternEntryPlan`, `PatternEntrySimulationResult`) and deterministic helpers for event-based plan creation and completed-candle entry fill simulation.
   - Added market fill modes (confirmation-close and next-open), limit fill modes (entry reference, midpoint, boundary, custom price), deterministic max-wait no-fill handling, required candle schema/sort validation, and invalid-plan result path for missing event fields.
   - Added `tests/patterns/test_entry_simulation.py` covering market/limit fills, no-fill windows, cancelled expiry behavior, missing columns, unsorted candles, invalid event-field behavior, and non-mutation of caller input.
+
+- Task 066 completed (implementation + tests + docs):
+  - Added `docs/18_INTRABAR_SEQUENCING_POLICY.md` documenting OHLC intrabar ambiguity impact, policy mode semantics, and conservative-promotion guidance.
+  - Added `quant_bitcoin/backtesting/intrabar_policy.py` with deterministic pure intrabar touch detection and ambiguity resolution contract (`IntrabarSequencingMode`, `IntrabarTouch`, `IntrabarDecision`, `IntrabarPolicyConfig`).
+  - Added `tests/backtesting/test_intrabar_policy.py` covering long/short ambiguous same-candle outcomes, conservative/optimistic/stress modes, skip-ambiguous behavior, and input validation.
