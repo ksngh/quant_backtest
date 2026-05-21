@@ -122,3 +122,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-21: Created Task 079 `BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP` from owner request for one-command backend/frontend compose startup; implementation intentionally not started in this step per state-driven workflow.
 
 - 2026-05-21: Completed Task 079 `BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP`; added compose services for postgres/backend/frontend, optional ingestion profile retention, backend/frontend Dockerfiles, and documented environment-limited compose verification (docker unavailable in runner).
+
+- 2026-05-21: Created Task 080 `DOCKER_COMPOSE_SERVICE_SPLIT` from owner request to separate compose startup flows for backtest/backend/db/frontend; implementation intentionally not started in this step per state-driven workflow.
+- 2026-05-21: Completed Task 080 `DOCKER_COMPOSE_SERVICE_SPLIT`; refactored `docker-compose.yml` to profile-based split startup paths (`db`, `backend`, `frontend`, `backtest`, optional `ingestion`, plus `full`) and documented deterministic profile commands in local dashboard development docs.

@@ -10,6 +10,36 @@ This document describes the local read-only dashboard workflow for persisted bac
 - No exchange order/account endpoints.
 - Frontend must call backend API only (never PostgreSQL directly).
 
+## Compose split startup profiles (Task 080)
+
+Docker Compose services are now split by profile so you can start only what you need:
+
+```bash
+# DB only
+docker compose --profile db up -d
+
+# Backend + DB
+docker compose --profile backend up -d
+
+# Frontend + Backend + DB
+docker compose --profile frontend up -d
+
+# Backtest runner + DB (one-shot help command by default)
+docker compose --profile backtest up backtest
+
+# Full dashboard stack + backtest helper
+docker compose --profile full up -d
+```
+
+Notes:
+- `frontend` profile includes backend/db dependencies automatically.
+- `backtest` profile starts a dedicated `backtest` service and db.
+- `websocket-ingestor` remains optional under `ingestion` profile:
+
+```bash
+docker compose --profile ingestion up websocket-ingestor
+```
+
 ## 1) Start PostgreSQL (if available)
 
 If Docker is available in your environment:
