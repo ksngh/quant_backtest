@@ -33,7 +33,15 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - Indicator/pattern document intake, mechanical definitions, and implemented indicator/pattern batches completed through tasks 027-055 as tracked in prior `STATUS.md` history.
 - Pattern CLI evolution completed through tasks 056-058.
 - Runtime error logging task 059 completed and verified.
-- Task 060 (Backtest Result Full Persistence) task document created (implementation pending assignment).
+- Task 060 implementation completed and verified for supported PostgreSQL backtest CLIs.
+  - Added default persistence (with `--no-persist` opt-out) for `quant-bitcoin-pattern-backtest`.
+  - Added deterministic pattern backtest persistence payload mapping into existing run/result/trade/graph persistence boundaries.
+  - Added/updated pattern CLI persistence tests including persisted `backtest_run_id` and no-persist path behavior.
+
+- Task 061 completed (documentation/process only):
+  - Added explicit AGENTS policy requiring task-completion synchronization across `STATUS.md`, `PROJECT_HISTORY.md`, and `BACKLOG.md`.
+  - Confirmed backlog candidate semantics and synchronized current candidate items.
+  - Preserved `STATUS.md` as active-state pointer and `PROJECT_HISTORY.md` as historical ledger.
 
 ## Historical Open-Question / Context Archive
 - Live trading approval, credential policy, sandbox/testnet policy, endpoint allowlist, and kill-switch design remained unresolved and blocking for any real execution phase.

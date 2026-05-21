@@ -56,6 +56,8 @@ Codex must not implement the following unless an assigned future task explicitly
 - Codex must use `BACKLOG.md` when selecting, creating, or discussing future candidate work.
 - Codex should prefer focused backend/frontend status docs when they exist, rather than loading full project history by default.
 - Codex must update `STATUS.md` when project state changes.
+- When a task is completed, Codex must update `STATUS.md` and append a concise completion note to `PROJECT_HISTORY.md`.
+- If completion creates new future work, Codex must update `BACKLOG.md` with follow-up candidate items; if a backlog item is completed, Codex must remove or mark it as completed in `BACKLOG.md`.
 - Codex must not mark phases, steps, or checklist items complete unless acceptance criteria and verification are satisfied.
 - If completion is uncertain, Codex must leave the item open and record the uncertainty in `STATUS.md`.
 

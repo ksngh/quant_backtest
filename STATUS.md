@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 63: Full backtest result persistence across supported PostgreSQL backtest CLIs.
+Phase 64: Status/history/backlog recording policy clarification.
 
 ## Current Step
-Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md` implemented and verification in progress.
+Task `tasks/061_STATUS_HISTORY_BACKLOG_RECORDING_POLICY.md` implemented and verified.
 
 ## Current Goal
-Ensure supported PostgreSQL backtest CLI paths persist run-level and detail-level outputs durably for later retrieval.
+Keep project state-tracking documents synchronized with explicit recording rules in AGENTS guidance.
 
 ## Current Active Task
 Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
 
 ## Last Completed Step (Short)
-Task 059 completed: added/verified runtime failure logging tests for PostgreSQL backtest CLI and websocket ingestion CLI while preserving no-live-trading safety boundaries.
+Task 061 completed: documented explicit recording policy across AGENTS/STATUS/PROJECT_HISTORY/BACKLOG and synchronized current entries.
 
 ## Recommended Next Step
-Run full `pytest` verification in a PostgreSQL-capable environment and then assign follow-up task to normalize pattern backtest financial summary semantics if owner wants non-placeholder cash/equity fields.
+Assign follow-up task for pattern-backtest financial summary semantics in shared persistence, or run full `pytest` in PostgreSQL-capable environment.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
