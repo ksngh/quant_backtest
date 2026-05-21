@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 82: Backend/frontend Docker Compose local startup completed.
+Phase 84: Docker Compose service split workflows implemented.
 
 ## Current Step
-Task 079 completed with one-command backend/frontend Docker Compose local startup wiring.
+Task 080 completed: compose startup paths split by service profiles (db/backend/frontend/backtest).
 
 ## Current Goal
-Keep dashboard local runtime and verification stable across containerized and non-containerized workflows.
+Keep split compose workflows verifiable and documented in Docker-capable environments.
 
 ## Current Active Task
-Task `079_BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP` (completed).
+Task `080_DOCKER_COMPOSE_SERVICE_SPLIT` (completed).
 
 ## Last Completed Step (Short)
-Task 079 completed: added root Docker Compose services for postgres/backend/frontend with host port mappings and container-network API base URL wiring, kept websocket ingestor as optional profile, and added dedicated backend/frontend Dockerfiles. Verification: `docker compose config` (environment-limited: docker unavailable) and `git diff --check`.
+Task 080 completed: split compose profiles added for db/backend/frontend/backtest with explicit commands documented; optional ingestion profile retained.
 
 ## Recommended Next Step
-Add focused smoke checks/docs follow-up for Docker-capable environments (compose up/down verification and API/UI health assertions).
+Run Docker-capable smoke verification for each profile path (`db`, `backend`, `frontend`, `backtest`) and capture results in project history.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

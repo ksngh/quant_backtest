@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    profiles: ["db", "backend", "frontend", "backtest", "ingestion", "full"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-quant_bitcoin}
       POSTGRES_USER: ${POSTGRES_USER:-quant_bitcoin}
@@ -20,6 +21,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    profiles: ["backend", "frontend", "full"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-quant_bitcoin}:${POSTGRES_PASSWORD:-quant_bitcoin_dev}@postgres:5432/${POSTGRES_DB:-quant_bitcoin}
       BACKTEST_API_ENV: ${BACKTEST_API_ENV:-dev}
@@ -34,12 +36,29 @@ services:
     build:
       context: frontend
       dockerfile: Dockerfile
+    profiles: ["frontend", "full"]
     environment:
       NEXT_PUBLIC_BACKTEST_API_BASE_URL: ${NEXT_PUBLIC_BACKTEST_API_BASE_URL:-http://backend:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
+
+  backtest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["backtest", "full"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quant_bitcoin}:${POSTGRES_PASSWORD:-quant_bitcoin_dev}@postgres:5432/${POSTGRES_DB:-quant_bitcoin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - quant_bitcoin.backtesting.pattern_postgres_runner_cli
+      - --help
 
   websocket-ingestor:
     build: .
