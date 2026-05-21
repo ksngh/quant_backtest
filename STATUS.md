@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 66: Historical candle data quality audit implemented.
+Phase 67: Backtest transaction cost model contract implemented.
 
 ## Current Step
-Task `tasks/063_HISTORICAL_CANDLE_DATA_QUALITY_AUDIT.md` completed with deterministic standard candle quality auditing and unit coverage.
+Task `tasks/064_BACKTEST_TRANSACTION_COST_MODEL_CONTRACT.md` completed with deterministic backtest transaction-cost contract and pure helper coverage.
 
 ## Current Goal
-Ensure backtest/research workflows can evaluate standard candle quality deterministically before drawing quant conclusions.
+Provide reusable net-backtest transaction-cost primitives (fees, spread, slippage) without changing existing backtest engine behavior.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 063 completed: added pure `audit_standard_candles(...)` quality checks for schema validity, timestamp parsing/order, duplicate timestamps, expected-interval gaps, OHLC/volume validity, zero-volume metrics, and optional boundary-gap checks; added targeted tests and exported module through market-data package surface.
+Task 064 completed: added pure `quant_bitcoin.backtesting.costs` contract with side/liquidity enums, validated config, side-aware effective execution price, deterministic gross-vs-cost breakdown, volatility-adjusted slippage with minimum floor, and targeted unit tests.
 
 ## Recommended Next Step
-Create a follow-up task to integrate data-quality audit invocation into CSV/PostgreSQL candle-loading workflows as an optional pre-backtest validation gate with clear fail/warn policy.
+Create a follow-up task to integrate `TransactionCostConfig` usage into RSI and pattern backtest simulation paths as an opt-in net-backtest mode while preserving current default gross behavior.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
