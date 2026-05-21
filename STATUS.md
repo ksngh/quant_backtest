@@ -2,19 +2,19 @@
 
 # Current Phase
 
-Phase 60: Backtest Result Full Persistence Task Definition
+Phase 61: Status Ledger Split Task Definition
 
 # Current Step
 
-Task 060 backtest result full persistence task definition.
+Task STATUS_LEDGER_SPLIT task document creation.
 
 # Current Goal
 
-Define Task 060 so all backtest results can be fully persisted with clear scope, boundaries, and verification before implementation.
+Define a task document to split the project status ledger into STATUS.md, PROJECT_HISTORY.md, and BACKLOG.md with clear responsibilities and boundaries.
 
 # Current Active Task
 
-Task 060 task document creation in progress: defining full backtest result persistence scope, acceptance criteria, and verification.
+Task document creation in progress: tasks/STATUS_LEDGER_SPLIT.md for status-ledger split planning only (no split execution yet).
 
 # Last Completed Step
 
@@ -36,7 +36,7 @@ Implemented `quant-bitcoin-pattern-backtest` as a project script entrypoint back
 
 # Next Step
 
-Recommended next task: owner review of Task 060 and explicit implementation approval for full backtest result persistence. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
+Recommended next task: owner review/approval to implement tasks/STATUS_LEDGER_SPLIT.md by performing the actual STATUS.md -> STATUS.md + PROJECT_HISTORY.md + BACKLOG.md split. Local Docker Compose runtime startup verification for Task 014/018 remains deferred to a Docker-capable developer environment.
 
 # Parallel Work Status
 
