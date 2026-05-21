@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 91: Task 087 strategy backtest regression and research tests queued.
+Phase 93: Task 083 reusable risk/exit policy boundary completed.
 
 ## Current Step
-Task 087 created and queued: add regression and research-facing tests for strategy-level backtest accounting and persistence.
+Task 083 completed: extracted generic risk/exit plan and exit simulation contracts into `quant_bitcoin/risk/` and preserved legacy `quant_bitcoin/patterns/*` imports through compatibility shims.
 
 ## Current Goal
-Execute Task 087 by adding deterministic regression tests for BUY/SELL persistence, cash/equity movement, and diagnostics.
+Execute Task 084 by implementing single-pattern strategy classes under `quant_bitcoin/strategies/` using the semantic action contract.
 
 ## Current Active Task
-Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (created, not started).
+Task `084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS` (queued, not started).
 
 ## Last Completed Step (Short)
-Task 081 completed: added `--starting-cash` and `--trade-quantity` to pattern backtest CLI and removed unconditional zero cash placeholders in persisted run/result payload fields.
+Task 083 completed: moved generic risk/exit ownership out of `patterns` into reusable `risk` package and verified deterministic pattern risk/exit tests remain green.
 
 ## Recommended Next Step
-Start Task 087 implementation from `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` with deterministic synthetic regression coverage.
+Start Task 084 implementation from `tasks/084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

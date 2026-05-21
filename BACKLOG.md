@@ -3,13 +3,13 @@
 All items below are **candidates only** and are **not approved implementation tasks** until explicitly assigned.
 
 ## Core Follow-Ups
-- Next queued task document created: `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` (regression/research tests for strategy accounting, BUY/SELL persistence, and diagnostics).
-- Next queued task document created: `tasks/086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT.md` (strategy-level CLI replacement with BUY/SELL persistence and compatibility routing).
-- Next queued task document created: `tasks/085_CASH_BASED_STRATEGY_BACKTEST_ENGINE.md` (strategy-level BUY/SELL cashflow engine with equity/drawdown accounting outputs).
+- Completed (2026-05-21): Task 082 strategy-level architecture boundary documented with semantic/execution split and mapping scaffolding.
+- Completed (2026-05-21): Task 083 extracted reusable risk/exit contracts into `quant_bitcoin/risk/` with compatibility shims for legacy pattern imports.
 - Next queued task document created: `tasks/084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS.md` (single-pattern strategy classes with semantic action contract and long-only default behavior).
-- Next queued task document created: `tasks/083_RISK_EXIT_EXTRACTION_AND_REUSABLE_POLICIES.md` (risk/exit extraction into reusable package boundary with compatibility shims).
-- Next queued task document created: `tasks/082_STRATEGY_BACKTEST_ARCHITECTURE_BOUNDARY.md` (strategy-level backtest architecture boundary and semantic/execution action split).
-- Follow-up candidate: implementation task for multiple-testing helper utilities (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) with unit tests and edge-case validation (input validation, empty inputs, sorting assumptions, type stability).
+- Next queued task document created: `tasks/085_CASH_BASED_STRATEGY_BACKTEST_ENGINE.md` (strategy-level BUY/SELL cashflow engine with equity/drawdown accounting outputs).
+- Next queued task document created: `tasks/086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT.md` (strategy-level CLI replacement with BUY/SELL persistence and compatibility routing).
+- Next queued task document created: `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` (regression/research tests for strategy accounting, BUY/SELL persistence, and diagnostics).
+- Queue policy note: when executing queued tasks, process in ascending order (FIFO by task number), not reverse order.
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
 - Liquidity indicator implementation.
