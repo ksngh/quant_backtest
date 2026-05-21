@@ -38,16 +38,16 @@ Owner request:
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Confirm Task 061 is assigned as active for this documentation step.
+- [x] Read `AGENTS.md`.
+- [x] Read `STATUS.md`.
+- [x] Confirm Task 061 is assigned as active for this documentation step (owner requested: "task61 진행").
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` for Task 061 progression.
-- [ ] Record policy/result note in `PROJECT_HISTORY.md`.
-- [ ] Ensure `BACKLOG.md` candidate list is synchronized.
-- [ ] Verify formatting with `git diff --check`.
+- [x] Update `STATUS.md` for Task 061 progression.
+- [x] Record policy/result note in `PROJECT_HISTORY.md`.
+- [x] Ensure `BACKLOG.md` candidate list is synchronized.
+- [x] Verify formatting with `git diff --check`.
 
 # Acceptance Criteria
 
