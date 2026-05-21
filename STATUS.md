@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 74: Multiple-testing and data-snooping control protocol completed.
+Phase 75: Multiple-testing helper utilities completed.
 
 ## Current Step
-Task `tasks/071_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md` completed with a dedicated multiple-testing/data-snooping governance protocol for pattern strategy research, including split protection, variant counting rules, baseline requirements, and conservative promotion/rejection rules.
+Task `tasks/072_MULTIPLE_TESTING_HELPER_UTILITIES.md` completed with deterministic helper utilities and tests for Bonferroni/BH thresholds and strategy-variant counting.
 
 ## Current Goal
-Apply conservative experiment-family governance before broad parameter sweeps so pattern strategy claims are controlled for false discovery and holdout leakage.
+Use reusable statistical helper utilities in research/backtest workflows so tested-variant counting and conservative thresholds are consistent and deterministic.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 071 completed: created `docs/21_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md` and task document `tasks/071_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md`, formalizing family-wise multiple-testing controls, locked holdout policy, and promotion evidence requirements across pattern/RSI/confluence research.
+Task 072 completed: implemented `bonferroni_threshold`, `benjamini_hochberg_thresholds`, and `count_strategy_variants` in `quant_bitcoin/backtesting/multiple_testing.py` with focused unit tests in `tests/backtesting/test_multiple_testing_helpers.py`. Verification: `pytest -q` and `git diff --check` passed.
 
 ## Recommended Next Step
-Assign and execute `tasks/072_MULTIPLE_TESTING_HELPER_UTILITIES.md` to implement lightweight statistical helper utilities (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) with unit tests for validation, empty-input handling, ordering stability, and type stability.
+Assign and execute the next prioritized backlog/task item (for example event-study or robustness extensions) while keeping multiple-testing governance helpers as shared primitives.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
