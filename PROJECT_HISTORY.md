@@ -78,3 +78,9 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `quant_bitcoin/backtesting/costs.py` with pure transaction cost contract: `ExecutionSide`, `LiquidityRole`, `TransactionCostConfig`, `TransactionCostBreakdown`, and deterministic helpers for basis-point conversion, effective execution price, and gross-vs-net cost breakdown.
   - Added validation for non-negative finite config values and positive finite price/quantity values, plus optional volatility-adjusted slippage with minimum slippage floor.
   - Added `tests/backtesting/test_costs.py` covering config validation, BUY/SELL effective-price directionality, maker/taker fee behavior, spread/slippage accounting, volatility-adjusted slippage, and input validation.
+
+
+- Task 065 completed (implementation + tests):
+  - Added `quant_bitcoin/patterns/entry_simulation.py` with pure pattern entry contract types (`PatternEntryMode`, `PatternEntryStatus`, `PatternEntryConfig`, `PatternEntryPlan`, `PatternEntrySimulationResult`) and deterministic helpers for event-based plan creation and completed-candle entry fill simulation.
+  - Added market fill modes (confirmation-close and next-open), limit fill modes (entry reference, midpoint, boundary, custom price), deterministic max-wait no-fill handling, required candle schema/sort validation, and invalid-plan result path for missing event fields.
+  - Added `tests/patterns/test_entry_simulation.py` covering market/limit fills, no-fill windows, cancelled expiry behavior, missing columns, unsorted candles, invalid event-field behavior, and non-mutation of caller input.
