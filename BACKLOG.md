@@ -3,7 +3,7 @@
 All items below are **candidates only** and are **not approved implementation tasks** until explicitly assigned.
 
 ## Core Follow-Ups
-- Task 060 implementation candidate: full persistence of backtest results across supported execution paths.
+- Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
 - Liquidity indicator implementation.
 - Bid-Ask spread indicator implementation.

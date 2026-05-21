@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 62: Runtime failure error logging hardening for supported CLI entrypoints.
+Phase 64: Status/history/backlog recording policy clarification.
 
 ## Current Step
-Task `tasks/059_ERROR_LOG_RECORDING.md` implemented and verified.
+Task `tasks/061_STATUS_HISTORY_BACKLOG_RECORDING_POLICY.md` implemented and verified.
 
 ## Current Goal
-Ensure uncaught runtime failures in supported CLI/runtime paths emit error-severity logs with stack traces and preserve explicit non-zero failure signaling.
+Keep project state-tracking documents synchronized with explicit recording rules in AGENTS guidance.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 059 completed: added/verified runtime failure logging tests for PostgreSQL backtest CLI and websocket ingestion CLI while preserving no-live-trading safety boundaries.
+Task 061 completed: documented explicit recording policy across AGENTS/STATUS/PROJECT_HISTORY/BACKLOG and synchronized current entries.
 
 ## Recommended Next Step
-Assign Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
+Assign follow-up task for pattern-backtest financial summary semantics in shared persistence, or run full `pytest` in PostgreSQL-capable environment.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
