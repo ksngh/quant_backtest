@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from quant_bitcoin.market_data.binance_websocket import WebSocketIngestionResult
@@ -217,6 +218,34 @@ def test_cli_ingest_max_messages_env_policy_and_no_max_override(monkeypatch, cap
     _json_output(capsys)
     assert FakeIngestor.instances[0].run_kwargs["max_messages"] is None
 
+
+
+
+def test_websocket_ingestion_cli_logs_runtime_error_and_returns_nonzero(caplog) -> None:
+    class FakeRepository:
+        def __init__(self, database_url: str) -> None:
+            self.database_url = database_url
+
+        def initialize_schema(self) -> None:
+            return None
+
+    class FailingIngestor:
+        def __init__(self, repository, **kwargs) -> None:
+            self.repository = repository
+
+        async def run(self, **kwargs):
+            raise RuntimeError("ws boom")
+
+    caplog.set_level(logging.ERROR)
+    exit_code = main(
+        ["ingest", "--no-initialize-schema"],
+        repository_factory=FakeRepository,
+        ingestor_factory=FailingIngestor,
+    )
+
+    assert exit_code == 1
+    assert "runtime failure in quant_bitcoin.market_data.websocket_ingestion_cli" in caplog.text
+    assert "RuntimeError: ws boom" in caplog.text
 
 def test_docker_compose_defines_postgres_and_unbounded_websocket_ingestor_service():
     compose = Path("docker-compose.yml").read_text()

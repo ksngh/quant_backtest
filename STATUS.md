@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 61: Status ledger split implementation and focused-context workflow update.
+Phase 62: Runtime failure error logging hardening for supported CLI entrypoints.
 
 ## Current Step
-Implementing Task `tasks/STATUS_LEDGER_SPLIT.md` (documentation-only split + working-rule updates).
+Task `tasks/059_ERROR_LOG_RECORDING.md` implemented and verified.
 
 ## Current Goal
-Move active-state, historical, and future-candidate content into focused documents so backend/frontend tasks can load only relevant context by default.
+Ensure uncaught runtime failures in supported CLI/runtime paths emit error-severity logs with stack traces and preserve explicit non-zero failure signaling.
 
 ## Current Active Task
-Task `tasks/STATUS_LEDGER_SPLIT.md` in `Mode: document`.
+None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 058 completed: pattern backtest supports selecting one implemented pattern per run with deterministic metadata and preserved no-live-trading boundary.
+Task 059 completed: added/verified runtime failure logging tests for PostgreSQL backtest CLI and websocket ingestion CLI while preserving no-live-trading safety boundaries.
 
 ## Recommended Next Step
-Owner review and approval of this ledger split and focused-context rule update, then assign the next implementation task from `BACKLOG.md`.
+Assign Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
