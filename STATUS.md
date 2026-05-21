@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 64: Status/history/backlog recording policy clarification.
+Phase 65: Research protocol and experiment governance established.
 
 ## Current Step
-Task `tasks/061_STATUS_HISTORY_BACKLOG_RECORDING_POLICY.md` completed and state documents synchronized.
+Task `tasks/062_RESEARCH_PROTOCOL_AND_EXPERIMENT_GOVERNANCE.md` completed with repository-level research governance protocol documentation.
 
 ## Current Goal
-Keep project state-tracking documents synchronized with explicit recording rules in AGENTS guidance.
+Enforce disciplined strategy research progression from hypothesis through out-of-sample validation while preserving paper-only safety boundaries.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 061 completed: documented explicit recording policy across AGENTS/STATUS/PROJECT_HISTORY/BACKLOG and synchronized current entries.
+Task 062 completed: added `docs/15_RESEARCH_PROTOCOL.md`, defined lifecycle gates (`IDEA` -> `PAPER_ONLY_CANDIDATE` / `RESEARCH_ONLY` / `REJECTED`), formalized parameter/multiple-testing controls, and reiterated live-trading blockers.
 
 ## Recommended Next Step
-Assign follow-up task for pattern-backtest financial summary semantics in shared persistence, or run full `pytest` in PostgreSQL-capable environment.
+Create a follow-up task to define a reproducible experiment registry/template for hypothesis, parameter-space declaration, baseline results, and walk-forward evidence capture.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

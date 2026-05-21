@@ -63,3 +63,8 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 ## Historical Verification Notes
 - Repeated completed-task verification commonly included targeted unit/integration tests, full `pytest`, CLI help checks, and `git diff --check`.
 - Docker runtime startup verification remained deferred where Docker was unavailable in the cloud environment.
+
+- Task 062 completed (documentation/process only):
+  - Added `docs/15_RESEARCH_PROTOCOL.md` defining formal research lifecycle states from `IDEA` through `WALK_FORWARD_VALIDATED` and terminal outcomes (`PAPER_ONLY_CANDIDATE`, `RESEARCH_ONLY`, `REJECTED`).
+  - Added governance for train/validation/test/holdout separation, pre-declared parameter search spaces, multiple-testing controls, baseline comparisons, and required net assumptions (fees, spread, slippage, fill).
+  - Reiterated that research evidence is insufficient for live trading and preserved existing live-trading blocker conditions.
