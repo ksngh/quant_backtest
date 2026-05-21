@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 75: Multiple-testing helper utilities completed.
+Phase 77: Backend/frontend directory and AGENTS boundaries completed.
 
 ## Current Step
-Task `tasks/072_MULTIPLE_TESTING_HELPER_UTILITIES.md` completed with deterministic helper utilities and tests for Bonferroni/BH thresholds and strategy-variant counting.
+Task 074 completed with backend/frontend scaffolding directories and focused AGENTS/status boundaries.
 
 ## Current Goal
-Use reusable statistical helper utilities in research/backtest workflows so tested-variant counting and conservative thresholds are consistent and deterministic.
+Establish backend/frontend working boundaries before endpoint and UI implementation tasks.
 
 ## Current Active Task
-None (awaiting owner assignment).
+Task `074_BACKEND_FRONTEND_DIRECTORY_AND_AGENTS_BOUNDARIES` (completed).
 
 ## Last Completed Step (Short)
-Task 072 completed: implemented `bonferroni_threshold`, `benjamini_hochberg_thresholds`, and `count_strategy_variants` in `quant_bitcoin/backtesting/multiple_testing.py` with focused unit tests in `tests/backtesting/test_multiple_testing_helpers.py`. Verification: `pytest -q` and `git diff --check` passed.
+Task 074 completed: added `backend/` and `frontend/` scaffolding directories with focused `AGENTS.md`, `STATUS.md`, `README.md`, placeholder package/module files, and root `AGENTS.md` area-routing rules for backend/frontend/backtest work boundaries. Verification: `python -m compileall backend/quant_backtest_api` and `git diff --check` passed.
 
 ## Recommended Next Step
-Assign and execute the next prioritized backlog/task item (for example event-study or robustness extensions) while keeping multiple-testing governance helpers as shared primitives.
+Proceed to Task 075 (`FASTAPI_BACKTEST_RESULT_READ_API_IMPLEMENTATION`) for first backend read-only endpoint implementation against `docs/api/API_CONTRACT.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

@@ -106,3 +106,7 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 - 2026-05-21: Completed Task 071 `MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL`; added `docs/21_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md` and `tasks/071_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md` defining experiment-family controls, pre-declared search spaces, family-wise variant counting, locked holdout policy, baseline-comparison requirements, and conservative paper-only promotion gates.
 - 2026-05-21: Completed Task 072 by adding deterministic multiple-testing helpers (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) and focused unit tests for nominal behavior, validation failures, monotonicity, and type stability.
+
+- 2026-05-21: Completed Task 073 `BACKTEST_RESULT_DASHBOARD_API_CONTRACT`; added `docs/api/API_CONTRACT.md` with read-only `/api` dashboard endpoints, query/response/error contracts, frontend consumption boundaries, and required warnings for pattern placeholder-neutral financial semantics.
+
+- 2026-05-21: Completed Task 074 `BACKEND_FRONTEND_DIRECTORY_AND_AGENTS_BOUNDARIES`; added backend/frontend directory scaffolds, area-specific `AGENTS.md` and `STATUS.md` files, placeholder package entry files, and root AGENTS routing rules for backend/frontend/backtest responsibilities.
