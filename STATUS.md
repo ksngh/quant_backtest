@@ -10,7 +10,7 @@ Task `tasks/061_STATUS_HISTORY_BACKLOG_RECORDING_POLICY.md` implemented and veri
 Keep project state-tracking documents synchronized with explicit recording rules in AGENTS guidance.
 
 ## Current Active Task
-None (awaiting owner assignment).
+Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
 
 ## Last Completed Step (Short)
 Task 061 completed: documented explicit recording policy across AGENTS/STATUS/PROJECT_HISTORY/BACKLOG and synchronized current entries.
