@@ -22,6 +22,12 @@ from quant_bitcoin.backtesting.costs import (
     calculate_transaction_cost,
     effective_execution_price,
 )
+from quant_bitcoin.backtesting.multiple_testing import (
+    benjamini_hochberg_thresholds,
+    bonferroni_threshold,
+    count_strategy_variants,
+)
+
 from quant_bitcoin.backtesting.pattern_event_study import (
     PatternEventStudyDataset,
     PatternEventStudyRecord,
@@ -64,6 +70,9 @@ __all__ = [
     "BacktestResult",
     "BacktestSummary",
     "BacktestTrade",
+    "benjamini_hochberg_thresholds",
+    "bonferroni_threshold",
+    "count_strategy_variants",
     "PatternName",
     "PatternStrategyBacktestConfig",
     "PatternStrategyBacktestResult",
