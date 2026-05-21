@@ -220,6 +220,20 @@ def test_postgres_backtest_cli_does_not_open_network_connections(monkeypatch, ca
     assert json.loads(capsys.readouterr().out)["candle_count"] == 1
 
 
+
+
+def test_postgres_backtest_cli_logs_runtime_error_and_returns_nonzero(caplog) -> None:
+    caplog.set_level("ERROR")
+
+    def failing_provider_factory(database_url: str, **kwargs: Any) -> FakeProvider:
+        raise RuntimeError("boom")
+
+    exit_code = postgres_runner_cli.main([], provider_factory=failing_provider_factory)
+
+    assert exit_code == 1
+    assert "runtime failure in quant_bitcoin.backtesting.postgres_runner_cli" in caplog.text
+    assert "RuntimeError: boom" in caplog.text
+
 def test_postgres_backtest_cli_rejects_invalid_thresholds():
     with pytest.raises(SystemExit):
         postgres_runner_cli.build_parser().parse_args(["--rsi-buy-threshold", "-1"])
