@@ -20,6 +20,13 @@ from quant_bitcoin.market_data.binance_websocket import (
     parse_binance_kline_message,
 )
 from quant_bitcoin.market_data.csv_provider import CsvCandleDataProvider
+from quant_bitcoin.market_data.data_quality import (
+    CandleDataQualityConfig,
+    CandleDataQualityIssue,
+    CandleDataQualityReport,
+    CandleDataQualitySeverity,
+    audit_standard_candles,
+)
 from quant_bitcoin.market_data.postgres_provider import PostgresCandleDataProvider
 
 __all__ = [
@@ -28,6 +35,10 @@ __all__ = [
     "BinanceCandleDownloader",
     "BinanceHistoricalBackfiller",
     "CsvCandleDataProvider",
+    "CandleDataQualityConfig",
+    "CandleDataQualityIssue",
+    "CandleDataQualityReport",
+    "CandleDataQualitySeverity",
     "PostgresCandleDataProvider",
     "WEBSOCKET_INGESTION_MODE",
     "WebSocketIngestionResult",
@@ -38,4 +49,5 @@ __all__ = [
     "map_binance_kline_to_persisted_candle",
     "parse_binance_kline_message",
     "normalize_binance_klines",
+    "audit_standard_candles",
 ]
