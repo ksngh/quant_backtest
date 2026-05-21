@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 62: Runtime failure error logging hardening for supported CLI entrypoints.
+Phase 63: Full backtest result persistence across supported PostgreSQL backtest CLIs.
 
 ## Current Step
-Task `tasks/059_ERROR_LOG_RECORDING.md` implemented and verified.
+Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md` implemented and verification in progress.
 
 ## Current Goal
-Ensure uncaught runtime failures in supported CLI/runtime paths emit error-severity logs with stack traces and preserve explicit non-zero failure signaling.
+Ensure supported PostgreSQL backtest CLI paths persist run-level and detail-level outputs durably for later retrieval.
 
 ## Current Active Task
-None (awaiting owner assignment).
+Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
 
 ## Last Completed Step (Short)
 Task 059 completed: added/verified runtime failure logging tests for PostgreSQL backtest CLI and websocket ingestion CLI while preserving no-live-trading safety boundaries.
 
 ## Recommended Next Step
-Assign Task `tasks/060_BACKTEST_RESULT_FULL_PERSISTENCE.md`.
+Run full `pytest` verification in a PostgreSQL-capable environment and then assign follow-up task to normalize pattern backtest financial summary semantics if owner wants non-placeholder cash/equity fields.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

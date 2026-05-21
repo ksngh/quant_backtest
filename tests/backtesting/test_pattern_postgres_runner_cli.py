@@ -17,6 +17,16 @@ from quant_bitcoin.backtesting.pattern_strategy import (
 )
 
 
+class FakeRepository:
+    def __init__(self, database_url: str = "postgresql://example/test") -> None:
+        self.database_url = database_url
+        self.payloads: list[Any] = []
+
+    def save_completed_backtest(self, payload: Any) -> int:
+        self.payloads.append(payload)
+        return 77
+
+
 class FakeProvider:
     def __init__(self, candles: pd.DataFrame) -> None:
         self.candles = candles
@@ -172,6 +182,7 @@ def test_pattern_postgres_backtest_cli_wires_provider_and_runner(capsys) -> None
         ],
         provider_factory=provider_factory,
         backtest_runner=backtest_runner,
+        repository_factory=lambda database_url: FakeRepository(database_url),
     )
 
     output = json.loads(capsys.readouterr().out)
@@ -214,6 +225,7 @@ def test_pattern_postgres_backtest_cli_wires_provider_and_runner(capsys) -> None
             "trade_count": 0,
         },
         "trades": [],
+        "backtest_run_id": 77,
     }
 
 
@@ -236,6 +248,7 @@ def test_pattern_postgres_backtest_cli_passes_each_supported_pattern(
         ["--pattern", pattern],
         provider_factory=lambda database_url, **kwargs: FakeProvider(make_candles([100])),
         backtest_runner=backtest_runner,
+        repository_factory=lambda database_url: FakeRepository(database_url),
     )
 
     output = json.loads(capsys.readouterr().out)
@@ -260,6 +273,7 @@ def test_pattern_postgres_backtest_cli_defaults_to_fvg_selection(capsys) -> None
         [],
         provider_factory=lambda database_url, **kwargs: FakeProvider(make_candles([100])),
         backtest_runner=backtest_runner,
+        repository_factory=lambda database_url: FakeRepository(database_url),
     )
 
     output = json.loads(capsys.readouterr().out)
@@ -277,6 +291,7 @@ def test_pattern_postgres_backtest_cli_reports_empty_candles(capsys) -> None:
     exit_code = pattern_postgres_runner_cli.main(
         [],
         provider_factory=lambda database_url, **kwargs: FakeProvider(empty_candles),
+        repository_factory=lambda database_url: FakeRepository(database_url),
     )
 
     output = json.loads(capsys.readouterr().out)
@@ -314,6 +329,7 @@ def test_pattern_postgres_backtest_cli_does_not_open_network_connections(
     exit_code = pattern_postgres_runner_cli.main(
         [],
         provider_factory=lambda database_url, **kwargs: FakeProvider(make_candles([100])),
+        repository_factory=lambda database_url: FakeRepository(database_url),
     )
 
     assert exit_code == 0
@@ -354,3 +370,18 @@ def test_pattern_postgres_backtest_cli_does_not_use_order_or_secret_terms() -> N
     assert "enable_live_trading" not in source
     assert "api.binance.com/api/v3/order" not in source
     assert "paper_trader" not in source
+
+
+def test_pattern_postgres_backtest_no_persist_skips_repository(capsys) -> None:
+    def fail_repository_factory(database_url: str) -> FakeRepository:
+        raise AssertionError("repository should not be created when --no-persist is used")
+
+    exit_code = pattern_postgres_runner_cli.main(
+        ["--no-persist"],
+        provider_factory=lambda database_url, **kwargs: FakeProvider(make_candles([100])),
+        repository_factory=fail_repository_factory,
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert "backtest_run_id" not in output
