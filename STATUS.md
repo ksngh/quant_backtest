@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 68: Pattern entry simulation contract implemented.
+Phase 69: Intrabar sequencing policy and stress modes implemented.
 
 ## Current Step
-Task `tasks/065_PATTERN_ENTRY_SIMULATION_CONTRACT.md` completed with deterministic pattern entry simulation contract and pure helper coverage.
+Task `tasks/066_INTRABAR_SEQUENCING_POLICY_AND_STRESS_MODES.md` completed with deterministic intrabar sequencing policy module, stress modes, and targeted tests.
 
 ## Current Goal
-Provide reusable deterministic entry fill assumptions for pattern backtests without rewriting existing pattern backtest workflow.
+Provide reusable deterministic intrabar ambiguity resolution contract for same-candle entry/stop/target sequencing stress analysis.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 065 completed: added pure `quant_bitcoin.patterns.entry_simulation` contract with deterministic entry modes/statuses, plan creation from compatible pattern events, market/limit fill simulation, max-wait no-fill handling, and targeted unit tests.
+Task 066 completed: added pure `quant_bitcoin.backtesting.intrabar_policy` contract with explicit sequencing modes, touch detection, deterministic ambiguity resolution decisions, and long/short targeted unit coverage.
 
 ## Recommended Next Step
-Create a follow-up task to integrate the new entry simulation contract into `run_pattern_strategy_backtest` as configurable entry behavior while preserving existing default assumptions.
+Create a follow-up task to integrate `intrabar_policy` into pattern entry/exit simulation pathways so same-candle ambiguity handling is centrally configurable.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
