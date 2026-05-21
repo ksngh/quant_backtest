@@ -2,27 +2,27 @@
 
 ## Current Phase
 
-Phase 61: Status Ledger Split Implementation
+Phase 61: Status Ledger Split Completed
 
 ## Current Step
 
-Task `tasks/STATUS_LEDGER_SPLIT.md` implementation.
+Status ledger split implementation completed; awaiting next assigned task.
 
 ## Current Goal
 
-Split project status tracking into three ledgers (`STATUS.md`, `PROJECT_HISTORY.md`, `BACKLOG.md`) while keeping active-state reporting concise.
+Keep active project state concise in `STATUS.md` while tracking archived history/backlog in dedicated ledgers.
 
 ## Current Active Task
 
-Implement the status-ledger split approved by owner prompt on 2026-05-21.
+No implementation task currently active. Last completed implementation: `tasks/STATUS_LEDGER_SPLIT.md`.
 
 ## Last Completed Step
 
-Task 058: Pattern Backtest All Implemented Pattern Selection implementation completed and verified (all supported implemented patterns selectable, deterministic metadata preserved, and safety boundaries maintained).
+Task STATUS_LEDGER_SPLIT: split active status, history, and backlog ledgers completed and verified on 2026-05-21.
 
 ## Recommended Next Step
 
-Owner review of the ledger split documents, then explicit assignment of the next implementation task (recommended: Task 060 full backtest result persistence).
+Owner assignment of the next implementation task (recommended: Task 060 full backtest result persistence).
 
 ## Current Blockers
 

@@ -4,6 +4,7 @@ This document archives completed status history that is no longer part of the ac
 
 ## Completed Steps (Recent)
 
+- Task STATUS_LEDGER_SPLIT: STATUS ledger split into `STATUS.md`, `PROJECT_HISTORY.md`, and `BACKLOG.md` completed and verified.
 - Task 058: Pattern Backtest All Implemented Pattern Selection implementation complete and verified.
 - Task 057: Pattern Backtest CLI clarity and pattern selection implementation complete and verified.
 - Task 056: Pattern PostgreSQL Backtest CLI implementation complete and verified.
