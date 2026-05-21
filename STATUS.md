@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 81: Backtest dashboard integration and verification completed.
+Phase 82: Backend/frontend Docker Compose local startup completed.
 
 ## Current Step
-Task 078 completed with contract conformance fixes and local development workflow documentation.
+Task 079 completed with one-command backend/frontend Docker Compose local startup wiring.
 
 ## Current Goal
-Keep backend/frontend dashboard integration stable and verifiable for local developer workflows.
+Keep dashboard local runtime and verification stable across containerized and non-containerized workflows.
 
 ## Current Active Task
-Task `078_BACKTEST_DASHBOARD_INTEGRATION_AND_VERIFICATION` (completed).
+Task `079_BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP` (completed).
 
 ## Last Completed Step (Short)
-Task 078 completed: verified API/frontend integration against `docs/api/API_CONTRACT.md`, fixed backend detail serialization to contract nested `run.market` and strategy key names, added local development workflow doc for PostgreSQL/backtest persistence/backend/frontend startup + smoke steps, and updated status docs. Verification: `pytest -q backend/tests` (environment-limited), `cd frontend && npm run build` (environment-limited), and `git diff --check`.
+Task 079 completed: added root Docker Compose services for postgres/backend/frontend with host port mappings and container-network API base URL wiring, kept websocket ingestor as optional profile, and added dedicated backend/frontend Dockerfiles. Verification: `docker compose config` (environment-limited: docker unavailable) and `git diff --check`.
 
 ## Recommended Next Step
-Add focused API contract tests and frontend component-level tests to reduce regression risk for run/detail shape and warning rendering.
+Add focused smoke checks/docs follow-up for Docker-capable environments (compose up/down verification and API/UI health assertions).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

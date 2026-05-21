@@ -10,6 +10,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Bid-Ask spread indicator implementation.
 
 ## Backend Candidates
+- Completed (2026-05-21): Task 079 implemented one-command backend/frontend Docker Compose local startup (`docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`).
 - API contract definition for backend/frontend coordination (`docs/api/API_CONTRACT.md` or equivalent).
 - Backend API server for reading saved backtest results.
 
