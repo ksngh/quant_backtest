@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 65: Research protocol and experiment governance established.
+Phase 66: Historical candle data quality audit implemented.
 
 ## Current Step
-Task `tasks/062_RESEARCH_PROTOCOL_AND_EXPERIMENT_GOVERNANCE.md` completed with repository-level research governance protocol documentation.
+Task `tasks/063_HISTORICAL_CANDLE_DATA_QUALITY_AUDIT.md` completed with deterministic standard candle quality auditing and unit coverage.
 
 ## Current Goal
-Enforce disciplined strategy research progression from hypothesis through out-of-sample validation while preserving paper-only safety boundaries.
+Ensure backtest/research workflows can evaluate standard candle quality deterministically before drawing quant conclusions.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 062 completed: added `docs/15_RESEARCH_PROTOCOL.md`, defined lifecycle gates (`IDEA` -> `PAPER_ONLY_CANDIDATE` / `RESEARCH_ONLY` / `REJECTED`), formalized parameter/multiple-testing controls, and reiterated live-trading blockers.
+Task 063 completed: added pure `audit_standard_candles(...)` quality checks for schema validity, timestamp parsing/order, duplicate timestamps, expected-interval gaps, OHLC/volume validity, zero-volume metrics, and optional boundary-gap checks; added targeted tests and exported module through market-data package surface.
 
 ## Recommended Next Step
-Create a follow-up task to define a reproducible experiment registry/template for hypothesis, parameter-space declaration, baseline results, and walk-forward evidence capture.
+Create a follow-up task to integrate data-quality audit invocation into CSV/PostgreSQL candle-loading workflows as an optional pre-backtest validation gate with clear fail/warn policy.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
