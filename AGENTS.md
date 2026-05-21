@@ -4,6 +4,39 @@ This is a Python Bitcoin quantitative trading project.
 
 The project starts small and evolves gradually. The current focus is candle data, technical-analysis strategies, basic backtesting, and paper trading. Live trading and risk management are later phases.
 
+# Mandatory State-Driven Workflow (Execute First)
+
+- Every agent must read `BACKLOG.md`, `PROJECT_HISTORY.md`, and `STATUS.md` before doing any work.
+- Every agent must find and read the relevant `task.md` before any implementation, refactoring, testing, design, documentation, or file modification.
+- If no relevant `task.md` exists, the only allowed action is to create or update the appropriate `task.md`, then stop.
+
+Required execution order:
+- Read `BACKLOG.md`
+- Read `PROJECT_HISTORY.md`
+- Read `STATUS.md`
+- Find the relevant `task.md`
+- If no relevant `task.md` exists, create it and stop
+- If a relevant `task.md` exists, execute only the work defined in that task
+- Update `STATUS.md` after execution
+- Append progress to `PROJECT_HISTORY.md` after execution
+- Update `BACKLOG.md` if the task was created, completed, blocked, reprioritized, or split
+- Clearly record the next task
+
+Progress tracking is mandatory for every task:
+- current active task
+- completed work
+- remaining work
+- blocked items
+- next task
+
+- Agents must not start the next task automatically unless a new relevant `task.md` exists for that next task.
+- Agents must not silently expand scope beyond the current `task.md`.
+
+Absolute rules:
+- No `task.md`, no execution.
+- No state-file reading, no execution.
+- No state-file update, no completion.
+
 # Current Scope
 
 - project setup
