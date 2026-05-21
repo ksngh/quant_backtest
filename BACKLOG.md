@@ -24,3 +24,5 @@ All items below are **candidates only** and are **not approved implementation ta
 
 ## Deferred Verification
 - Local Docker runtime verification for previously completed Docker-related tasks (run in Docker-capable environment).
+
+- Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.

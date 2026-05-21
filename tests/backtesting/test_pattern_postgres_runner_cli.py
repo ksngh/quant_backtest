@@ -132,6 +132,16 @@ def test_pattern_postgres_backtest_default_output_strategy_name() -> None:
     assert output["strategy"]["patterns"] == ["FAIR_VALUE_GAP"]
 
 
+
+
+def test_pattern_postgres_backtest_parser_accepts_starting_cash_and_trade_quantity() -> None:
+    args = pattern_postgres_runner_cli.build_parser().parse_args(
+        ["--starting-cash", "12345", "--trade-quantity", "0.5"]
+    )
+
+    assert args.starting_cash == 12345
+    assert args.trade_quantity == 0.5
+
 def test_pattern_postgres_backtest_parser_defaults_to_one_minute_interval() -> None:
     args = pattern_postgres_runner_cli.build_parser().parse_args([])
 
@@ -385,3 +395,29 @@ def test_pattern_postgres_backtest_no_persist_skips_repository(capsys) -> None:
     output = json.loads(capsys.readouterr().out)
     assert exit_code == 0
     assert "backtest_run_id" not in output
+
+
+def test_pattern_persistence_payload_uses_configured_starting_cash_and_simulated_ending_cash() -> None:
+    candles = make_candles([100, 110])
+    trade = PatternStrategyBacktestResult(
+        trades=(),
+        evaluated_candle_count=2,
+        seen_event_ids=(),
+    )
+    payload = pattern_postgres_runner_cli.build_persistence_payload(
+        trade,
+        candles=candles,
+        source="binance_spot",
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=None,
+        end_time=None,
+        patterns=("FAIR_VALUE_GAP",),
+        starting_cash=10000.0,
+        trade_quantity=1.0,
+    )
+
+    assert payload.run.starting_cash == 10000.0
+    assert payload.result.starting_cash == 10000.0
+    assert payload.result.ending_cash == 10000.0
+    assert payload.result.final_equity == 10000.0

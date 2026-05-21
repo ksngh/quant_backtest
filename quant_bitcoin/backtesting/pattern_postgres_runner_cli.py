@@ -100,6 +100,8 @@ def _main_impl(
             start_time=args.start_time,
             end_time=args.end_time,
             patterns=config.patterns,
+            starting_cash=args.starting_cash,
+            trade_quantity=args.trade_quantity,
         )
         persisted_run_id = repository.save_completed_backtest(payload)
 
@@ -183,6 +185,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional UTC ISO-8601 datetime for the last candle open time",
     )
     parser.add_argument(
+        "--starting-cash",
+        type=float,
+        default=10000.0,
+        help="starting cash for the simulated pattern backtest",
+    )
+    parser.add_argument(
+        "--trade-quantity",
+        type=float,
+        default=1.0,
+        help="fixed trade quantity used to map pattern trades into cash/equity summaries",
+    )
+    parser.add_argument(
         "--no-persist",
         action="store_false",
         dest="persist_results",
@@ -245,6 +259,8 @@ def build_persistence_payload(
     start_time: datetime | None,
     end_time: datetime | None,
     patterns: Sequence[str],
+    starting_cash: float,
+    trade_quantity: float,
 ) -> BacktestPersistencePayload:
     normalized = candles.loc[:, ["timestamp", "close"]].copy() if not candles.empty else candles.copy()
     if not normalized.empty:
@@ -281,39 +297,55 @@ def build_persistence_payload(
         "candle_count": len(normalized),
     }
     run_key = build_backtest_run_key(identity)
-    trades = tuple(
-        BacktestTradePayload(
-            sequence=index,
-            candle_open_time=_to_datetime(trade.entry_timestamp),
-            signal="ENTRY",
-            price=float(trade.entry_price),
-            quantity=float(trade.remaining_quantity_ratio),
-            cash_after=0.0,
-            position_after=float(trade.remaining_quantity_ratio),
-            metadata={
-                "event_id": trade.event_id,
-                "pattern_type": trade.pattern_type,
-                "pattern_direction": trade.pattern_direction,
-                "exit_reason": _enum_value(trade.exit_reason),
-                "exit_timestamp": _serialize_optional_timestamp_like(trade.exit_timestamp),
-                "exit_price": trade.exit_price,
-                "realized_pnl_per_unit": trade.realized_pnl_per_unit,
-                "realized_r_multiple": trade.realized_r_multiple,
-            },
+    cash = float(starting_cash)
+    position = 0.0
+    trades_payload: list[BacktestTradePayload] = []
+    for index, trade in enumerate(result.trades, start=1):
+        entry_time = _to_datetime(trade.entry_timestamp)
+        quantity = float(trade_quantity) * float(trade.remaining_quantity_ratio)
+        if quantity > 0:
+            cash -= float(trade.entry_price) * quantity
+            position += quantity
+        if trade.exit_timestamp is not None and trade.exit_price is not None and quantity > 0:
+            cash += float(trade.exit_price) * quantity
+            position -= quantity
+        trades_payload.append(
+            BacktestTradePayload(
+                sequence=index,
+                candle_open_time=entry_time,
+                signal="ENTRY",
+                price=float(trade.entry_price),
+                quantity=quantity,
+                cash_after=cash,
+                position_after=position,
+                metadata={
+                    "event_id": trade.event_id,
+                    "pattern_type": trade.pattern_type,
+                    "pattern_direction": trade.pattern_direction,
+                    "exit_reason": _enum_value(trade.exit_reason),
+                    "exit_timestamp": _serialize_optional_timestamp_like(trade.exit_timestamp),
+                    "exit_price": trade.exit_price,
+                    "realized_pnl_per_unit": trade.realized_pnl_per_unit,
+                    "realized_r_multiple": trade.realized_r_multiple,
+                },
+            )
         )
-        for index, trade in enumerate(result.trades, start=1)
-    )
+
+    final_price = float(normalized.iloc[-1]["close"]) if not normalized.empty else None
+    final_equity = cash + (position * final_price if final_price is not None else 0.0)
+
     graph_points = tuple(
         BacktestGraphPointPayload(
             sequence=index,
             candle_open_time=_to_datetime(row.timestamp),
             close_price=float(row.close),
-            cash=0.0,
-            position=0.0,
-            equity=0.0,
+            cash=cash,
+            position=position,
+            equity=cash + (position * float(row.close)),
         )
         for index, row in enumerate(normalized.itertuples(index=False), start=1)
     )
+    trades = tuple(trades_payload)
     return BacktestPersistencePayload(
         strategy_config=strategy_config,
         run=BacktestRunPayload(
@@ -328,18 +360,18 @@ def build_persistence_payload(
             actual_start_time=actual_start_time,
             actual_end_time=actual_end_time,
             candle_count=len(normalized),
-            starting_cash=0.0,
-            trade_quantity=1.0,
+            starting_cash=float(starting_cash),
+            trade_quantity=float(trade_quantity),
             status=COMPLETED_BACKTEST_STATUS,
             metadata={"schema_version": BACKTEST_SCHEMA_VERSION, "mode": "pattern"},
         ),
         result=BacktestResultPayload(
-            starting_cash=0.0,
-            ending_cash=0.0,
+            starting_cash=float(starting_cash),
+            ending_cash=float(cash),
             ending_position=0.0,
-            final_price=float(normalized.iloc[-1]["close"]) if not normalized.empty else None,
-            final_equity=0.0,
-            total_return=0.0,
+            final_price=final_price,
+            final_equity=float(final_equity),
+            total_return=((float(final_equity)-float(starting_cash))/float(starting_cash)) if float(starting_cash) != 0 else 0.0,
             trade_count=result.trade_count,
             buy_count=0,
             sell_count=0,
