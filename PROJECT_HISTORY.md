@@ -138,3 +138,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-21: Created Task 086 `STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT` from owner request; implementation intentionally not started in this step per state-driven workflow.
 
 - 2026-05-21: Created Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` from owner request; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Completed Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS`; added deterministic regression tests for strategy persistence BUY/SELL rows, cash/equity movement, quantity mapping, and exit-reason metadata preservation, and fixed CLI persistence payload accounting/count logic to satisfy these regressions.

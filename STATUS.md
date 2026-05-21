@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 91: Task 087 strategy backtest regression and research tests queued.
+Phase 92: Task 087 strategy backtest regression and research tests completed.
 
 ## Current Step
-Task 087 created and queued: add regression and research-facing tests for strategy-level backtest accounting and persistence.
+Task 087 completed: added regression coverage for strategy persistence BUY/SELL rows, cash/equity movement, and exit-reason preservation.
 
 ## Current Goal
-Execute Task 087 by adding deterministic regression tests for BUY/SELL persistence, cash/equity movement, and diagnostics.
+Track follow-up candidate work from Task 087, if any, and wait for explicit assignment of the next task.
 
 ## Current Active Task
-Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (created, not started).
+Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (completed).
 
 ## Last Completed Step (Short)
-Task 081 completed: added `--starting-cash` and `--trade-quantity` to pattern backtest CLI and removed unconditional zero cash placeholders in persisted run/result payload fields.
+Task 087 completed: added regression tests and fixed persistence mapping to emit BUY/SELL executions, accurate quantity accounting, buy/sell counts, cash/equity movement, and preserved exit reasons.
 
 ## Recommended Next Step
-Start Task 087 implementation from `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` with deterministic synthetic regression coverage.
+Wait for owner assignment of the next task document (no automatic scope expansion).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

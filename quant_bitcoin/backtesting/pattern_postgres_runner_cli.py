@@ -300,22 +300,22 @@ def build_persistence_payload(
     cash = float(starting_cash)
     position = 0.0
     trades_payload: list[BacktestTradePayload] = []
-    for index, trade in enumerate(result.trades, start=1):
+    for trade in result.trades:
         entry_time = _to_datetime(trade.entry_timestamp)
-        quantity = float(trade_quantity) * float(trade.remaining_quantity_ratio)
-        if quantity > 0:
-            cash -= float(trade.entry_price) * quantity
-            position += quantity
-        if trade.exit_timestamp is not None and trade.exit_price is not None and quantity > 0:
-            cash += float(trade.exit_price) * quantity
-            position -= quantity
+        remaining_ratio = float(trade.remaining_quantity_ratio)
+        executed_quantity = float(trade_quantity) * max(0.0, min(1.0, 1.0 - remaining_ratio))
+        if executed_quantity <= 0:
+            continue
+
+        cash -= float(trade.entry_price) * executed_quantity
+        position += executed_quantity
         trades_payload.append(
             BacktestTradePayload(
-                sequence=index,
+                sequence=len(trades_payload) + 1,
                 candle_open_time=entry_time,
-                signal="ENTRY",
+                signal="BUY",
                 price=float(trade.entry_price),
-                quantity=quantity,
+                quantity=executed_quantity,
                 cash_after=cash,
                 position_after=position,
                 metadata={
@@ -330,6 +330,27 @@ def build_persistence_payload(
                 },
             )
         )
+        if trade.exit_timestamp is not None and trade.exit_price is not None:
+            exit_time = _to_datetime(trade.exit_timestamp)
+            cash += float(trade.exit_price) * executed_quantity
+            position -= executed_quantity
+            trades_payload.append(
+                BacktestTradePayload(
+                    sequence=len(trades_payload) + 1,
+                    candle_open_time=exit_time,
+                    signal="SELL",
+                    price=float(trade.exit_price),
+                    quantity=executed_quantity,
+                    cash_after=cash,
+                    position_after=position,
+                    metadata={
+                        "event_id": trade.event_id,
+                        "pattern_type": trade.pattern_type,
+                        "pattern_direction": trade.pattern_direction,
+                        "exit_reason": _enum_value(trade.exit_reason),
+                    },
+                )
+            )
 
     final_price = float(normalized.iloc[-1]["close"]) if not normalized.empty else None
     final_equity = cash + (position * final_price if final_price is not None else 0.0)
@@ -368,13 +389,13 @@ def build_persistence_payload(
         result=BacktestResultPayload(
             starting_cash=float(starting_cash),
             ending_cash=float(cash),
-            ending_position=0.0,
+            ending_position=float(position),
             final_price=final_price,
             final_equity=float(final_equity),
             total_return=((float(final_equity)-float(starting_cash))/float(starting_cash)) if float(starting_cash) != 0 else 0.0,
             trade_count=result.trade_count,
-            buy_count=0,
-            sell_count=0,
+            buy_count=sum(1 for trade in trades if trade.signal == "BUY"),
+            sell_count=sum(1 for trade in trades if trade.signal == "SELL"),
             metadata={"seen_event_count": len(result.seen_event_ids)},
         ),
         trades=trades,
