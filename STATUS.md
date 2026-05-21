@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 67: Backtest transaction cost model contract implemented.
+Phase 68: Pattern entry simulation contract implemented.
 
 ## Current Step
-Task `tasks/064_BACKTEST_TRANSACTION_COST_MODEL_CONTRACT.md` completed with deterministic backtest transaction-cost contract and pure helper coverage.
+Task `tasks/065_PATTERN_ENTRY_SIMULATION_CONTRACT.md` completed with deterministic pattern entry simulation contract and pure helper coverage.
 
 ## Current Goal
-Provide reusable net-backtest transaction-cost primitives (fees, spread, slippage) without changing existing backtest engine behavior.
+Provide reusable deterministic entry fill assumptions for pattern backtests without rewriting existing pattern backtest workflow.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 064 completed: added pure `quant_bitcoin.backtesting.costs` contract with side/liquidity enums, validated config, side-aware effective execution price, deterministic gross-vs-cost breakdown, volatility-adjusted slippage with minimum floor, and targeted unit tests.
+Task 065 completed: added pure `quant_bitcoin.patterns.entry_simulation` contract with deterministic entry modes/statuses, plan creation from compatible pattern events, market/limit fill simulation, max-wait no-fill handling, and targeted unit tests.
 
 ## Recommended Next Step
-Create a follow-up task to integrate `TransactionCostConfig` usage into RSI and pattern backtest simulation paths as an opt-in net-backtest mode while preserving current default gross behavior.
+Create a follow-up task to integrate the new entry simulation contract into `run_pattern_strategy_backtest` as configurable entry behavior while preserving existing default assumptions.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
