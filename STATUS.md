@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 69: Intrabar sequencing policy and stress modes implemented.
+Phase 70: Portfolio equity curve engine implemented.
 
 ## Current Step
-Task `tasks/066_INTRABAR_SEQUENCING_POLICY_AND_STRESS_MODES.md` completed with deterministic intrabar sequencing policy module, stress modes, and targeted tests.
+Task `tasks/067_PORTFOLIO_EQUITY_CURVE_ENGINE.md` completed with reusable equity-curve construction and drawdown series utilities plus targeted tests.
 
 ## Current Goal
-Provide reusable deterministic intrabar ambiguity resolution contract for same-candle entry/stop/target sequencing stress analysis.
+Provide reusable portfolio equity-curve series for candle-by-candle mark-to-market and drawdown analysis across backtest workflows.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 066 completed: added pure `quant_bitcoin.backtesting.intrabar_policy` contract with explicit sequencing modes, touch detection, deterministic ambiguity resolution decisions, and long/short targeted unit coverage.
+Task 067 completed: added pure `quant_bitcoin.backtesting.equity_curve` module with standard-candle validation, generic trade normalization, deterministic equity-point generation, and drawdown-series calculation with focused unit coverage.
 
 ## Recommended Next Step
-Create a follow-up task to integrate `intrabar_policy` into pattern entry/exit simulation pathways so same-candle ambiguity handling is centrally configurable.
+Create a follow-up task to integrate equity-curve outputs into persisted backtest graph/report read models and add higher-level risk-adjusted metrics built from the shared curve result.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

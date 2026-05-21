@@ -89,3 +89,8 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `docs/18_INTRABAR_SEQUENCING_POLICY.md` documenting OHLC intrabar ambiguity impact, policy mode semantics, and conservative-promotion guidance.
   - Added `quant_bitcoin/backtesting/intrabar_policy.py` with deterministic pure intrabar touch detection and ambiguity resolution contract (`IntrabarSequencingMode`, `IntrabarTouch`, `IntrabarDecision`, `IntrabarPolicyConfig`).
   - Added `tests/backtesting/test_intrabar_policy.py` covering long/short ambiguous same-candle outcomes, conservative/optimistic/stress modes, skip-ambiguous behavior, and input validation.
+
+- Task 067 completed (implementation + tests):
+  - Added `quant_bitcoin/backtesting/equity_curve.py` with pure reusable equity-curve dataclasses and functions for deterministic candle-by-candle cash/position/equity tracking and drawdown calculation from high-water mark.
+  - Added compatibility for `BacktestTrade` and generic trade-like rows (`timestamp`, `side`/`signal`, `price`, `quantity`, optional `cost`) while preserving non-mutation of caller inputs and strict standard-candle validation.
+  - Added `tests/backtesting/test_equity_curve.py` covering no-trade curves, mark-to-market long behavior, buy/sell close behavior, deterministic drawdown, missing columns, unsorted timestamps, empty-candle config handling, and non-mutation checks.
