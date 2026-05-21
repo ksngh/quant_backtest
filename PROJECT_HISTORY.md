@@ -68,3 +68,8 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `docs/15_RESEARCH_PROTOCOL.md` defining formal research lifecycle states from `IDEA` through `WALK_FORWARD_VALIDATED` and terminal outcomes (`PAPER_ONLY_CANDIDATE`, `RESEARCH_ONLY`, `REJECTED`).
   - Added governance for train/validation/test/holdout separation, pre-declared parameter search spaces, multiple-testing controls, baseline comparisons, and required net assumptions (fees, spread, slippage, fill).
   - Reiterated that research evidence is insufficient for live trading and preserved existing live-trading blocker conditions.
+
+- Task 063 completed (implementation + tests):
+  - Added `quant_bitcoin/market_data/data_quality.py` with deterministic `audit_standard_candles(...)` plus config/report/issue/severity dataclasses.
+  - Added checks for standard schema columns, timestamp parsing/order, duplicates, expected interval gaps, OHLC validation, volume validation, zero-volume metrics, and optional expected boundary-gap warnings.
+  - Added `tests/market_data/test_data_quality.py` covering valid data, missing columns, unsorted timestamps, duplicates, interval gaps, invalid OHLC, negative/zero volume, empty input handling, and non-mutation of caller input.
