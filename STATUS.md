@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 71: Pattern event-study schema implemented.
+Phase 72: Fair Value Gap event-study extraction implemented.
 
 ## Current Step
-Task `tasks/068_PATTERN_EVENT_STUDY_SCHEMA.md` completed with reusable pattern event-study dataclasses, conversion helpers, deterministic DataFrame serialization, and targeted tests.
+Task `tasks/069_FAIR_VALUE_GAP_EVENT_STUDY_EXTRACTION.md` completed with rolling-prefix Fair Value Gap event extraction, duplicate suppression by stable event id, and focused no-look-ahead tests.
 
 ## Current Goal
-Provide reusable schema contracts for pattern event studies so research can separate detection events from forward labels before strategy promotion.
+Provide deterministic no-look-ahead Fair Value Gap event records for event-study datasets before adding forward labels.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 068 completed: added pure `quant_bitcoin.backtesting.pattern_event_study` module with canonical event-study/label dataclasses, event-to-record conversion for current pattern dataclasses, deterministic record DataFrame conversion, and focused unit coverage.
+Task 069 completed: added pure rolling-prefix `extract_fair_value_gap_event_study_records(...)` in `quant_bitcoin.backtesting.pattern_event_study`, converting newly confirmed FVG detector events into canonical event-study records with deterministic duplicate suppression.
 
 ## Recommended Next Step
-Create a follow-up task to implement forward-label generation (fixed horizons + MFE/MAE + R-multiple hit order) with strict no-look-ahead guarantees and event-study dataset assembly CLI.
+Create a follow-up task to implement forward-label generation (fixed horizons + MFE/MAE + R-multiple hit order) over extracted pattern event-study records with strict no-look-ahead guarantees.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

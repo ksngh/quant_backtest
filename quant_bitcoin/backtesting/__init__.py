@@ -27,6 +27,7 @@ from quant_bitcoin.backtesting.pattern_event_study import (
     PatternEventStudyRecord,
     PatternForwardLabel,
     PatternForwardLabelConfig,
+    extract_fair_value_gap_event_study_records,
     pattern_event_to_study_record,
     records_to_dataframe,
 )
@@ -70,6 +71,7 @@ __all__ = [
     "basis_points_to_decimal",
     "calculate_transaction_cost",
     "effective_execution_price",
+    "extract_fair_value_gap_event_study_records",
     "pattern_event_to_study_record",
     "records_to_dataframe",
     "run_pattern_strategy_backtest",
