@@ -94,3 +94,9 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `quant_bitcoin/backtesting/equity_curve.py` with pure reusable equity-curve dataclasses and functions for deterministic candle-by-candle cash/position/equity tracking and drawdown calculation from high-water mark.
   - Added compatibility for `BacktestTrade` and generic trade-like rows (`timestamp`, `side`/`signal`, `price`, `quantity`, optional `cost`) while preserving non-mutation of caller inputs and strict standard-candle validation.
   - Added `tests/backtesting/test_equity_curve.py` covering no-trade curves, mark-to-market long behavior, buy/sell close behavior, deterministic drawdown, missing columns, unsorted timestamps, empty-candle config handling, and non-mutation checks.
+
+
+- Task 068 completed (implementation + tests + docs):
+  - Added `quant_bitcoin/backtesting/pattern_event_study.py` with reusable event-study dataclasses (`PatternEventStudyRecord`, `PatternForwardLabelConfig`, `PatternForwardLabel`, `PatternEventStudyDataset`) and deterministic conversion helpers (`pattern_event_to_study_record`, `records_to_dataframe`).
+  - Added `docs/19_PATTERN_EVENT_STUDY_SCHEMA.md` documenting boundaries between detection/event-study/backtest/promotion, canonical event and future-label fields, and no-look-ahead requirements.
+  - Added `tests/backtesting/test_pattern_event_study.py` covering FVG-like conversion, generic conversion with missing optional fields, deterministic DataFrame serialization, and optional metadata behavior.

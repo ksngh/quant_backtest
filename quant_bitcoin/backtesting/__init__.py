@@ -22,6 +22,15 @@ from quant_bitcoin.backtesting.costs import (
     calculate_transaction_cost,
     effective_execution_price,
 )
+from quant_bitcoin.backtesting.pattern_event_study import (
+    PatternEventStudyDataset,
+    PatternEventStudyRecord,
+    PatternForwardLabel,
+    PatternForwardLabelConfig,
+    pattern_event_to_study_record,
+    records_to_dataframe,
+)
+
 from quant_bitcoin.backtesting.pattern_strategy import (
     DEFAULT_PATTERN,
     SUPPORTED_PATTERNS,
@@ -41,6 +50,10 @@ __all__ = [
     "EquityCurvePoint",
     "EquityCurveConfig",
     "DEFAULT_PATTERN",
+    "PatternEventStudyDataset",
+    "PatternEventStudyRecord",
+    "PatternForwardLabel",
+    "PatternForwardLabelConfig",
     "ExecutionSide",
     "LiquidityRole",
     "TransactionCostBreakdown",
@@ -57,6 +70,8 @@ __all__ = [
     "basis_points_to_decimal",
     "calculate_transaction_cost",
     "effective_execution_price",
+    "pattern_event_to_study_record",
+    "records_to_dataframe",
     "run_pattern_strategy_backtest",
     "strategy_name_for_patterns",
     "validate_pattern_selection",

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 70: Portfolio equity curve engine implemented.
+Phase 71: Pattern event-study schema implemented.
 
 ## Current Step
-Task `tasks/067_PORTFOLIO_EQUITY_CURVE_ENGINE.md` completed with reusable equity-curve construction and drawdown series utilities plus targeted tests.
+Task `tasks/068_PATTERN_EVENT_STUDY_SCHEMA.md` completed with reusable pattern event-study dataclasses, conversion helpers, deterministic DataFrame serialization, and targeted tests.
 
 ## Current Goal
-Provide reusable portfolio equity-curve series for candle-by-candle mark-to-market and drawdown analysis across backtest workflows.
+Provide reusable schema contracts for pattern event studies so research can separate detection events from forward labels before strategy promotion.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 067 completed: added pure `quant_bitcoin.backtesting.equity_curve` module with standard-candle validation, generic trade normalization, deterministic equity-point generation, and drawdown-series calculation with focused unit coverage.
+Task 068 completed: added pure `quant_bitcoin.backtesting.pattern_event_study` module with canonical event-study/label dataclasses, event-to-record conversion for current pattern dataclasses, deterministic record DataFrame conversion, and focused unit coverage.
 
 ## Recommended Next Step
-Create a follow-up task to integrate equity-curve outputs into persisted backtest graph/report read models and add higher-level risk-adjusted metrics built from the shared curve result.
+Create a follow-up task to implement forward-label generation (fixed horizons + MFE/MAE + R-multiple hit order) with strict no-look-ahead guarantees and event-study dataset assembly CLI.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
