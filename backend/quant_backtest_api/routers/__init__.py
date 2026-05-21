@@ -1,1 +1,1 @@
-"""Router package placeholder (Task 074)."""
+"""API routers package."""

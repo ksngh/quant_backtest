@@ -110,3 +110,11 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-21: Completed Task 073 `BACKTEST_RESULT_DASHBOARD_API_CONTRACT`; added `docs/api/API_CONTRACT.md` with read-only `/api` dashboard endpoints, query/response/error contracts, frontend consumption boundaries, and required warnings for pattern placeholder-neutral financial semantics.
 
 - 2026-05-21: Completed Task 074 `BACKEND_FRONTEND_DIRECTORY_AND_AGENTS_BOUNDARIES`; added backend/frontend directory scaffolds, area-specific `AGENTS.md` and `STATUS.md` files, placeholder package entry files, and root AGENTS routing rules for backend/frontend/backtest responsibilities.
+
+- 2026-05-21: Completed Task 075 `FASTAPI_BACKTEST_RESULT_READ_API_IMPLEMENTATION`; implemented read-only FastAPI backend endpoints for health/list/detail using persisted repository read models, placeholder warning exposure, backend API tests, and status updates.
+
+- 2026-05-21: Completed Task 076 `FRONTEND_DASHBOARD_BOOTSTRAP`; bootstrapped frontend with Next.js App Router + React + TypeScript, minimal dashboard shell, typed API client and API types aligned to contract, and status updates.
+
+- 2026-05-21: Completed Task 077 `FRONTEND_BACKTEST_RESULT_DASHBOARD_IMPLEMENTATION`; implemented interactive frontend dashboard list/detail views, SVG price/equity charts with trade markers, warning surfaces for placeholder equity semantics, trades table, metadata panels, and status updates.
+
+- 2026-05-21: Completed Task 078 `BACKTEST_DASHBOARD_INTEGRATION_AND_VERIFICATION`; verified backend/frontend contract alignment, fixed backend detail serialization conformance, added local development/smoke workflow documentation, and updated status tracking docs.

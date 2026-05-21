@@ -1,1 +1,1 @@
-"""Service package placeholder (Task 074)."""
+"""API services package."""
