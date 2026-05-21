@@ -1,0 +1,9 @@
+{
+  "name": "frontend-placeholder",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Placeholder package manifest for Task 074 frontend boundary setup.",
+  "scripts": {
+    "note": "echo 'Task 074 placeholder: frontend scaffold deferred to Task 076'"
+  }
+}

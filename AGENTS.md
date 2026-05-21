@@ -178,6 +178,59 @@ For trading-related changes, review must be strict around:
 - paper trading accidentally using live clients
 - Binance data downloader accidentally using order endpoints
 
+
+# Area Routing Rules (Task 074)
+
+## Backend API Tasks
+
+Backend tasks may read:
+
+- `backend/AGENTS.md`
+- `backend/STATUS.md`
+- `docs/api/API_CONTRACT.md`
+- `quant_bitcoin/persistence/postgres.py`
+- backend source/tests
+
+Backend tasks must not:
+
+- implement frontend UI
+- mutate strategy/backtest logic unless assigned
+- create live trading endpoints
+- expose API keys
+- call exchange order/account endpoints
+
+## Frontend Tasks
+
+Frontend tasks may read:
+
+- `frontend/AGENTS.md`
+- `frontend/STATUS.md`
+- `docs/api/API_CONTRACT.md`
+- frontend source/tests
+
+Frontend tasks must not:
+
+- modify backend repository/read-model code unless assigned
+- call the database directly
+- run backtests directly
+- create live trading controls
+- add login/auth unless assigned later
+
+## Backtest / Research Tasks
+
+Backtest tasks may read:
+
+- root `AGENTS.md`
+- root `STATUS.md`
+- assigned task file
+- relevant `quant_bitcoin/` source/tests
+
+Backtest tasks must not:
+
+- modify frontend or backend API areas unless assigned
+- add UI concerns into core strategy/backtest modules
+
+
 # Completion Rules
 
 Every implementation task must end with:
