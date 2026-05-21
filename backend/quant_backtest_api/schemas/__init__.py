@@ -1,1 +1,1 @@
-"""Schema package placeholder (Task 074)."""
+"""API schema models package."""

@@ -1,12 +1,12 @@
 # Frontend Status
 
 ## Current Purpose
-Frontend area scaffold and boundary rules established by Task 074.
+Frontend dashboard integration with read-only backtest API verified in Task 078.
 
 ## Active Task
-None (awaiting frontend bootstrap task assignment, expected next: Task 076 after Task 075).
+Task 078 completed.
 
 ## Stack Decision Boundary
-- Preferred default stack for this repository: Next.js + React.
+- Selected stack: Next.js App Router + React + TypeScript.
 - Do not combine Next.js and Vite in the same app.
-- If Vite is chosen later, it replaces (not coexists with) Next.js for the app scaffold.
+- Frontend uses backend API only via `NEXT_PUBLIC_BACKTEST_API_BASE_URL`.
