@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 85: Task 081 backtest starting-cash alignment implemented.
+Phase 91: Task 087 strategy backtest regression and research tests queued.
 
 ## Current Step
-Task 081 completed: pattern PostgreSQL backtest persistence now reflects configured starting cash and simulated ending cash.
+Task 087 created and queued: add regression and research-facing tests for strategy-level backtest accounting and persistence.
 
 ## Current Goal
-Keep backtest cash semantics consistent across runners and verify in Docker-capable environments.
+Execute Task 087 by adding deterministic regression tests for BUY/SELL persistence, cash/equity movement, and diagnostics.
 
 ## Current Active Task
-Task `081_BACKTEST_STARTING_CASH_ALIGNMENT` (completed).
+Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (created, not started).
 
 ## Last Completed Step (Short)
 Task 081 completed: added `--starting-cash` and `--trade-quantity` to pattern backtest CLI and removed unconditional zero cash placeholders in persisted run/result payload fields.
 
 ## Recommended Next Step
-Create follow-up task to align graph-point cash/position/equity with candle-by-candle event timing if richer portfolio tracing is required.
+Start Task 087 implementation from `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` with deterministic synthetic regression coverage.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

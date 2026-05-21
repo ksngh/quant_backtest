@@ -128,3 +128,13 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-21: Completed Task 081 `BACKTEST_STARTING_CASH_ALIGNMENT`; updated pattern PostgreSQL backtest CLI persistence mapping to honor user-configured `--starting-cash` and remove unconditional `starting_cash=0`/`ending_cash=0` placeholders, with focused CLI/persistence tests.
+- 2026-05-21: Created Task 082 `STRATEGY_BACKTEST_ARCHITECTURE_BOUNDARY` from owner request; implementation intentionally not started in this step per state-driven workflow.
+- 2026-05-21: Created Task 083 `RISK_EXIT_EXTRACTION_AND_REUSABLE_POLICIES` from owner request; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Created Task 084 `SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS` from owner request; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Created Task 085 `CASH_BASED_STRATEGY_BACKTEST_ENGINE` from owner request; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Created Task 086 `STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT` from owner request; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Created Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` from owner request; implementation intentionally not started in this step per state-driven workflow.
