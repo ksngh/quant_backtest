@@ -6,6 +6,13 @@ from quant_bitcoin.backtesting.basic import (
     BacktestSummary,
     BacktestTrade,
 )
+from quant_bitcoin.backtesting.equity_curve import (
+    EquityCurveConfig,
+    EquityCurvePoint,
+    EquityCurveResult,
+    build_equity_curve_from_trades,
+    calculate_drawdown_series,
+)
 from quant_bitcoin.backtesting.costs import (
     ExecutionSide,
     LiquidityRole,
@@ -28,6 +35,11 @@ from quant_bitcoin.backtesting.pattern_strategy import (
 )
 
 __all__ = [
+    "calculate_drawdown_series",
+    "build_equity_curve_from_trades",
+    "EquityCurveResult",
+    "EquityCurvePoint",
+    "EquityCurveConfig",
     "DEFAULT_PATTERN",
     "ExecutionSide",
     "LiquidityRole",
