@@ -105,6 +105,57 @@ def records_to_dataframe(records: Iterable[PatternEventStudyRecord]) -> pd.DataF
     return frame.reindex(columns=list(_DATAFRAME_COLUMNS))
 
 
+def extract_fair_value_gap_event_study_records(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: Any = None,
+) -> PatternEventStudyDataset:
+    """Extract deterministic Fair Value Gap event-study records with no look-ahead."""
+
+    from quant_bitcoin.backtesting.basic import NUMERIC_CANDLE_COLUMNS, STANDARD_CANDLE_COLUMNS
+    from quant_bitcoin.patterns import detect_fair_value_gaps
+
+    frame = candles.copy(deep=True) if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    missing = [column for column in STANDARD_CANDLE_COLUMNS if column not in frame.columns]
+    if missing:
+        raise ValueError(f"missing required candle columns: {', '.join(missing)}")
+
+    normalized = frame.loc[:, STANDARD_CANDLE_COLUMNS].copy(deep=True)
+    normalized["timestamp"] = pd.to_datetime(normalized["timestamp"], utc=True)
+    for column in NUMERIC_CANDLE_COLUMNS:
+        normalized[column] = pd.to_numeric(normalized[column], errors="raise")
+    if normalized["timestamp"].isnull().any():
+        raise ValueError("timestamp contains null or invalid values")
+    if not normalized["timestamp"].is_monotonic_increasing:
+        raise ValueError("candles must be sorted by ascending timestamp")
+
+    if len(normalized) < 3:
+        return PatternEventStudyDataset(records=())
+
+    records: list[PatternEventStudyRecord] = []
+    seen_event_ids: set[str] = set()
+
+    for current_index in range(len(normalized)):
+        prefix = normalized.iloc[: current_index + 1].copy(deep=True)
+        current_events = detect_fair_value_gaps(
+            prefix,
+            symbol=symbol,
+            timeframe=timeframe,
+            config=config,
+        )
+        for event in current_events:
+            if int(event.end_index) != current_index:
+                continue
+            if event.event_id in seen_event_ids:
+                continue
+            seen_event_ids.add(event.event_id)
+            records.append(pattern_event_to_study_record(event))
+
+    return PatternEventStudyDataset(records=tuple(records))
+
+
 _STUDY_FIELDS: frozenset[str] = frozenset(
     {
         "event_id",
