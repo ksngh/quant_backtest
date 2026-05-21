@@ -27,6 +27,7 @@ Expected Codex behavior:
 
 - Answer directly.
 - Do not edit files.
+- Do not require ledger/history reads unless they are needed for accuracy.
 - If the answer recommends project changes, explain the required task document.
 
 ## Create Task Document
@@ -57,7 +58,9 @@ Verification:
 
 Expected Codex behavior:
 
-- Read `AGENTS.md`, `STATUS.md`, and relevant workflow docs.
+- Read `AGENTS.md`, root `STATUS.md`, and relevant workflow docs.
+- Read `BACKLOG.md` when selecting future candidate work to turn into a new task.
+- Read `PROJECT_HISTORY.md` only when historical context is needed.
 - Create or update only the task document and required status tracking.
 - Do not implement application behavior unless the task is assigned for implementation.
 
@@ -89,7 +92,10 @@ Include files changed, implementation summary, tests added or updated, tests run
 
 Expected Codex behavior:
 
-- Read `AGENTS.md`, `STATUS.md`, relevant docs, and the assigned task file.
+- Read `AGENTS.md`, root `STATUS.md`, relevant docs, and the assigned task file.
+- Load area-relevant context only (backend vs frontend vs quant-core) by default.
+- Do not load unrelated frontend/backend/core history by default.
+- Use `PROJECT_HISTORY.md` only when historical context is relevant.
 - Update `STATUS.md` when project state changes.
 - Implement only the assigned task.
 - Add or update tests when implementation changes behavior.
@@ -172,6 +178,15 @@ Expected Codex behavior:
 - Read only the files or run only the commands needed.
 - Summarize results.
 - Do not edit files.
+
+# Focused-Context Loading Rules
+
+- `STATUS.md` is the active execution pointer, not a full history ledger.
+- `PROJECT_HISTORY.md` is historical reference and should be loaded only when relevant to the assigned task.
+- `BACKLOG.md` is for future/deferred candidate work and is not active execution state.
+- Backend implementation requests should avoid unrelated frontend and quant-core history by default.
+- Frontend implementation requests should avoid unrelated backend and quant-core history by default.
+
 
 # Short Prompt Templates
 

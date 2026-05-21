@@ -51,10 +51,39 @@ Codex must not implement the following unless an assigned future task explicitly
 # Project Status Tracking
 
 - Codex must read `STATUS.md` before starting implementation tasks.
-- Codex must use `STATUS.md` as the current project-state ledger for phase, step, active task, blockers, open questions, and parallel work status.
+- Codex must use short `STATUS.md` as the current-state pointer (phase, step, active task, blockers, and safety boundary).
+- Codex must use `PROJECT_HISTORY.md` only when historical context is relevant to the assigned task.
+- Codex must use `BACKLOG.md` when selecting, creating, or discussing future candidate work.
+- Codex should prefer focused backend/frontend status docs when they exist, rather than loading full project history by default.
 - Codex must update `STATUS.md` when project state changes.
 - Codex must not mark phases, steps, or checklist items complete unless acceptance criteria and verification are satisfied.
 - If completion is uncertain, Codex must leave the item open and record the uncertainty in `STATUS.md`.
+
+
+# Focused Context Rule
+
+Codex must begin with:
+- `AGENTS.md`
+- short root `STATUS.md`
+- assigned task file
+- relevant workflow docs
+- relevant source/test files for the assigned area
+
+For backend tasks, Codex should prefer:
+- root `STATUS.md`
+- assigned backend/API task
+- `docs/api/API_CONTRACT.md` if present
+- backend-relevant source and tests
+- backend-focused status docs if present
+
+For frontend tasks, Codex should prefer:
+- root `STATUS.md`
+- assigned frontend task
+- `docs/api/API_CONTRACT.md` if present
+- `frontend/STATUS.md` if present
+- frontend-relevant source and tests
+
+Codex must not load full `PROJECT_HISTORY.md` by default for backend/frontend tasks unless historical context is explicitly relevant.
 
 # Requirement-to-Implementation Workflow
 
