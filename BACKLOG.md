@@ -3,6 +3,7 @@
 All items below are **candidates only** and are **not approved implementation tasks** until explicitly assigned.
 
 ## Core Follow-Ups
+- Follow-up candidate: implementation task for multiple-testing helper utilities (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) with unit tests and edge-case validation (input validation, empty inputs, sorting assumptions, type stability).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
 - Liquidity indicator implementation.

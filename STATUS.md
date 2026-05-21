@@ -16,7 +16,7 @@ None (awaiting owner assignment).
 Task 071 completed: created `docs/21_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md` and task document `tasks/071_MULTIPLE_TESTING_AND_DATA_SNOOPING_CONTROL_PROTOCOL.md`, formalizing family-wise multiple-testing controls, locked holdout policy, and promotion evidence requirements across pattern/RSI/confluence research.
 
 ## Recommended Next Step
-Create a follow-up implementation task for lightweight statistical helper utilities (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) plus tests to standardize protocol enforcement in research scripts and reports.
+Assign and execute `tasks/072_MULTIPLE_TESTING_HELPER_UTILITIES.md` to implement lightweight statistical helper utilities (`bonferroni_threshold`, `benjamini_hochberg_thresholds`, `count_strategy_variants`) with unit tests for validation, empty-input handling, ordering stability, and type stability.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
