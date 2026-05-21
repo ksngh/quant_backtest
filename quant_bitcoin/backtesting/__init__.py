@@ -6,6 +6,15 @@ from quant_bitcoin.backtesting.basic import (
     BacktestSummary,
     BacktestTrade,
 )
+from quant_bitcoin.backtesting.costs import (
+    ExecutionSide,
+    LiquidityRole,
+    TransactionCostBreakdown,
+    TransactionCostConfig,
+    basis_points_to_decimal,
+    calculate_transaction_cost,
+    effective_execution_price,
+)
 from quant_bitcoin.backtesting.pattern_strategy import (
     DEFAULT_PATTERN,
     SUPPORTED_PATTERNS,
@@ -20,6 +29,10 @@ from quant_bitcoin.backtesting.pattern_strategy import (
 
 __all__ = [
     "DEFAULT_PATTERN",
+    "ExecutionSide",
+    "LiquidityRole",
+    "TransactionCostBreakdown",
+    "TransactionCostConfig",
     "SUPPORTED_PATTERNS",
     "BasicBacktester",
     "BacktestResult",
@@ -29,6 +42,9 @@ __all__ = [
     "PatternStrategyBacktestConfig",
     "PatternStrategyBacktestResult",
     "PatternStrategyBacktestTrade",
+    "basis_points_to_decimal",
+    "calculate_transaction_cost",
+    "effective_execution_price",
     "run_pattern_strategy_backtest",
     "strategy_name_for_patterns",
     "validate_pattern_selection",

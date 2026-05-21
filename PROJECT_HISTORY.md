@@ -73,3 +73,8 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
   - Added `quant_bitcoin/market_data/data_quality.py` with deterministic `audit_standard_candles(...)` plus config/report/issue/severity dataclasses.
   - Added checks for standard schema columns, timestamp parsing/order, duplicates, expected interval gaps, OHLC validation, volume validation, zero-volume metrics, and optional expected boundary-gap warnings.
   - Added `tests/market_data/test_data_quality.py` covering valid data, missing columns, unsorted timestamps, duplicates, interval gaps, invalid OHLC, negative/zero volume, empty input handling, and non-mutation of caller input.
+
+- Task 064 completed (implementation + tests):
+  - Added `quant_bitcoin/backtesting/costs.py` with pure transaction cost contract: `ExecutionSide`, `LiquidityRole`, `TransactionCostConfig`, `TransactionCostBreakdown`, and deterministic helpers for basis-point conversion, effective execution price, and gross-vs-net cost breakdown.
+  - Added validation for non-negative finite config values and positive finite price/quantity values, plus optional volatility-adjusted slippage with minimum slippage floor.
+  - Added `tests/backtesting/test_costs.py` covering config validation, BUY/SELL effective-price directionality, maker/taker fee behavior, spread/slippage accounting, volatility-adjusted slippage, and input validation.
