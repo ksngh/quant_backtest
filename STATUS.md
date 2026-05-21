@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 72: Fair Value Gap event-study extraction implemented.
+Phase 73: Fair Value Gap Strategy V1 specification completed.
 
 ## Current Step
-Task `tasks/069_FAIR_VALUE_GAP_EVENT_STUDY_EXTRACTION.md` completed with rolling-prefix Fair Value Gap event extraction, duplicate suppression by stable event id, and focused no-look-ahead tests.
+Task `tasks/070_FAIR_VALUE_GAP_STRATEGY_V1_SPECIFICATION.md` completed with a formal research-grade Fair Value Gap Strategy V1 mechanical specification, validation gates, and promotion/rejection criteria aligned to research protocol governance.
 
 ## Current Goal
-Provide deterministic no-look-ahead Fair Value Gap event records for event-study datasets before adding forward labels.
+Freeze Fair Value Gap Strategy V1 candidate rules before broad parameter search, net promotion analysis, and walk-forward validation.
 
 ## Current Active Task
 None (awaiting owner assignment).
 
 ## Last Completed Step (Short)
-Task 069 completed: added pure rolling-prefix `extract_fair_value_gap_event_study_records(...)` in `quant_bitcoin.backtesting.pattern_event_study`, converting newly confirmed FVG detector events into canonical event-study records with deterministic duplicate suppression.
+Task 070 completed: created `docs/20_FAIR_VALUE_GAP_STRATEGY_V1_SPECIFICATION.md` and task document `tasks/070_FAIR_VALUE_GAP_STRATEGY_V1_SPECIFICATION.md`, freezing FVG V1 hypothesis/mechanics/intrabar/cost/OOS promotion gates with explicit no-live-trading boundary.
 
 ## Recommended Next Step
-Create a follow-up task to implement forward-label generation (fixed horizons + MFE/MAE + R-multiple hit order) over extracted pattern event-study records with strict no-look-ahead guarantees.
+Create a follow-up task to implement FVG forward-label generation (fixed horizons + MFE/MAE + R-multiple hit-order labels) and attach results to the event-study dataset for evidence required by the V1 strategy specification.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
