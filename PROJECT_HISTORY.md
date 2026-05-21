@@ -125,3 +125,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 - 2026-05-21: Created Task 080 `DOCKER_COMPOSE_SERVICE_SPLIT` from owner request to separate compose startup flows for backtest/backend/db/frontend; implementation intentionally not started in this step per state-driven workflow.
 - 2026-05-21: Completed Task 080 `DOCKER_COMPOSE_SERVICE_SPLIT`; refactored `docker-compose.yml` to profile-based split startup paths (`db`, `backend`, `frontend`, `backtest`, optional `ingestion`, plus `full`) and documented deterministic profile commands in local dashboard development docs.
+
+
+- 2026-05-21: Completed Task 081 `BACKTEST_STARTING_CASH_ALIGNMENT`; updated pattern PostgreSQL backtest CLI persistence mapping to honor user-configured `--starting-cash` and remove unconditional `starting_cash=0`/`ending_cash=0` placeholders, with focused CLI/persistence tests.

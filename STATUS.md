@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 84: Docker Compose service split workflows implemented.
+Phase 85: Task 081 backtest starting-cash alignment implemented.
 
 ## Current Step
-Task 080 completed: compose startup paths split by service profiles (db/backend/frontend/backtest).
+Task 081 completed: pattern PostgreSQL backtest persistence now reflects configured starting cash and simulated ending cash.
 
 ## Current Goal
-Keep split compose workflows verifiable and documented in Docker-capable environments.
+Keep backtest cash semantics consistent across runners and verify in Docker-capable environments.
 
 ## Current Active Task
-Task `080_DOCKER_COMPOSE_SERVICE_SPLIT` (completed).
+Task `081_BACKTEST_STARTING_CASH_ALIGNMENT` (completed).
 
 ## Last Completed Step (Short)
-Task 080 completed: split compose profiles added for db/backend/frontend/backtest with explicit commands documented; optional ingestion profile retained.
+Task 081 completed: added `--starting-cash` and `--trade-quantity` to pattern backtest CLI and removed unconditional zero cash placeholders in persisted run/result payload fields.
 
 ## Recommended Next Step
-Run Docker-capable smoke verification for each profile path (`db`, `backend`, `frontend`, `backtest`) and capture results in project history.
+Create follow-up task to align graph-point cash/position/equity with candle-by-candle event timing if richer portfolio tracing is required.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
