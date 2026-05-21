@@ -118,3 +118,7 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-21: Completed Task 077 `FRONTEND_BACKTEST_RESULT_DASHBOARD_IMPLEMENTATION`; implemented interactive frontend dashboard list/detail views, SVG price/equity charts with trade markers, warning surfaces for placeholder equity semantics, trades table, metadata panels, and status updates.
 
 - 2026-05-21: Completed Task 078 `BACKTEST_DASHBOARD_INTEGRATION_AND_VERIFICATION`; verified backend/frontend contract alignment, fixed backend detail serialization conformance, added local development/smoke workflow documentation, and updated status tracking docs.
+
+- 2026-05-21: Created Task 079 `BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP` from owner request for one-command backend/frontend compose startup; implementation intentionally not started in this step per state-driven workflow.
+
+- 2026-05-21: Completed Task 079 `BACKEND_FRONTEND_DOCKER_COMPOSE_SETUP`; added compose services for postgres/backend/frontend, optional ingestion profile retention, backend/frontend Dockerfiles, and documented environment-limited compose verification (docker unavailable in runner).

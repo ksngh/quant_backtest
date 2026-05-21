@@ -77,6 +77,22 @@ Start local PostgreSQL from the repository root:
 docker compose up -d postgres
 ```
 
+For one-command dashboard local startup (PostgreSQL + backend API + frontend UI):
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- Frontend UI: `http://localhost:3000`
+- Backend API health: `http://localhost:8000/api/health`
+
+Notes:
+
+- The frontend container uses `NEXT_PUBLIC_BACKTEST_API_BASE_URL=http://backend:8000` by default for in-network service discovery.
+- The optional WebSocket ingestor is excluded by default and can be started only when needed with `--profile ingestion`.
+
 The matching development database URL is:
 
 ```text

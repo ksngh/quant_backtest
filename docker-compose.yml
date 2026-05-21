@@ -16,10 +16,36 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quant_bitcoin}:${POSTGRES_PASSWORD:-quant_bitcoin_dev}@postgres:5432/${POSTGRES_DB:-quant_bitcoin}
+      BACKTEST_API_ENV: ${BACKTEST_API_ENV:-dev}
+      BACKTEST_API_CORS_ORIGINS: ${BACKTEST_API_CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_BACKTEST_API_BASE_URL: ${NEXT_PUBLIC_BACKTEST_API_BASE_URL:-http://backend:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
   websocket-ingestor:
     build: .
+    profiles: ["ingestion"]
     environment:
-      DATABASE_URL: postgresql://quant_bitcoin:quant_bitcoin_dev@postgres:5432/quant_bitcoin
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quant_bitcoin}:${POSTGRES_PASSWORD:-quant_bitcoin_dev}@postgres:5432/${POSTGRES_DB:-quant_bitcoin}
       SYMBOL: ${SYMBOL:-BTCUSDT}
       INTERVAL: ${INTERVAL:-1m}
       INGEST_MAX_MESSAGES: ${INGEST_MAX_MESSAGES:-unbounded}
