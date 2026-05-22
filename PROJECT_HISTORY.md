@@ -181,3 +181,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-22: Completed Task 091 `PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT`; updated pattern strategy direction semantics to map bullish events to `ENTER_LONG` and bearish events to `ENTER_SHORT`, added `pattern_direction_to_position_side` helper, enriched action metadata with `pattern_direction`/`position_side`, removed default SHORT_DISABLED skip behavior, and updated focused strategy regression tests.
+
+
+- 2026-05-22: Completed Task 092 `PATTERN_RISK_EXIT_ACTION_BUILDER`; added `quant_bitcoin/backtesting/pattern_action_builder.py` to convert pattern events + risk/exit simulations into canonical strategy actions (`ENTER_*`, `PARTIAL_EXIT_*`, `EXIT_*`) with preserved metadata (event id/type, exit reason/target/stop/ratios) and realized R multiple mapping, plus focused tests in `tests/backtesting/test_pattern_action_builder.py`.
