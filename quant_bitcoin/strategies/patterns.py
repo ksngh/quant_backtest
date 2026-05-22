@@ -14,7 +14,7 @@ from quant_bitcoin.patterns import (
     detect_adam_and_eve_patterns, detect_cup_and_handle_patterns, detect_diamond_patterns,
     detect_fair_value_gaps, detect_order_blocks, detect_trendline_breaks,
 )
-from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext, detect_fair_value_gap_at_index
+from quant_bitcoin.backtesting.fvg_detection_cache import IndicatorCache, PatternEvaluationContext, detect_fair_value_gap_at_index
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 

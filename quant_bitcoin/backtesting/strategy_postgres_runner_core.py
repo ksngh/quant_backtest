@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
-from quant_bitcoin.backtesting.pattern_detection_cache import (
+from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
 )

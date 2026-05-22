@@ -40,6 +40,8 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 108 `PATTERNS_PUBLIC_EXPORT_BOUNDARY_CLEANUP`.
 
 
+- Completed (2026-05-22): Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`.
+
 ## Current Candidates / Follow-ups
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.
