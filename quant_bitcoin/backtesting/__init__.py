@@ -38,6 +38,14 @@ from quant_bitcoin.backtesting.pattern_event_study import (
     records_to_dataframe,
 )
 
+from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
+from quant_bitcoin.backtesting.strategy_models import (
+    StrategyBacktestResult,
+    StrategyBacktestSummary,
+    StrategyEquityPoint,
+    StrategyExecution,
+)
+
 from quant_bitcoin.backtesting.pattern_strategy import (
     DEFAULT_PATTERN,
     SUPPORTED_PATTERNS,
@@ -86,4 +94,10 @@ __all__ = [
     "run_pattern_strategy_backtest",
     "strategy_name_for_patterns",
     "validate_pattern_selection",
+    "StrategyEngineConfig",
+    "run_strategy_backtest_engine",
+    "StrategyBacktestResult",
+    "StrategyBacktestSummary",
+    "StrategyEquityPoint",
+    "StrategyExecution",
 ]

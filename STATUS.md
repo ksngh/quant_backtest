@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 94: Task 084 single-pattern strategy implementations completed.
+Phase 95: Task 085 cash-based strategy backtest engine completed.
 
 ## Current Step
-Task 084 completed: added single-pattern strategy classes under `quant_bitcoin/strategies/patterns.py` with semantic action outputs and long-only short-disabled skip behavior.
+Task 085 completed: added reusable strategy backtest engine with BUY/SELL cashflow accounting, partial exits, equity curve points, and strategy summary outputs.
 
 ## Current Goal
-Execute Task 085 by implementing the cash-based strategy backtest engine.
+Execute Task 086 by wiring strategy backtest CLI + persistence replacement to use Task 085 engine outputs.
 
 ## Current Active Task
-Task `085_CASH_BASED_STRATEGY_BACKTEST_ENGINE` (queued, not started).
+Task `086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT` (queued, not started).
 
 ## Last Completed Step (Short)
-Task 084 completed: implemented six single-pattern strategies plus factory selection and strategy tests including bullish ENTER_LONG and bearish SHORT_DISABLED semantics.
+Task 085 completed: implemented strategy-level cash accounting engine with execution/equity models and deterministic engine tests.
 
 ## Recommended Next Step
-Start Task 085 implementation from `tasks/085_CASH_BASED_STRATEGY_BACKTEST_ENGINE.md`.
+Start Task 086 implementation from `tasks/086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
