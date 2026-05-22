@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 119: Task 099 ledger segmentation and template-enforcement completed.
+Phase 120: Task 100 ledger completion reconciliation follow-up completed.
 
 ## Current Step
-Task 099 completed (+review fix): segmented root ledgers and added mandatory task-template + explicit 50-task archiving rule.
+Task 100 completed: reconciled task-file/ledger completion state alignment (Task 098/099/100).
 
 ## Current Goal
-Keep ledger windows concise, enforce task-template usage, and maintain explicit 50-task archive-range policy.
+Maintain consistent task/ledger completion state and keep root ledger windows concise with explicit 50-task archive ranges.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 100+).
+No active implementation task (await owner assignment of Task 101+).
 
 ## Last Completed Step (Short)
-Task 099 completed: root BACKLOG/PROJECT_HISTORY reduced to recent windows, archive files added, and task-template enforcement rule added to AGENTS.
+Task 100 completed: reconciled Task 098 status mismatch and synchronized task/ledger completion records.
 
 ## Recommended Next Step
-Await owner assignment/create of next relevant task document (Task 100+) before any further implementation.
+Await owner assignment/create of next relevant task document (Task 101+) before any further implementation.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
