@@ -5,7 +5,7 @@ All items below are **candidates only** and are **not approved implementation ta
 ## Core Follow-Ups
 - Completed (2026-05-21): Task 082 strategy-level architecture boundary documented with semantic/execution split and mapping scaffolding.
 - Completed (2026-05-21): Task 083 extracted reusable risk/exit contracts into `quant_bitcoin/risk/` with compatibility shims for legacy pattern imports.
-- Next queued task document created: `tasks/084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS.md` (single-pattern strategy classes with semantic action contract and long-only default behavior).
+- Completed (2026-05-22): Task 084 implemented single-pattern strategy classes with semantic action outputs and factory selection helper.
 - Next queued task document created: `tasks/085_CASH_BASED_STRATEGY_BACKTEST_ENGINE.md` (strategy-level BUY/SELL cashflow engine with equity/drawdown accounting outputs).
 - Next queued task document created: `tasks/086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT.md` (strategy-level CLI replacement with BUY/SELL persistence and compatibility routing).
 - Next queued task document created: `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` (regression/research tests for strategy accounting, BUY/SELL persistence, and diagnostics).
