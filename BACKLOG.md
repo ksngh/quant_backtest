@@ -7,7 +7,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-21): Task 083 extracted reusable risk/exit contracts into `quant_bitcoin/risk/` with compatibility shims for legacy pattern imports.
 - Completed (2026-05-22): Task 084 implemented single-pattern strategy classes with semantic action outputs and factory selection helper.
 - Completed (2026-05-22): Task 085 cash-based strategy backtest engine implemented with strategy execution/equity models and deterministic accounting tests.
-- Next queued task document created: `tasks/086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT.md` (strategy-level CLI replacement with BUY/SELL persistence and compatibility routing).
+- Completed (2026-05-22): Task 086 strategy-level CLI replacement with compatibility alias routing.
 - Next queued task document created: `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` (regression/research tests for strategy accounting, BUY/SELL persistence, and diagnostics).
 - Queue policy note: when executing queued tasks, process in ascending order (FIFO by task number), not reverse order.
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
