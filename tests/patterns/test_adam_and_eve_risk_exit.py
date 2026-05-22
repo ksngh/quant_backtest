@@ -11,7 +11,7 @@ from quant_bitcoin.patterns import (
     create_adam_and_eve_risk_exit_plan,
 )
 from quant_bitcoin.patterns.adam_and_eve import AdamAndEveEvent
-from quant_bitcoin.patterns.risk_exit import RiskExitTargetSource
+from quant_bitcoin.risk import RiskExitTargetSource
 
 
 def _event() -> AdamAndEveEvent:

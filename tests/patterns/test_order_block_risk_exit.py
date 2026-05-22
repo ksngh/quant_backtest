@@ -9,7 +9,7 @@ from quant_bitcoin.patterns import (
     RiskExitPlanStatus,
     create_order_block_risk_exit_plan,
 )
-from quant_bitcoin.patterns.risk_exit import RiskExitTargetSource
+from quant_bitcoin.risk import RiskExitTargetSource
 from quant_bitcoin.patterns.order_block import OrderBlockEvent
 
 

@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Iterable
 
 from quant_bitcoin.patterns.adam_and_eve import AdamAndEveDirection, AdamAndEveEvent
-from quant_bitcoin.patterns.risk_exit import (
+from quant_bitcoin.risk import (
     BreakEvenSettings,
     PartialExitSettings,
     RiskExitConfig,

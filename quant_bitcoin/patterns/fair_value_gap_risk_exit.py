@@ -14,7 +14,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from quant_bitcoin.patterns.fair_value_gap import PatternDirection, PatternEvent
-from quant_bitcoin.patterns.risk_exit import (
+from quant_bitcoin.risk import (
     BreakEvenSettings,
     PartialExitSettings,
     RiskExitConfig,

@@ -15,7 +15,7 @@ from quant_bitcoin.patterns.cup_and_handle import (
     CupAndHandleDirection,
     CupAndHandleEvent,
 )
-from quant_bitcoin.patterns.risk_exit import (
+from quant_bitcoin.risk import (
     BreakEvenSettings,
     PartialExitSettings,
     RiskExitConfig,

@@ -40,3 +40,5 @@ Older history is preserved in segmented archives:
 
 
 - 2026-05-22: Completed Task 107 `STRATEGY_EXECUTION_MAPPING_RETIREMENT`; removed long-only mapping helper module and migrated mapping tests to canonical long/short strategy action helper coverage.
+
+- 2026-05-22: Completed Task 108 `PATTERNS_PUBLIC_EXPORT_BOUNDARY_CLEANUP`; migrated pattern-risk internal and test imports to canonical `quant_bitcoin.risk` ownership while keeping compatibility shims explicit.

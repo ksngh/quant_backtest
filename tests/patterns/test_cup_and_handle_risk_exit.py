@@ -10,7 +10,7 @@ from quant_bitcoin.patterns import (
     create_cup_and_handle_risk_exit_plan,
 )
 from quant_bitcoin.patterns.cup_and_handle import CupAndHandleEvent
-from quant_bitcoin.patterns.risk_exit import RiskExitTargetSource
+from quant_bitcoin.risk import RiskExitTargetSource
 
 
 def _event() -> CupAndHandleEvent:
