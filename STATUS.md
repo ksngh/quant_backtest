@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 111: Task 091 pattern strategy long/short enablement completed; Task 092 queued.
+Phase 112: Task 092 pattern risk/exit action builder completed; Task 093 queued.
 
 ## Current Step
-Task 091 completed: pattern strategies now emit long/short semantic entry actions for bullish/bearish events; Task 092 queued next.
+Task 092 completed: canonical pattern risk/exit action builder converts simulated exits into strategy actions; Task 093 queued next.
 
 ## Current Goal
-Execute Task 092 PATTERN_RISK_EXIT_ACTION_BUILDER per owner assignment.
+Execute Task 093 ENTRY_FILL_INTRABAR_INTEGRATION per owner assignment.
 
 ## Current Active Task
-Task `092_PATTERN_RISK_EXIT_ACTION_BUILDER` (queued, implementation pending).
+Task `093_ENTRY_FILL_INTRABAR_INTEGRATION` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 091 completed: PatternStrategyBase direction handling now maps bullish->long and bearish->short semantic entries with position metadata, and no default SHORT_DISABLED skip.
+Task 092 completed: Added pattern action builder that emits canonical entry/partial-exit/final-exit strategy actions from risk-exit simulation outputs with preserved metadata and realized R multiple mapping.
 
 ## Recommended Next Step
-Implement Task 092 pattern risk/exit action builder, then update tests/state docs.
+Implement Task 093 entry-fill + intrabar integration, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
