@@ -10,7 +10,7 @@ import pytest
 
 from quant_bitcoin.backtesting import BasicBacktester
 from quant_bitcoin.backtesting import postgres_runner_cli
-from quant_bitcoin.strategies import RsiStrategy
+from quant_bitcoin.strategies import RsiActionStrategy, RsiStrategy
 
 
 class FakeRepository:
@@ -125,8 +125,7 @@ def test_postgres_backtest_cli_wires_provider_strategy_and_backtester(capsys):
             "70",
         ],
         provider_factory=provider_factory,
-        strategy_factory=RsiStrategy,
-        backtester_factory=BasicBacktester,
+        strategy_factory=RsiActionStrategy,
         repository_factory=lambda database_url: repository,
     )
 

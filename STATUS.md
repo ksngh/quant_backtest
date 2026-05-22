@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 109: Task 089 strategy engine long/short cost accounting completed; Task 090 queued.
+Phase 110: Task 090 RSI canonical engine migration completed; Task 091 queued.
 
 ## Current Step
-Task 089 completed: strategy engine long/short cost accounting integrated; Task 090 queued next.
+Task 090 completed: PostgreSQL RSI CLI now runs via canonical strategy-action engine path; Task 091 queued next.
 
 ## Current Goal
-Execute Task 090 RSI_CANONICAL_ENGINE_MIGRATION per owner assignment.
+Execute Task 091 PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT per owner assignment.
 
 ## Current Active Task
-Task `090_RSI_CANONICAL_ENGINE_MIGRATION` (queued, implementation pending).
+Task `091_PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 089 completed: strategy engine now supports deterministic long/short signed-position accounting with integrated transaction-cost metadata and no double-counted spread/slippage semantics.
+Task 090 completed: RSI PostgreSQL CLI migrated to canonical StrategyEngine via RSI strategy-action adapter, with compatibility output/persistence mapping preserved and focused tests updated.
 
 ## Recommended Next Step
-Implement Task 090 RSI canonical engine migration, then update tests/state docs.
+Implement Task 091 pattern strategy long/short enablement, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

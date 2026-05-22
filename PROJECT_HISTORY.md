@@ -175,3 +175,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Completed Task 088 `STRATEGY_ACTION_LONG_SHORT_CONTRACT`; expanded canonical strategy actions with short-side action enums, added semantic helper mappings (entry/exit, position side, execution side), added compatibility `execution_side`/`position_side` fields on strategy executions while keeping `side`, and added focused strategy-action mapping tests.
 
 - 2026-05-22: Completed Task 089 `STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING`; upgraded strategy engine to deterministic long/short signed-position accounting, integrated transaction cost config/liquidity role semantics, added compatibility execution cost fields (`raw_price`, `effective_price`, fee/spread/slippage/total cost), blocked opposite-side re-entry while open, and expanded accounting tests for long/short/cost/drawdown behavior.
+
+
+- 2026-05-22: Completed Task 090 `RSI_CANONICAL_ENGINE_MIGRATION`; added `RsiActionStrategy` adapter emitting `ENTER_LONG`/`EXIT_LONG`, migrated PostgreSQL RSI CLI execution to canonical `StrategyEngine` path with deterministic portfolio-state action gating, preserved compatibility JSON/persistence summaries/trade signals, and added focused adapter/CLI regression coverage.
