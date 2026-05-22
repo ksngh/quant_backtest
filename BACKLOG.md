@@ -10,6 +10,16 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 086 strategy-level CLI replacement with compatibility alias routing.
 - Completed (2026-05-22): Task 087 strategy backtest regression/research tests for accounting, BUY/SELL outputs, DIAMOND diagnostics, and no-exchange safety checks.
 - Queue policy note: when executing queued tasks, process in ascending order (FIFO by task number), not reverse order.
+- Queued (2026-05-22): Task 088 STRATEGY_ACTION_LONG_SHORT_CONTRACT (task doc created; implementation pending).
+- Queued (2026-05-22): Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING (task doc created; implementation pending).
+- Queued (2026-05-22): Task 090 RSI_CANONICAL_ENGINE_MIGRATION (task doc created; implementation pending).
+- Queued (2026-05-22): Task 091 PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT (task doc created; implementation pending).
+- Queued (2026-05-22): Task 092 PATTERN_RISK_EXIT_ACTION_BUILDER (task doc created; implementation pending).
+- Queued (2026-05-22): Task 093 ENTRY_FILL_INTRABAR_INTEGRATION (task doc created; implementation pending).
+- Queued (2026-05-22): Task 094 PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION (task doc created; implementation pending).
+- Queued (2026-05-22): Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION (task doc created; implementation pending).
+- Queued (2026-05-22): Task 096 LEGACY_DEPRECATED_BACKTEST_CLEANUP (task doc created; implementation pending).
+- Queued (2026-05-22): Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE (task doc created; implementation pending).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
 - Liquidity indicator implementation.

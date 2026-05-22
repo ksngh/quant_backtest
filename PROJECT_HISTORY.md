@@ -150,3 +150,24 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Completed Task 086 `STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT`; added strategy-level CLI (`quant-bitcoin-strategy-backtest`), routed compatibility pattern CLI to strategy runner, and updated CLI tests for strategy/pattern alias behavior.
 
 - 2026-05-22: Completed Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS`; added deterministic regression/research tests for strategy engine accounting (cash/equity movement, partial exits, exit reasons, metadata preservation), DIAMOND strategy diagnostics, strategy CLI BUY/SELL output semantics, and no-network behavior assertions.
+
+
+- 2026-05-22: Created Task 088 `STRATEGY_ACTION_LONG_SHORT_CONTRACT` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 089 `STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 090 `RSI_CANONICAL_ENGINE_MIGRATION` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 091 `PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 092 `PATTERN_RISK_EXIT_ACTION_BUILDER` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 093 `ENTRY_FILL_INTRABAR_INTEGRATION` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 094 `PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 095 `CANONICAL_CLI_AND_PERSISTENCE_MIGRATION` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 096 `LEGACY_DEPRECATED_BACKTEST_CLEANUP` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 097 `CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` task document from owner assignment; per state-driven workflow, implementation not started in this step.

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 97: Task 087 strategy backtest regression and research tests completed.
+Phase 107: Task 097 canonical backtest regression/research suite queued.
 
 ## Current Step
-Task 087 completed: added regression/research tests for strategy accounting, CLI BUY/SELL outputs, DIAMOND diagnostics, metadata persistence, and no-exchange behavior checks.
+Task 097 queued: canonical backtest regression/research suite (task doc created, implementation pending).
 
 ## Current Goal
-Prepare next queued task after Task 087 completion (owner assignment required).
+Execute Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE per owner assignment.
 
 ## Current Active Task
-Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (completed).
+Task `097_CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` (queued, implementation pending).
 
 ## Last Completed Step (Short)
 Task 087 completed: added deterministic regression/research coverage for strategy backtest cash/position/equity accounting and CLI execution semantics.
 
 ## Recommended Next Step
-Wait for owner to assign/create the next task document (FIFO order).
+Implement Task 097 canonical regression/research tests, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
