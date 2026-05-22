@@ -20,6 +20,12 @@ class StrategyExecution:
     equity_after: float
     execution_side: ExecutionSide | None = None
     position_side: Literal["LONG", "SHORT"] | None = None
+    raw_price: float | None = None
+    effective_price: float | None = None
+    fee_cost: float | None = None
+    spread_cost: float | None = None
+    slippage_cost: float | None = None
+    total_cost: float | None = None
     reason: str | None = None
     pattern_event_id: str | None = None
     exit_reason: str | None = None

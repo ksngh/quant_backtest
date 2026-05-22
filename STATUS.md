@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 108: Task 088 strategy action long/short contract completed; Task 089 queued.
+Phase 109: Task 089 strategy engine long/short cost accounting completed; Task 090 queued.
 
 ## Current Step
-Task 088 completed: strategy action long/short contract added; Task 089 queued next.
+Task 089 completed: strategy engine long/short cost accounting integrated; Task 090 queued next.
 
 ## Current Goal
-Execute Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING per owner assignment.
+Execute Task 090 RSI_CANONICAL_ENGINE_MIGRATION per owner assignment.
 
 ## Current Active Task
-Task `089_STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING` (queued, implementation pending).
+Task `090_RSI_CANONICAL_ENGINE_MIGRATION` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 088 completed: expanded strategy semantic actions to long/short contract with action-side mapping helpers and compatibility execution side fields.
+Task 089 completed: strategy engine now supports deterministic long/short signed-position accounting with integrated transaction-cost metadata and no double-counted spread/slippage semantics.
 
 ## Recommended Next Step
-Implement Task 089 long/short strategy engine cost accounting, then update tests/state docs.
+Implement Task 090 RSI canonical engine migration, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
