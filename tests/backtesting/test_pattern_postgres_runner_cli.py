@@ -22,3 +22,48 @@ def test_pattern_cli_compatibility_alias(monkeypatch,capsys):
     out=json.loads(capsys.readouterr().out)
     assert out['strategy']['pattern']=='FAIR_VALUE_GAP'
     assert 'portfolio' in out and 'summary' in out
+
+
+def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
+    candles = make_candles()
+
+    class StubStrategy:
+        strategy_key = "STUB"
+        strategy_name = "STUB_PATTERN"
+
+        def evaluate(self, candles_so_far, portfolio_state=None):
+            from quant_bitcoin.risk.exit_plan import RiskExitDirection, RiskExitPlan, RiskExitPlanStatus
+            from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+
+            risk_plan = RiskExitPlan(
+                direction=RiskExitDirection.LONG,
+                entry_price=100.0,
+                structural_stop=99.0,
+                atr=1.0,
+                atr_buffer_multiplier=0.0,
+                atr_buffer=0.0,
+                stop_price=99.0,
+                risk_per_unit=1.0,
+                targets=(),
+                status=RiskExitPlanStatus.VALID,
+            )
+            return [
+                StrategyAction(
+                    StrategyActionType.ENTER_LONG,
+                    timestamp=candles_so_far.iloc[-1]["timestamp"],
+                    quantity=1.0,
+                    reason="PATTERN_CONFIRMED",
+                    metadata={"position_side": "LONG", "risk_plan": risk_plan, "event_id": "e1"},
+                )
+            ]
+
+    monkeypatch.setattr(strategy_postgres_runner_cli, "strategy_for_pattern", lambda *_: StubStrategy())
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli,
+        "build_pattern_trade_actions",
+        lambda *args, **kwargs: [strategy_postgres_runner_cli.StrategyAction(strategy_postgres_runner_cli.StrategyActionType.EXIT_LONG, timestamp=candles.iloc[-1]["timestamp"], quantity=1.0, reason="TARGET_HIT")],
+    )
+
+    _, actions = strategy_postgres_runner_cli._build_actions(candles, "STUB")
+    assert actions
+    assert any(a.action_type.name == "EXIT_LONG" for a in actions)

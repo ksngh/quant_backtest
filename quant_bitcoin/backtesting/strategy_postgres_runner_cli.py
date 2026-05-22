@@ -9,6 +9,9 @@ from quant_bitcoin.runtime_logging import log_runtime_exception
 from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext
 from quant_bitcoin.strategies.patterns import FairValueGapStrategy, strategy_for_pattern
 from quant_bitcoin.backtesting.strategy_engine import run_strategy_backtest_engine, StrategyEngineConfig
+from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
+from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 from quant_bitcoin.backtesting.strategy_persistence_adapter import build_strategy_engine_persistence_payload
 from quant_bitcoin.persistence import BACKTEST_ENGINE_NAME, BACKTEST_ENGINE_VERSION, PostgresBacktestResultRepository
 
@@ -39,13 +42,24 @@ def _select(args): return (args.pattern or getattr(args,'strategy',None) or DEFA
 
 def _build_actions(candles:pd.DataFrame, strategy_key:str):
  s=strategy_for_pattern(strategy_key); acts=[]
- if isinstance(s, FairValueGapStrategy):
-  cache=IndicatorCache.for_fvg(candles, s.detector_config); seen=set()
-  for i in range(1,len(candles)+1):
-   ctx=PatternEvaluationContext(candles=candles,current_index=i-1,indicator_cache=cache,seen_event_ids=seen)
-   acts.extend(s.evaluate_at(ctx))
-  return s,acts
- for i in range(1,len(candles)+1): acts.extend(s.evaluate(candles.iloc[:i]))
+ cache=IndicatorCache.for_fvg(candles, s.detector_config) if isinstance(s, FairValueGapStrategy) else None
+ seen=set()
+ for i in range(1,len(candles)+1):
+  raw=s.evaluate_at(PatternEvaluationContext(candles=candles,current_index=i-1,indicator_cache=cache,seen_event_ids=seen)) if isinstance(s, FairValueGapStrategy) else s.evaluate(candles.iloc[:i])
+  for a in raw:
+   md=a.metadata or {}
+   if a.action_type==StrategyActionType.SKIP and a.reason=="RISK_PLAN_INVALID":
+    acts.append(a); continue
+   if a.action_type not in {StrategyActionType.ENTER_LONG,StrategyActionType.ENTER_SHORT}:
+    acts.append(a); continue
+   risk_plan=md.get("risk_plan")
+   side=md.get("position_side")
+   if risk_plan is None or side not in {"LONG","SHORT"}:
+    acts.append(StrategyAction(StrategyActionType.SKIP,timestamp=a.timestamp,quantity=0.0,reason="RISK_PLAN_INVALID",metadata=md)); continue
+   if getattr(risk_plan,"status",None)!=RiskExitPlanStatus.VALID:
+    acts.append(StrategyAction(StrategyActionType.SKIP,timestamp=a.timestamp,quantity=0.0,reason="RISK_PLAN_INVALID",metadata=md)); continue
+   event=type("PatternEventProxy",(),md)()
+   acts.extend(build_pattern_trade_actions(event,risk_plan,candles.iloc[i:],entry_action_timestamp=a.timestamp,position_side=side))
  return s,acts
 
 def run(argv:Sequence[str]|None=None,*,prog='quant-bitcoin-strategy-backtest',include_strategy=True):

@@ -29,3 +29,5 @@ Older history is preserved in segmented archives:
 ## Active Historical Notes
 - Live trading approval/credential policy/endpoint allowlist/kill-switch design remains unresolved and blocking any real-execution phase.
 - Docker runtime verification remains environment-dependent where Docker is unavailable.
+
+- 2026-05-22: Completed Task 102 `CANONICAL_PATTERN_ACTION_BUILDER_CLI_INTEGRATION`; integrated canonical pattern action builder into strategy PostgreSQL CLI action assembly and added regression test coverage.

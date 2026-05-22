@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 121: Task 101 Docker Compose backtest profile canonicalization completed.
+Phase 122: Task 102 canonical pattern action builder CLI integration completed.
 
 ## Current Step
-Task 101 completed: Docker Compose backtest profile canonicalized and websocket-ingestion compose assertion aligned.
+Task 102 completed: canonical pattern action builder integrated into strategy PostgreSQL CLI path.
 
 ## Current Goal
-Maintain canonical strategy-backtest Docker Compose wiring and synchronized test/ledger state for Task 101 completion.
+Maintain canonical strategy-pattern action generation wiring and synchronized test/ledger state for Task 102 completion.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 102+).
+No active implementation task (await owner assignment of Task 103+).
 
 ## Last Completed Step (Short)
-Task 101 completed: switched backtest compose command to canonical strategy runner CLI and verified websocket-ingestion compose contract test passes.
+Task 102 completed: strategy PostgreSQL CLI now routes pattern entries through canonical pattern action builder for entry/exit/skip action sequences.
 
 ## Recommended Next Step
-Await owner assignment/create of next relevant task document (Task 102+) before any further implementation.
+Recommended next task: Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
