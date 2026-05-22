@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 92: Task 082 strategy backtest architecture boundary completed.
+Phase 93: Task 083 reusable risk/exit policy boundary completed.
 
 ## Current Step
-Task 082 completed: documented pattern/risk/strategy/backtesting boundaries and added semantic-to-execution mapping scaffolding for long-only BUY/SELL conversion.
+Task 083 completed: extracted generic risk/exit plan and exit simulation contracts into `quant_bitcoin/risk/` and preserved legacy `quant_bitcoin/patterns/*` imports through compatibility shims.
 
 ## Current Goal
-Execute Task 083 by extracting reusable risk/exit policies from pattern modules into `quant_bitcoin/risk/` with compatibility boundaries.
+Execute Task 084 by implementing single-pattern strategy classes under `quant_bitcoin/strategies/` using the semantic action contract.
 
 ## Current Active Task
-Task `083_RISK_EXIT_EXTRACTION_AND_REUSABLE_POLICIES` (queued, not started).
+Task `084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS` (queued, not started).
 
 ## Last Completed Step (Short)
-Task 082 completed: strategy action model (`ENTER_LONG`/`EXIT_LONG`/`PARTIAL_EXIT_LONG`/`SKIP`) separated from execution accounting sides (`BUY`/`SELL`) with architecture documentation and mapping tests.
+Task 083 completed: moved generic risk/exit ownership out of `patterns` into reusable `risk` package and verified deterministic pattern risk/exit tests remain green.
 
 ## Recommended Next Step
-Start Task 083 implementation from `tasks/083_RISK_EXIT_EXTRACTION_AND_REUSABLE_POLICIES.md`.
+Start Task 084 implementation from `tasks/084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

@@ -140,3 +140,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-21: Created Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` from owner request; implementation intentionally not started in this step per state-driven workflow.
 
 - 2026-05-21: Completed Task 082 `STRATEGY_BACKTEST_ARCHITECTURE_BOUNDARY`; added strategy/backtest boundary decision doc (`docs/22_STRATEGY_BACKTEST_ARCHITECTURE.md`), canonical semantic strategy action contract (`quant_bitcoin/strategies/actions.py`), long-only semantic-to-execution side mapping helper (`quant_bitcoin/backtesting/strategy_execution_mapping.py`), and focused mapping tests.
+
+- 2026-05-21: Completed Task 083 `RISK_EXIT_EXTRACTION_AND_REUSABLE_POLICIES`; added reusable risk/exit ownership modules (`quant_bitcoin/risk/exit_plan.py`, `quant_bitcoin/risk/exit_simulation.py`), added compatibility shims in `quant_bitcoin/patterns/risk_exit.py` and `quant_bitcoin/patterns/exit_simulation.py`, updated `quant_bitcoin/risk/__init__.py` exports, and documented the boundary in `docs/23_RISK_EXIT_REUSABLE_POLICY_BOUNDARY.md`.
