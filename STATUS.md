@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 130: Task 110 pattern strategy output schema enrichment completed.
+Phase 131: Task 111 task definition prepared (awaiting implementation execution).
 
 ## Current Step
-Task 110 completed: enriched strategy CLI output schema with event/diagnostic metadata and warning classification.
+Task 111 task file created and staged for owner-approved implementation execution.
 
 ## Current Goal
-Expose inspectable pattern-action/event diagnostics in strategy CLI stdout while preserving core JSON compatibility fields.
+Execute Task 111 to document enriched pattern strategy output contract and expand deterministic short/no-fill fixtures.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 111+).
+Task 111 `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION` (task document created; implementation not started).
 
 ## Last Completed Step (Short)
 Task 110 completed: added enriched execution/event/diagnostic fields and warnings for no-fills/risk-plan/open-position cases in strategy CLI output.
 
 ## Recommended Next Step
-Recommended next task: Task 111 `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION`.
+Run Task 111 implementation strictly per `tasks/111_PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

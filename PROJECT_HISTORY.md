@@ -46,3 +46,5 @@ Older history is preserved in segmented archives:
 - 2026-05-22: Completed Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`; renamed cache ownership to `fvg_detection_cache`, migrated internal imports/tests, and preserved legacy import compatibility via re-export shim.
 
 - 2026-05-22: Completed Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`; enriched strategy CLI JSON executions/events/diagnostics, added warning classification for no-fills/invalid-risk/open-position cases, and extended CLI persistence tests.
+
+- 2026-05-22: Prepared Task 111 definition file `tasks/111_PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION.md`; implementation intentionally not started pending explicit execution step.
