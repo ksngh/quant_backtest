@@ -3,6 +3,8 @@
 All items below are **candidates only** and are **not approved implementation tasks** until explicitly assigned.
 
 ## Core Follow-Ups
+- Created (2026-05-22): Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT` task document from owner assignment; implementation intentionally not started in this step per state-driven workflow.
+- Created (2026-05-22): Task 098 `TASK_STATUS_LEDGER_SYNCHRONIZATION` task document from owner assignment; implementation intentionally not started in this step per state-driven workflow.
 - Completed (2026-05-21): Task 082 strategy-level architecture boundary documented with semantic/execution split and mapping scaffolding.
 - Completed (2026-05-21): Task 083 extracted reusable risk/exit contracts into `quant_bitcoin/risk/` with compatibility shims for legacy pattern imports.
 - Completed (2026-05-22): Task 084 implemented single-pattern strategy classes with semantic action outputs and factory selection helper.

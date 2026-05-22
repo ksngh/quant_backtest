@@ -196,3 +196,7 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Completed Task 096 `LEGACY_DEPRECATED_BACKTEST_CLEANUP`; classified legacy backtest modules as deprecate-and-keep compatibility surfaces, added explicit deprecation docstrings to `quant_bitcoin/backtesting/basic.py`, `quant_bitcoin/backtesting/pattern_strategy.py`, and `quant_bitcoin/backtesting/postgres_runner_cli.py`, and clarified README guidance to prefer `quant-bitcoin-strategy-backtest` over compatibility alias usage.
 
 - 2026-05-22: Completed Task 097 `CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE`; added `tests/backtesting/test_strategy_persistence_adapter.py` covering canonical persistence regressions for non-placeholder equity graph values and preservation of action/position-side/execution-side trade metadata, and ran verification commands (`pytest -q`, `python -m compileall quant_bitcoin`, `git diff --check`) with one unrelated pre-existing docker-compose assertion failure in market-data tests.
+
+- 2026-05-22: Created Task 098 `TASK_STATUS_LEDGER_SYNCHRONIZATION` task document from owner assignment; per state-driven workflow, implementation not started in this step.
+
+- 2026-05-22: Created Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT` task document from owner assignment; per state-driven workflow, implementation not started in this step.
