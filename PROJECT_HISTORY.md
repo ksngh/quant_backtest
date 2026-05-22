@@ -184,3 +184,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-22: Completed Task 092 `PATTERN_RISK_EXIT_ACTION_BUILDER`; added `quant_bitcoin/backtesting/pattern_action_builder.py` to convert pattern events + risk/exit simulations into canonical strategy actions (`ENTER_*`, `PARTIAL_EXIT_*`, `EXIT_*`) with preserved metadata (event id/type, exit reason/target/stop/ratios) and realized R multiple mapping, plus focused tests in `tests/backtesting/test_pattern_action_builder.py`.
+
+
+- 2026-05-22: Completed Task 093 `ENTRY_FILL_INTRABAR_INTEGRATION`; integrated pattern entry simulation into action builder with entry mode/config inputs, emitted SKIP diagnostics for non-filled/invalid entries, preserved filled-entry metadata (`fill_price`, `fill_timestamp`, `fill_candle_index`, `entry_mode`, `intrabar_policy`), and kept canonical risk-exit action conversion behavior with focused regression coverage.
