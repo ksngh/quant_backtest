@@ -45,3 +45,5 @@ All items below are candidate/planning pointers unless marked completed.
 
 ## Deferred Verification
 - Local Docker runtime verification for previously completed Docker-related tasks (run in Docker-capable environment).
+- Completed (2026-05-22): Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`.
+

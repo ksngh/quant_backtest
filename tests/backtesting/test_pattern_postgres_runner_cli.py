@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import pandas as pd
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli, pattern_postgres_runner_cli
+from quant_bitcoin.backtesting import strategy_postgres_runner_core
 
 class FakeProvider:
     def __init__(self, candles: pd.DataFrame): self._c=candles
@@ -57,13 +58,13 @@ def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
                 )
             ]
 
-    monkeypatch.setattr(strategy_postgres_runner_cli, "strategy_for_pattern", lambda *_: StubStrategy())
+    monkeypatch.setattr(strategy_postgres_runner_core, "strategy_for_pattern", lambda *_: StubStrategy())
     monkeypatch.setattr(
-        strategy_postgres_runner_cli,
+        strategy_postgres_runner_core,
         "build_pattern_trade_actions",
         lambda *args, **kwargs: [strategy_postgres_runner_cli.StrategyAction(strategy_postgres_runner_cli.StrategyActionType.EXIT_LONG, timestamp=candles.iloc[-1]["timestamp"], quantity=1.0, reason="TARGET_HIT")],
     )
 
-    _, actions = strategy_postgres_runner_cli._build_actions(candles, "STUB")
+    _, actions = strategy_postgres_runner_core._build_actions(candles, "STUB")
     assert actions
     assert any(a.action_type.name == "EXIT_LONG" for a in actions)

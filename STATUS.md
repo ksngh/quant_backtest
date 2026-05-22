@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 123: Task 103 strategy persistence multifill graph markers completed.
+Phase 124: Task 104 strategy PostgreSQL runner CLI refactor completed.
 
 ## Current Step
-Task 103 completed: graph-point metadata now preserves multi-execution markers per timestamp.
+Task 104 completed: canonical strategy PostgreSQL CLI refactored into focused core + entrypoint modules.
 
 ## Current Goal
-Maintain persistence compatibility while preserving same-timestamp multi-fill marker detail for strategy backtest graph points.
+Maintain canonical strategy CLI behavior while keeping parser/orchestration/persistence/output responsibilities modular and readable.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 104+).
+No active implementation task (await owner assignment of Task 105+).
 
 ## Last Completed Step (Short)
-Task 103 completed: persistence adapter now keeps all same-timestamp execution markers in graph-point metadata while preserving scalar compatibility fields.
+Task 104 completed: strategy CLI wiring moved into focused core module while preserving wrapper compatibility and output contract.
 
 ## Recommended Next Step
-Recommended next task: Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`.
+Recommended next task: Task 105 `README_AND_API_CONTRACT_CANONICAL_BACKTEST_REFRESH`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

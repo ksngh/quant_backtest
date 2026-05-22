@@ -6,6 +6,7 @@ import socket
 import pandas as pd
 
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli
+from quant_bitcoin.backtesting import strategy_postgres_runner_core
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
 
@@ -42,7 +43,7 @@ def test_strategy_cli_outputs_buy_sell_not_entry(monkeypatch, capsys) -> None:
         strategy_key = "STUB"
 
     monkeypatch.setattr(
-        strategy_postgres_runner_cli,
+        strategy_postgres_runner_core,
         "_build_actions",
         lambda candles, strategy_key: (
             StubStrategy(),
