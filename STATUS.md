@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 115: Task 095 canonical CLI and persistence migration completed; Task 096 queued.
+Phase 116: Task 096 legacy deprecated backtest cleanup completed; Task 097 queued.
 
 ## Current Step
-Task 095 completed: canonical strategy-engine persistence adapter now unifies RSI/pattern strategy persistence payload mapping; Task 096 queued next.
+Task 096 completed: legacy backtest modules were explicitly deprecated and canonical strategy CLI guidance was clarified; Task 097 queued next.
 
 ## Current Goal
-Execute Task 096 LEGACY_DEPRECATED_BACKTEST_CLEANUP per owner assignment.
+Execute Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE per owner assignment.
 
 ## Current Active Task
-Task `096_LEGACY_DEPRECATED_BACKTEST_CLEANUP` (queued, implementation pending).
+Task `097_CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 095 completed: added canonical strategy persistence adapter; migrated RSI and strategy/pattern CLI persistence mapping to StrategyEngine payload semantics.
+Task 096 completed: deprecated legacy backtest modules (`basic.py`, `pattern_strategy.py`, `postgres_runner_cli.py`) and clarified canonical strategy CLI preference in README.
 
 ## Recommended Next Step
-Implement Task 096 legacy deprecated backtest cleanup, then update tests/state docs.
+Implement Task 097 canonical backtest regression/research test suite, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

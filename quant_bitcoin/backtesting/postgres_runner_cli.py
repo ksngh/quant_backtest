@@ -1,4 +1,7 @@
-"""Command-line runner for PostgreSQL-backed RSI backtests.
+"""Deprecated command-line runner for PostgreSQL-backed RSI backtests.
+
+Deprecated: use ``quant_bitcoin.backtesting.strategy_postgres_runner_cli``
+(``quant-bitcoin-strategy-backtest`` entrypoint).
 
 This CLI is intentionally limited to local backtest wiring: it reads already
 persisted standard candle data from PostgreSQL, runs the existing RSI strategy
