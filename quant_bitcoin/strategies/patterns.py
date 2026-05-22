@@ -14,8 +14,19 @@ from quant_bitcoin.patterns import (
     detect_adam_and_eve_patterns, detect_cup_and_handle_patterns, detect_diamond_patterns,
     detect_fair_value_gaps, detect_order_blocks, detect_trendline_breaks,
 )
-from quant_bitcoin.risk.exit_plan import RiskExitDirection, RiskExitPlanStatus
+from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+
+
+
+
+def pattern_direction_to_position_side(direction: str) -> str | None:
+    value = str(direction).upper()
+    if value == "BULLISH":
+        return "LONG"
+    if value == "BEARISH":
+        return "SHORT"
+    return None
 
 
 @dataclass(frozen=True)
@@ -23,7 +34,6 @@ class PatternStrategyBase:
     strategy_key: str
     strategy_name: str
     strategy_version: str = "v1"
-    emit_short_disabled_skip: bool = True
 
     def evaluate(self, candles_so_far: pd.DataFrame | list[dict[str, Any]], portfolio_state: dict[str, Any] | None = None) -> list[StrategyAction]:
         frame = candles_so_far.copy(deep=True) if isinstance(candles_so_far, pd.DataFrame) else pd.DataFrame(list(candles_so_far))
@@ -37,14 +47,24 @@ class PatternStrategyBase:
             return []
         direction = str(getattr(event, "direction", "")).upper()
         timestamp = getattr(event, "timestamp", frame.iloc[-1]["timestamp"])
-        if direction == "BEARISH":
-            if self.emit_short_disabled_skip:
-                return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="SHORT_DISABLED", metadata={"pattern_event_id": getattr(event, 'event_id', None), "pattern_type": getattr(event, 'pattern_type', None), "direction": direction})]
-            return []
+        position_side = pattern_direction_to_position_side(direction)
+        if position_side is None:
+            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="UNSUPPORTED_DIRECTION", metadata={"pattern_event_id": getattr(event, 'event_id', None), "pattern_type": getattr(event, 'pattern_type', None), "pattern_direction": direction})]
         planned = self._risk_plan(event, frame)
+        metadata = {
+            "pattern_event_id": getattr(event, 'event_id', None),
+            "pattern_type": getattr(event, 'pattern_type', None),
+            "pattern_direction": direction,
+            "position_side": position_side,
+            "entry_reference": getattr(event, 'entry_reference', None),
+            "stop_reference": getattr(event, 'stop_reference', None),
+            "target_reference": getattr(event, 'target_reference', None),
+            "risk_plan": planned,
+        }
         if planned is None or planned.status != RiskExitPlanStatus.VALID:
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata={"pattern_event_id": getattr(event, 'event_id', None), "pattern_type": getattr(event, 'pattern_type', None), "direction": direction, "risk_plan": planned})]
-        return [StrategyAction(StrategyActionType.ENTER_LONG, timestamp, reason="PATTERN_CONFIRMED", metadata={"pattern_event_id": getattr(event, 'event_id', None), "pattern_type": getattr(event, 'pattern_type', None), "direction": direction, "entry_reference": getattr(event, 'entry_reference', None), "stop_reference": getattr(event, 'stop_reference', None), "target_reference": getattr(event, 'target_reference', None), "risk_plan": planned}, quantity=1.0)]
+            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
+        action_type = StrategyActionType.ENTER_LONG if position_side == "LONG" else StrategyActionType.ENTER_SHORT
+        return [StrategyAction(action_type, timestamp, reason="PATTERN_CONFIRMED", metadata=metadata, quantity=1.0)]
 
     def _latest_event(self, frame: pd.DataFrame):
         raise NotImplementedError

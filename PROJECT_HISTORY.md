@@ -178,3 +178,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-22: Completed Task 090 `RSI_CANONICAL_ENGINE_MIGRATION`; added `RsiActionStrategy` adapter emitting `ENTER_LONG`/`EXIT_LONG`, migrated PostgreSQL RSI CLI execution to canonical `StrategyEngine` path with deterministic portfolio-state action gating, preserved compatibility JSON/persistence summaries/trade signals, and added focused adapter/CLI regression coverage.
+
+
+- 2026-05-22: Completed Task 091 `PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT`; updated pattern strategy direction semantics to map bullish events to `ENTER_LONG` and bearish events to `ENTER_SHORT`, added `pattern_direction_to_position_side` helper, enriched action metadata with `pattern_direction`/`position_side`, removed default SHORT_DISABLED skip behavior, and updated focused strategy regression tests.

@@ -13,7 +13,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 088 strategy action contract expanded to include explicit long/short semantics and helper mappings.
 - Completed (2026-05-22): Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING implementation with deterministic long/short cost-aware accounting.
 - Completed (2026-05-22): Task 090 RSI_CANONICAL_ENGINE_MIGRATION migrated RSI PostgreSQL CLI to canonical StrategyEngine path using RSI strategy-action adapter with compatibility persistence/output mappings.
-- Queued (2026-05-22): Task 091 PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT (task doc created; implementation pending).
+- Completed (2026-05-22): Task 091 PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT implemented bullish/ bearish pattern-to-long/short strategy action emission with focused tests.
 - Queued (2026-05-22): Task 092 PATTERN_RISK_EXIT_ACTION_BUILDER (task doc created; implementation pending).
 - Queued (2026-05-22): Task 093 ENTRY_FILL_INTRABAR_INTEGRATION (task doc created; implementation pending).
 - Queued (2026-05-22): Task 094 PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION (task doc created; implementation pending).

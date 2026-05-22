@@ -2,7 +2,7 @@ import pandas as pd
 
 from quant_bitcoin.strategies.actions import StrategyActionType
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
-from quant_bitcoin.strategies.patterns import DiamondStrategy, strategy_for_pattern
+from quant_bitcoin.strategies.patterns import DiamondStrategy, pattern_direction_to_position_side, strategy_for_pattern
 
 
 def _candles():
@@ -17,7 +17,7 @@ def test_strategy_for_pattern_factory():
     assert strat.strategy_key == "FAIR_VALUE_GAP"
 
 
-def test_diamond_bearish_emits_short_disabled_skip(monkeypatch):
+def test_diamond_bearish_emits_enter_short(monkeypatch):
     strategy = DiamondStrategy()
 
     class Event:
@@ -27,12 +27,19 @@ def test_diamond_bearish_emits_short_disabled_skip(monkeypatch):
         event_id = "d1"
         pattern_type = "DIAMOND"
 
+    class Plan:
+        status = RiskExitPlanStatus.VALID
+
+    class Wrapper:
+        risk_plan = Plan()
+
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1
-    assert actions[0].action_type == StrategyActionType.SKIP
-    assert actions[0].reason == "SHORT_DISABLED"
+    assert actions[0].action_type == StrategyActionType.ENTER_SHORT
+    assert actions[0].reason == "PATTERN_CONFIRMED"
 
 
 def test_diamond_bullish_emits_enter_long(monkeypatch):
@@ -61,3 +68,9 @@ def test_diamond_bullish_emits_enter_long(monkeypatch):
     assert len(actions) == 1
     assert actions[0].action_type == StrategyActionType.ENTER_LONG
     assert actions[0].reason == "PATTERN_CONFIRMED"
+
+
+def test_pattern_direction_to_position_side_mapping():
+    assert pattern_direction_to_position_side("BULLISH") == "LONG"
+    assert pattern_direction_to_position_side("BEARISH") == "SHORT"
+    assert pattern_direction_to_position_side("SIDEWAYS") is None
