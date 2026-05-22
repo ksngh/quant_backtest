@@ -12,7 +12,12 @@ from quant_bitcoin.backtesting.strategy_models import (
     StrategyEquityPoint,
     StrategyExecution,
 )
-from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+from quant_bitcoin.strategies.actions import (
+    StrategyAction,
+    StrategyActionType,
+    execution_side_for_action,
+    position_side_for_action,
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,8 @@ def run_strategy_backtest_engine(
                     timestamp=timestamp,
                     side=side,
                     action_type=action.action_type.value,
+                    execution_side=execution_side_for_action(action.action_type),
+                    position_side=position_side_for_action(action.action_type),
                     price=close,
                     quantity=qty,
                     notional=close * qty,

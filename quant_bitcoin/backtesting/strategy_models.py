@@ -18,6 +18,8 @@ class StrategyExecution:
     cash_after: float
     position_after: float
     equity_after: float
+    execution_side: ExecutionSide | None = None
+    position_side: Literal["LONG", "SHORT"] | None = None
     reason: str | None = None
     pattern_event_id: str | None = None
     exit_reason: str | None = None

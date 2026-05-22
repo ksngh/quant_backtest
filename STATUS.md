@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 107: Task 097 canonical backtest regression/research suite queued.
+Phase 108: Task 088 strategy action long/short contract completed; Task 089 queued.
 
 ## Current Step
-Task 097 queued: canonical backtest regression/research suite (task doc created, implementation pending).
+Task 088 completed: strategy action long/short contract added; Task 089 queued next.
 
 ## Current Goal
-Execute Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE per owner assignment.
+Execute Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING per owner assignment.
 
 ## Current Active Task
-Task `097_CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` (queued, implementation pending).
+Task `089_STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 087 completed: added deterministic regression/research coverage for strategy backtest cash/position/equity accounting and CLI execution semantics.
+Task 088 completed: expanded strategy semantic actions to long/short contract with action-side mapping helpers and compatibility execution side fields.
 
 ## Recommended Next Step
-Implement Task 097 canonical regression/research tests, then update tests/state docs.
+Implement Task 089 long/short strategy engine cost accounting, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
