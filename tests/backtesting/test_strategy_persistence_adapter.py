@@ -68,3 +68,38 @@ def test_trade_metadata_preserves_action_and_position_side() -> None:
     assert first_trade.metadata["action_type"] == "ENTER_LONG"
     assert first_trade.metadata["position_side"] == "LONG"
     assert first_trade.metadata["execution_side"] == "BUY"
+
+
+def test_graph_points_preserve_multiple_same_timestamp_executions() -> None:
+    candles = _candles()
+    result = run_strategy_backtest_engine(
+        candles,
+        [
+            StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
+            StrategyAction(StrategyActionType.EXIT_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
+        ],
+    )
+
+    payload = build_strategy_engine_persistence_payload(
+        result,
+        candles,
+        source="postgres",
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_time=datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc),
+        strategy_key="TEST",
+        strategy_name="TEST_STRATEGY",
+        strategy_version="v1",
+        strategy_parameters={"window": 14},
+        starting_cash=10000.0,
+        trade_quantity=1.0,
+        engine_name="strategy_engine",
+        engine_version="v1",
+    )
+
+    marker = payload.graph_points[0]
+    assert marker.trade_sequence == 1
+    assert marker.signal == "BUY"
+    assert [trade["trade_sequence"] for trade in marker.metadata["trades"]] == [1, 2]
+    assert [trade["signal"] for trade in marker.metadata["trades"]] == ["BUY", "SELL"]

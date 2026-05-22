@@ -31,3 +31,5 @@ Older history is preserved in segmented archives:
 - Docker runtime verification remains environment-dependent where Docker is unavailable.
 
 - 2026-05-22: Completed Task 102 `CANONICAL_PATTERN_ACTION_BUILDER_CLI_INTEGRATION`; integrated canonical pattern action builder into strategy PostgreSQL CLI action assembly and added regression test coverage.
+
+- 2026-05-22: Completed Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`; made graph-point marker metadata multi-fill safe for same-timestamp executions while keeping scalar marker compatibility.

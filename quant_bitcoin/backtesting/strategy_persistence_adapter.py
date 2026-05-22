@@ -120,9 +120,38 @@ def _dt(v):
 
 
 def _build_graph_points(result):
-    exec_map = {_dt(e.timestamp): (i, e.side) for i, e in enumerate(result.executions, start=1)}
-    points=[]
-    for i,p in enumerate(result.equity_points, start=1):
-        trade=exec_map.get(_dt(p.timestamp))
-        points.append(BacktestGraphPointPayload(sequence=i,candle_open_time=_dt(p.timestamp),close_price=float(p.mark_price),cash=float(p.cash),position=float(p.position_quantity),equity=float(p.equity),trade_sequence=(trade[0] if trade else None),signal=(trade[1] if trade else None),metadata={"drawdown":float(p.drawdown)}))
+    exec_map: dict[datetime, list[dict[str, Any]]] = {}
+    for sequence, execution in enumerate(result.executions, start=1):
+        timestamp = _dt(execution.timestamp)
+        exec_map.setdefault(timestamp, []).append(
+            {
+                "trade_sequence": sequence,
+                "signal": execution.side,
+                "action_type": execution.action_type,
+                "position_side": execution.position_side,
+                "execution_side": execution.execution_side,
+            }
+        )
+
+    points = []
+    for index, equity_point in enumerate(result.equity_points, start=1):
+        timestamp = _dt(equity_point.timestamp)
+        trades = exec_map.get(timestamp, [])
+        first_trade = trades[0] if trades else None
+        points.append(
+            BacktestGraphPointPayload(
+                sequence=index,
+                candle_open_time=timestamp,
+                close_price=float(equity_point.mark_price),
+                cash=float(equity_point.cash),
+                position=float(equity_point.position_quantity),
+                equity=float(equity_point.equity),
+                trade_sequence=(first_trade["trade_sequence"] if first_trade else None),
+                signal=(first_trade["signal"] if first_trade else None),
+                metadata={
+                    "drawdown": float(equity_point.drawdown),
+                    "trades": trades,
+                },
+            )
+        )
     return tuple(points)
