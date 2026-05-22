@@ -186,14 +186,17 @@ After PostgreSQL already contains closed candles, run the short packaged
 backtest command from the repository root:
 
 ```bash
-quant-bitcoin-postgres-backtest
+quant-bitcoin-strategy-backtest
 ```
 
+`quant-bitcoin-postgres-backtest` remains available as a compatibility alias;
+prefer `quant-bitcoin-strategy-backtest` for new scripts and automation.
+
 The command reads candles through `PostgresCandleDataProvider`, runs the
-existing `RsiStrategy` with `BasicBacktester`, saves the completed simulated
-backtest result to PostgreSQL, and prints deterministic JSON containing the
-input stream, strategy parameters, summary, simulated trades, and saved
-`backtest_run_id`. It does not call Binance, place real orders, use API keys,
+existing `RsiStrategy` through the canonical strategy-engine backtest path,
+saves the completed simulated backtest result to PostgreSQL, and prints
+deterministic JSON containing the input stream, strategy parameters, summary,
+simulated trades, and saved `backtest_run_id`. It does not call Binance, place real orders, use API keys,
 or call exchange account endpoints.
 
 Saved runs use the graph-ready Task 021 schema in `strategy_configs`,
@@ -213,7 +216,7 @@ docker compose up -d postgres
 quant-bitcoin-binance-backfill \
   --start-time 2024-01-01T00:00:00Z \
   --end-time 2024-01-02T00:00:00Z
-quant-bitcoin-postgres-backtest \
+quant-bitcoin-strategy-backtest \
   --start-time 2024-01-01T00:00:00Z \
   --end-time 2024-01-02T00:00:00Z
 ```
@@ -251,7 +254,7 @@ the default Fair Value Gap pattern strategy backtest with an explicit safe UTC
 time window:
 
 ```bash
-quant-bitcoin-pattern-backtest \
+quant-bitcoin-strategy-backtest \
   --start-time 2024-01-01T00:00:00Z \
   --end-time 2024-01-02T00:00:00Z
 ```
@@ -262,7 +265,7 @@ supported implemented detector/risk-exit pair, for example an Order Block
 historical simulation:
 
 ```bash
-quant-bitcoin-pattern-backtest \
+quant-bitcoin-strategy-backtest \
   --pattern ORDER_BLOCK \
   --start-time 2024-01-01T00:00:00Z \
   --end-time 2024-01-02T00:00:00Z

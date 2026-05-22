@@ -232,7 +232,7 @@ Field mapping notes:
   "warnings": [
     {
       "code": "PATTERN_PLACEHOLDER_EQUITY",
-      "message": "Some persisted pattern runs may contain placeholder-neutral cash/equity values until richer financial persistence is implemented."
+      "message": "Older persisted pattern runs may contain placeholder-neutral cash/equity values from pre-canonical compatibility history; treat those runs as non-financial diagnostics."
     }
   ]
 }
@@ -241,7 +241,7 @@ Field mapping notes:
 Warning behavior:
 
 - `warnings` is always present (may be empty array).
-- Include `PATTERN_PLACEHOLDER_EQUITY` when run data indicates placeholder-neutral pattern persistence (for example pattern mode metadata or zeroed cash/equity semantics).
+- Include `PATTERN_PLACEHOLDER_EQUITY` when run data indicates older placeholder-neutral pattern persistence (for example legacy pattern metadata without summary metadata, or zeroed cash/equity semantics).
 
 ## 5.4 Optional `GET /api/backtest-runs/{backtest_run_id}/chart` (200)
 
@@ -311,7 +311,7 @@ Recommended error codes:
 
 ## 8) Known Limitations
 
-- Some persisted pattern strategy runs currently use placeholder-neutral financial values (`cash`, `equity`, and summary fields can remain `0.0` or non-financial placeholders).
+- Some older persisted pattern strategy runs (written before canonical strategy-engine financial persistence) can still contain placeholder-neutral values (`cash`, `equity`, and summary fields may be `0.0` or non-financial placeholders).
 - This API must expose that limitation via `warnings` and must not silently reinterpret those values as real PnL outcomes.
 - This contract does not provide pagination metadata beyond `limit` in v1.
 

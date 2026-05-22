@@ -126,7 +126,7 @@ class BacktestResultsService:
             warnings.append(
                 {
                     "code": "PATTERN_PLACEHOLDER_EQUITY",
-                    "message": "Some persisted pattern runs may contain placeholder-neutral cash/equity values until richer financial persistence is implemented.",
+                    "message": "Older persisted pattern runs may contain placeholder-neutral cash/equity values from pre-canonical compatibility history; treat those runs as non-financial diagnostics.",
                 }
             )
         if graph_points and all(point.cash == 0 for point in graph_points):
@@ -143,7 +143,7 @@ class BacktestResultsService:
             warnings.append(
                 {
                     "code": "PATTERN_PLACEHOLDER_EQUITY",
-                    "message": "Some persisted pattern runs may contain placeholder-neutral cash/equity values until richer financial persistence is implemented.",
+                    "message": "Older persisted pattern runs may contain placeholder-neutral cash/equity values from pre-canonical compatibility history; treat those runs as non-financial diagnostics.",
                 }
             )
         return warnings
