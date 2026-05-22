@@ -32,7 +32,11 @@ def test_engine_buy_sell_and_equity_accounting() -> None:
     assert result.summary.ending_cash == 10003.8
     assert result.summary.final_equity == 10003.8
     assert result.executions[0].side == "BUY"
+    assert result.executions[0].execution_side == "BUY"
+    assert result.executions[0].position_side == "LONG"
     assert result.executions[1].side == "SELL"
+    assert result.executions[1].execution_side == "SELL"
+    assert result.executions[1].position_side == "LONG"
     assert result.executions[1].quantity == 0.4
     assert result.executions[2].quantity == 0.6
     assert result.executions[1].exit_reason == "TAKE_PROFIT"
