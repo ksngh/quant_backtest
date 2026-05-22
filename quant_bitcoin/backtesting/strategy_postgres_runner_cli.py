@@ -6,7 +6,8 @@ import pandas as pd
 from quant_bitcoin.market_data import PostgresCandleDataProvider
 from quant_bitcoin.market_data.postgres_provider import STANDARD_CANDLE_COLUMNS
 from quant_bitcoin.runtime_logging import log_runtime_exception
-from quant_bitcoin.strategies.patterns import strategy_for_pattern
+from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext
+from quant_bitcoin.strategies.patterns import FairValueGapStrategy, strategy_for_pattern
 from quant_bitcoin.backtesting.strategy_engine import run_strategy_backtest_engine, StrategyEngineConfig
 
 DEFAULT_DATABASE_URL="postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
@@ -36,6 +37,12 @@ def _select(args): return (args.pattern or getattr(args,'strategy',None) or DEFA
 
 def _build_actions(candles:pd.DataFrame, strategy_key:str):
  s=strategy_for_pattern(strategy_key); acts=[]
+ if isinstance(s, FairValueGapStrategy):
+  cache=IndicatorCache.for_fvg(candles, s.detector_config); seen=set()
+  for i in range(1,len(candles)+1):
+   ctx=PatternEvaluationContext(candles=candles,current_index=i-1,indicator_cache=cache,seen_event_ids=seen)
+   acts.extend(s.evaluate_at(ctx))
+  return s,acts
  for i in range(1,len(candles)+1): acts.extend(s.evaluate(candles.iloc[:i]))
  return s,acts
 
