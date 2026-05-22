@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Completed (2026-05-22)
 
 # Goal
 
@@ -45,18 +45,18 @@ Once canonical pattern action builder integration is complete, CLI stdout should
 
 ## Before Implementation
 
-- [ ] Read `STATUS.md`.
-- [ ] Confirm the task matches the current phase and step.
-- [ ] Confirm the current active task is recorded or should be updated.
-- [ ] Confirm parallel work is allowed before starting any parallel tasks.
-- [ ] Record assumptions, blockers, or unclear status items before coding.
+- [x] Read `STATUS.md`.
+- [x] Confirm the task matches the current phase and step.
+- [x] Confirm the current active task is recorded or should be updated.
+- [x] Confirm parallel work is allowed before starting any parallel tasks.
+- [x] Record assumptions, blockers, or unclear status items before coding.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
-- [ ] Leave uncertain items open and document the uncertainty.
-- [ ] Confirm the next step is accurate or explicitly left undecided.
+- [x] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Leave uncertain items open and document the uncertainty.
+- [x] Confirm the next step is accurate or explicitly left undecided.
 
 # Acceptance Criteria
 

@@ -181,7 +181,71 @@ def _empty_output(strategy_key: str, starting_cash: float) -> dict[str, object]:
     }
 
 
+def _iso_timestamp(value: object) -> str:
+    if hasattr(value, "isoformat"):
+        return value.isoformat().replace("+00:00", "Z")
+    return str(value)
+
+
+def _serialize_execution(execution) -> dict[str, object]:
+    return {
+        "timestamp": _iso_timestamp(execution.timestamp),
+        "side": execution.side,
+        "execution_side": execution.execution_side,
+        "action_type": execution.action_type,
+        "position_side": execution.position_side,
+        "price": execution.price,
+        "quantity": execution.quantity,
+        "notional": execution.notional,
+        "cash_after": execution.cash_after,
+        "position_after": execution.position_after,
+        "equity_after": execution.equity_after,
+        "raw_price": execution.raw_price,
+        "effective_price": execution.effective_price,
+        "fee_cost": execution.fee_cost,
+        "spread_cost": execution.spread_cost,
+        "slippage_cost": execution.slippage_cost,
+        "total_cost": execution.total_cost,
+        "reason": execution.reason,
+        "pattern_event_id": execution.pattern_event_id,
+        "exit_reason": execution.exit_reason,
+        "gross_pnl": execution.gross_pnl,
+        "net_pnl": execution.net_pnl,
+        "realized_r_multiple": execution.realized_r_multiple,
+        "metadata": execution.metadata or {},
+    }
+
+
+def _serialize_events(executions: Sequence[object]) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for execution in executions:
+        pattern_event_id = getattr(execution, "pattern_event_id", None)
+        if not pattern_event_id:
+            continue
+        event = {
+            "pattern_event_id": pattern_event_id,
+            "timestamp": _iso_timestamp(execution.timestamp),
+            "action_type": execution.action_type,
+            "position_side": execution.position_side,
+            "execution_side": execution.execution_side,
+            "reason": execution.reason,
+            "exit_reason": execution.exit_reason,
+        }
+        metadata = getattr(execution, "metadata", {}) or {}
+        for key in ("pattern_type", "pattern_direction", "pattern_status"):
+            if key in metadata:
+                event[key] = metadata[key]
+        events.append(event)
+    return events
+
+
 def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str, object]:
+    events = _serialize_events(result.executions)
+    diagnostics = {
+        "pattern_event_count": len(events),
+        "execution_count": len(result.executions),
+        "event_ids": sorted({e["pattern_event_id"] for e in events}),
+    }
     return {
         "strategy": {
             "name": strategy_name,
@@ -201,19 +265,9 @@ def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str
             "sell_count": result.summary.sell_count,
             "max_drawdown": result.summary.max_drawdown,
         },
-        "executions": [
-            {
-                "timestamp": execution.timestamp.isoformat().replace("+00:00", "Z")
-                if hasattr(execution.timestamp, "isoformat")
-                else str(execution.timestamp),
-                "side": execution.side,
-                "price": execution.price,
-                "quantity": execution.quantity,
-                "reason": execution.reason,
-            }
-            for execution in result.executions
-        ],
-        "events": [],
+        "executions": [_serialize_execution(execution) for execution in result.executions],
+        "events": events,
+        "diagnostics": diagnostics,
         "warnings": [],
     }
 
@@ -277,6 +331,14 @@ def run(
         output["backtest_run_id"] = persisted_run_id
     if not actions:
         output["warnings"].append("no strategy events")
+    elif not output["events"]:
+        output["warnings"].append("no pattern events in executions")
+    if output["summary"]["trade_count"] == 0:
+        output["warnings"].append("no fills")
+    if any(getattr(action, "reason", None) == "RISK_PLAN_INVALID" for action in actions):
+        output["warnings"].append("invalid risk plan")
+    if output["portfolio"]["ending_position"] != 0:
+        output["warnings"].append("open position remains at end of backtest")
 
     print(json.dumps(output))
     return 0
