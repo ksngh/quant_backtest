@@ -1,4 +1,7 @@
-"""Pattern strategy backtest integration.
+"""Deprecated pattern backtest integration.
+
+Deprecated: use ``quant_bitcoin.backtesting.strategy_engine`` and canonical
+strategy-action builders in ``quant_bitcoin.backtesting.pattern_action_builder``.
 
 This module wires completed candle data, existing pattern detection, existing
 risk/exit planning, and the Task 054 exit simulator into a pure historical

@@ -1,4 +1,7 @@
-"""Basic historical backtest engine.
+"""Deprecated basic historical backtest engine.
+
+Deprecated: use ``quant_bitcoin.backtesting.strategy_engine`` for active
+backtest execution paths.
 
 This module is intentionally limited to backtest responsibilities: it iterates
 through standard candle data, calls a strategy, simulates in-memory trades, and

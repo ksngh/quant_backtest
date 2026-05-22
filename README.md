@@ -242,6 +242,10 @@ or local process manager instead.
 
 ## Run a pattern backtest from PostgreSQL candles
 
+`quant-bitcoin-pattern-backtest` is a compatibility alias that routes to the
+canonical strategy-engine CLI path. Prefer `quant-bitcoin-strategy-backtest`
+for new automation and scripts.
+
 After PostgreSQL already contains stored closed `BTCUSDT` `1m` candles, run
 the default Fair Value Gap pattern strategy backtest with an explicit safe UTC
 time window:
