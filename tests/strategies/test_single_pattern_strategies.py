@@ -76,7 +76,7 @@ def test_diamond_bullish_event_enters_long(monkeypatch) -> None:
     assert actions[0].reason == "PATTERN_CONFIRMED"
 
 
-def test_diamond_bearish_event_short_disabled_skip(monkeypatch) -> None:
+def test_diamond_bearish_event_enters_short(monkeypatch) -> None:
     strategy = DiamondStrategy()
 
     class Event:
@@ -86,9 +86,16 @@ def test_diamond_bearish_event_short_disabled_skip(monkeypatch) -> None:
         event_id = "diamond-bear"
         pattern_type = "DIAMOND"
 
+    class Plan:
+        status = RiskExitPlanStatus.VALID
+
+    class Wrapper:
+        risk_plan = Plan()
+
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1
-    assert actions[0].action_type == StrategyActionType.SKIP
-    assert actions[0].reason == "SHORT_DISABLED"
+    assert actions[0].action_type == StrategyActionType.ENTER_SHORT
+    assert actions[0].reason == "PATTERN_CONFIRMED"
