@@ -148,3 +148,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Completed Task 085 `CASH_BASED_STRATEGY_BACKTEST_ENGINE`; added `strategy_models.py` + `strategy_engine.py` for long-only BUY/SELL cashflow accounting, partial/full exit execution rows, equity/drawdown timeline points, and summary metrics, with focused deterministic tests in `tests/backtesting/test_strategy_engine.py`.
 
 - 2026-05-22: Completed Task 086 `STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT`; added strategy-level CLI (`quant-bitcoin-strategy-backtest`), routed compatibility pattern CLI to strategy runner, and updated CLI tests for strategy/pattern alias behavior.
+
+- 2026-05-22: Completed Task 087 `STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS`; added deterministic regression/research tests for strategy engine accounting (cash/equity movement, partial exits, exit reasons, metadata preservation), DIAMOND strategy diagnostics, strategy CLI BUY/SELL output semantics, and no-network behavior assertions.

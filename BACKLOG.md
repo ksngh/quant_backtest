@@ -8,7 +8,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 084 implemented single-pattern strategy classes with semantic action outputs and factory selection helper.
 - Completed (2026-05-22): Task 085 cash-based strategy backtest engine implemented with strategy execution/equity models and deterministic accounting tests.
 - Completed (2026-05-22): Task 086 strategy-level CLI replacement with compatibility alias routing.
-- Next queued task document created: `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md` (regression/research tests for strategy accounting, BUY/SELL persistence, and diagnostics).
+- Completed (2026-05-22): Task 087 strategy backtest regression/research tests for accounting, BUY/SELL outputs, DIAMOND diagnostics, and no-exchange safety checks.
 - Queue policy note: when executing queued tasks, process in ascending order (FIFO by task number), not reverse order.
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
