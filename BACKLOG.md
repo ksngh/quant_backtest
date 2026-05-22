@@ -20,9 +20,11 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 096 `LEGACY_DEPRECATED_BACKTEST_CLEANUP`.
 - Completed (2026-05-22): Task 097 `CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE`.
 - Completed (2026-05-22): Task 098 `TASK_STATUS_LEDGER_SYNCHRONIZATION`.
-- Active (2026-05-22): Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT`.
+- Completed (2026-05-22): Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT`.
 
 - Completed (2026-05-22): Task 099 follow-up review fix documented explicit 50-task ledger archiving rule in `AGENTS.md`.
+
+- Completed (2026-05-22): Task 100 `TASK_LEDGER_COMPLETION_RECONCILIATION_FOLLOWUP`.
 
 ## Current Candidates / Follow-ups
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
