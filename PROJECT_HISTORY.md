@@ -146,3 +146,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Completed Task 084 `SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS`; added `quant_bitcoin/strategies/patterns.py` with six single-pattern strategy classes + factory, emitting semantic actions (`ENTER_LONG`/`SKIP`) with long-only `SHORT_DISABLED` behavior and risk-plan wiring, plus focused strategy tests.
 
 - 2026-05-22: Completed Task 085 `CASH_BASED_STRATEGY_BACKTEST_ENGINE`; added `strategy_models.py` + `strategy_engine.py` for long-only BUY/SELL cashflow accounting, partial/full exit execution rows, equity/drawdown timeline points, and summary metrics, with focused deterministic tests in `tests/backtesting/test_strategy_engine.py`.
+
+- 2026-05-22: Completed Task 086 `STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT`; added strategy-level CLI (`quant-bitcoin-strategy-backtest`), routed compatibility pattern CLI to strategy runner, and updated CLI tests for strategy/pattern alias behavior.
