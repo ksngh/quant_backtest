@@ -1,28 +1,28 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 116: Task 096 legacy deprecated backtest cleanup completed; Task 097 queued.
+Phase 117: Task 097 canonical backtest regression/research suite completed.
 
 ## Current Step
-Task 096 completed: legacy backtest modules were explicitly deprecated and canonical strategy CLI guidance was clarified; Task 097 queued next.
+Task 097 completed: added canonical persistence regression tests and verified project-wide regression suite.
 
 ## Current Goal
-Execute Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE per owner assignment.
+Maintain canonical backtest regression stability and address unrelated compose-test baseline failure separately.
 
 ## Current Active Task
-Task `097_CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` (queued, implementation pending).
+No active implementation task (awaiting next owner assignment).
 
 ## Last Completed Step (Short)
-Task 096 completed: deprecated legacy backtest modules (`basic.py`, `pattern_strategy.py`, `postgres_runner_cli.py`) and clarified canonical strategy CLI preference in README.
+Task 097 completed: added strategy persistence adapter regression coverage for canonical equity graph values and trade metadata action/position-side preservation.
 
 ## Recommended Next Step
-Implement Task 097 canonical backtest regression/research test suite, then update tests/state docs.
+Create and assign next task document (Task 098+) before implementation.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Frontend package install/build remains blocked in this environment by npm registry access restrictions.
-- Backend API tests require FastAPI package availability in environment.
+- Full pytest currently has one unrelated existing failure in `tests/market_data/test_websocket_ingestion_cli.py` docker-compose connection-string assertion.
 
 ## Current Safety Boundary
 - No live trading.

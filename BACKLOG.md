@@ -19,7 +19,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 094 PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION implemented FVG cached/local-index detection path with CLI integration and deterministic parity tests.
 - Completed (2026-05-22): Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION implemented canonical strategy-engine persistence adapter and CLI payload migration.
 - Completed (2026-05-22): Task 096 LEGACY_DEPRECATED_BACKTEST_CLEANUP explicitly deprecated legacy backtest modules and clarified canonical CLI preference.
-- Queued (2026-05-22): Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE (task doc created; implementation pending).
+- Completed (2026-05-22): Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE added canonical persistence regression coverage and verification runs (with one unrelated pre-existing compose-test baseline failure).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Non-FVG deterministic synthetic entry fixtures for broader pattern backtest determinism.
 - Liquidity indicator implementation.
