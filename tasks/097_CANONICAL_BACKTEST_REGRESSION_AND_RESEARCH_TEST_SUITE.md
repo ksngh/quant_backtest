@@ -1,7 +1,7 @@
 # Task 097: CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Add regression and research-utility tests validating completed canonical backtest refactor outcomes across accounting, costs, pattern actions, optimization, and persistence.
