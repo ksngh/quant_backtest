@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 126: Task 106 legacy public API pruning completed.
+Phase 127: Task 107 strategy execution mapping retirement completed.
 
 ## Current Step
-Task 106 completed: deprecated backtesting package-level exports pruned to canonical-first imports and compatibility usage moved to direct module paths.
+Task 107 completed: retired long-only strategy execution mapping helper and moved mapping coverage to canonical long/short action helpers.
 
 ## Current Goal
-Keep canonical strategy-engine-first public API surface while preserving explicit compatibility module imports.
+Keep canonical long/short action helper APIs as the single action-to-side mapping contract.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 107+).
+No active implementation task (await owner assignment of Task 108+).
 
 ## Last Completed Step (Short)
-Task 106 completed: `quant_bitcoin.backtesting` public exports now prioritize canonical strategy-engine symbols; legacy Basic/pattern imports require explicit module-level compatibility imports.
+Task 107 completed: removed `quant_bitcoin.backtesting.strategy_execution_mapping`; tests now validate canonical `strategies.actions` long/short execution and position side mappings.
 
 ## Recommended Next Step
-Recommended next task: Task 107 `STRATEGY_EXECUTION_MAPPING_RETIREMENT`.
+Recommended next task: Task 108 `PATTERNS_PUBLIC_EXPORT_BOUNDARY_CLEANUP`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
