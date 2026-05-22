@@ -104,7 +104,7 @@ Frontend URL: `http://localhost:3000`
 
 ## 6) Placeholder-neutral equity/cash limitation
 
-Some persisted pattern runs can contain placeholder-neutral cash/equity values.
+Some older persisted pattern runs can contain placeholder-neutral cash/equity values from pre-canonical compatibility history.
 
 Expected behavior:
 - Backend returns warning entries in `warnings`.

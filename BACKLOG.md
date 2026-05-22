@@ -31,6 +31,8 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 102 `CANONICAL_PATTERN_ACTION_BUILDER_CLI_INTEGRATION`.
 - Completed (2026-05-22): Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`.
 
+- Completed (2026-05-22): Task 105 `README_AND_API_CONTRACT_CANONICAL_BACKTEST_REFRESH`.
+
 ## Current Candidates / Follow-ups
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.

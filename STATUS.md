@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 124: Task 104 strategy PostgreSQL runner CLI refactor completed.
+Phase 125: Task 105 README/API canonical backtest refresh completed.
 
 ## Current Step
-Task 104 completed: canonical strategy PostgreSQL CLI refactored into focused core + entrypoint modules.
+Task 105 completed: README/API/backend warning language aligned to canonical strategy-backtest CLI and legacy placeholder warning semantics.
 
 ## Current Goal
-Maintain canonical strategy CLI behavior while keeping parser/orchestration/persistence/output responsibilities modular and readable.
+Keep canonical strategy-backtest documentation and API warning semantics aligned with persisted-run behavior.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 105+).
+No active implementation task (await owner assignment of Task 106+).
 
 ## Last Completed Step (Short)
-Task 104 completed: strategy CLI wiring moved into focused core module while preserving wrapper compatibility and output contract.
+Task 105 completed: canonical CLI docs now prefer `quant-bitcoin-strategy-backtest`; compatibility aliases and legacy placeholder warnings are explicitly documented.
 
 ## Recommended Next Step
-Recommended next task: Task 105 `README_AND_API_CONTRACT_CANONICAL_BACKTEST_REFRESH`.
+Recommended next task: Task 106 `LEGACY_PUBLIC_API_PRUNING`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
