@@ -19,7 +19,11 @@ from typing import Any
 
 import pandas as pd
 
-from quant_bitcoin.backtesting.basic import BacktestResult, BasicBacktester
+from quant_bitcoin.backtesting.basic import BacktestResult
+from quant_bitcoin.backtesting.strategy_models import (
+    StrategyBacktestResult,
+    StrategyBacktestSummary,
+)
 from quant_bitcoin.market_data import PostgresCandleDataProvider
 from quant_bitcoin.persistence import (
     BACKTEST_ENGINE_NAME,
@@ -36,7 +40,8 @@ from quant_bitcoin.persistence import (
     build_backtest_run_key,
     build_rsi_strategy_config_payload,
 )
-from quant_bitcoin.strategies import RsiStrategy
+from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
+from quant_bitcoin.strategies import RsiActionStrategy
 from quant_bitcoin.runtime_logging import log_runtime_exception
 
 DEFAULT_DATABASE_URL = (
@@ -60,8 +65,8 @@ def _main_impl(
     argv: Sequence[str] | None = None,
     *,
     provider_factory: ProviderFactory = PostgresCandleDataProvider.from_database_url,
-    strategy_factory: StrategyFactory = RsiStrategy,
-    backtester_factory: BacktesterFactory = BasicBacktester,
+    strategy_factory: StrategyFactory = RsiActionStrategy,
+    backtester_factory: BacktesterFactory = run_strategy_backtest_engine,
     repository_factory: RepositoryFactory = PostgresBacktestResultRepository,
 ) -> int:
     """Run the PostgreSQL RSI backtest CLI and return a process exit code."""
@@ -82,11 +87,51 @@ def _main_impl(
         buy_threshold=args.rsi_buy_threshold,
         sell_threshold=args.rsi_sell_threshold,
     )
-    backtester = backtester_factory(
-        starting_cash=args.starting_cash,
-        trade_quantity=args.trade_quantity,
-    )
-    result = backtester.run(candles, strategy)
+    if candles.empty:
+        result = StrategyBacktestResult(
+            executions=(),
+            equity_points=(),
+            summary=StrategyBacktestSummary(
+                starting_cash=float(args.starting_cash),
+                ending_cash=float(args.starting_cash),
+                ending_position=0.0,
+                final_price=None,
+                final_equity=float(args.starting_cash),
+                total_return=0.0,
+                trade_count=0,
+                buy_count=0,
+                sell_count=0,
+                win_count=0,
+                loss_count=0,
+                max_drawdown=0.0,
+                gross_pnl=0.0,
+                net_pnl=0.0,
+                average_net_r=None,
+                metadata={},
+            ),
+        )
+    else:
+        actions = []
+        position = 0.0
+        for idx in range(len(candles)):
+            window = candles.iloc[: idx + 1]
+            emitted = strategy.evaluate(window, portfolio_state={"position": position})
+            for action in emitted:
+                actions.append(action)
+                if action.action_type.value == "ENTER_LONG":
+                    position = 1.0
+                elif action.action_type.value == "EXIT_LONG":
+                    position = 0.0
+
+        result = backtester_factory(
+            candles,
+            actions,
+            config=StrategyEngineConfig(
+                starting_cash=args.starting_cash,
+                trade_quantity=args.trade_quantity,
+                allow_short=False,
+            ),
+        )
 
     persisted_run_id = None
     if args.persist_results:
@@ -211,7 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_output(
-    result: BacktestResult,
+    result,
     *,
     candle_count: int,
     source: str,
@@ -241,17 +286,17 @@ def build_output(
             "buy_threshold": rsi_buy_threshold,
             "sell_threshold": rsi_sell_threshold,
         },
-        "summary": asdict(result.summary),
+        "summary": _strategy_summary_to_legacy(result),
         "trades": [
             {
                 "timestamp": _serialize_datetime(_to_datetime(trade.timestamp)),
-                "signal": trade.signal.value,
+                "signal": _trade_signal(trade),
                 "price": trade.price,
                 "quantity": trade.quantity,
                 "cash_after": trade.cash_after,
                 "position_after": trade.position_after,
             }
-            for trade in result.trades
+            for trade in _result_trades(result)
         ],
     }
     if backtest_run_id is not None:
@@ -260,7 +305,7 @@ def build_output(
 
 
 def build_persistence_payload(
-    result: BacktestResult,
+    result,
     *,
     candles: pd.DataFrame,
     source: str,
@@ -330,7 +375,7 @@ def build_persistence_payload(
             status=COMPLETED_BACKTEST_STATUS,
             metadata={"schema_version": BACKTEST_SCHEMA_VERSION},
         ),
-        result=BacktestResultPayload(**asdict(result.summary)),
+        result=BacktestResultPayload(**_strategy_summary_to_legacy(result)),
         trades=_build_trade_payloads(result),
         graph_points=_build_graph_point_payloads(
             normalized_candles, result, starting_cash=float(starting_cash)
@@ -338,27 +383,27 @@ def build_persistence_payload(
     )
 
 
-def _build_trade_payloads(result: BacktestResult) -> tuple[BacktestTradePayload, ...]:
+def _build_trade_payloads(result) -> tuple[BacktestTradePayload, ...]:
     return tuple(
         BacktestTradePayload(
             sequence=index,
             candle_open_time=_to_datetime(trade.timestamp),
-            signal=trade.signal.value,
+            signal=_trade_signal(trade),
             price=float(trade.price),
             quantity=float(trade.quantity),
             cash_after=float(trade.cash_after),
             position_after=float(trade.position_after),
         )
-        for index, trade in enumerate(result.trades, start=1)
+        for index, trade in enumerate(_result_trades(result), start=1)
     )
 
 
 def _build_graph_point_payloads(
-    candles: pd.DataFrame, result: BacktestResult, *, starting_cash: float
+    candles: pd.DataFrame, result, *, starting_cash: float
 ) -> tuple[BacktestGraphPointPayload, ...]:
     trades_by_timestamp = {
         _to_datetime(trade.timestamp): (index, trade)
-        for index, trade in enumerate(result.trades, start=1)
+        for index, trade in enumerate(_result_trades(result), start=1)
     }
     cash = float(starting_cash)
     position = 0.0
@@ -373,7 +418,7 @@ def _build_graph_point_payloads(
             trade_sequence, trade = trade_entry
             cash = float(trade.cash_after)
             position = float(trade.position_after)
-            signal = trade.signal.value
+            signal = _trade_signal(trade)
         points.append(
             BacktestGraphPointPayload(
                 sequence=sequence,
@@ -397,6 +442,36 @@ def _normalize_candles_for_persistence(candles: pd.DataFrame) -> pd.DataFrame:
     normalized["close"] = pd.to_numeric(normalized["close"], errors="raise")
     return normalized.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
 
+
+def _strategy_summary_to_legacy(result) -> dict[str, Any]:
+    summary = asdict(result.summary)
+    legacy = {
+        "starting_cash": summary["starting_cash"],
+        "ending_cash": summary["ending_cash"],
+        "ending_position": summary["ending_position"],
+        "final_price": summary["final_price"],
+        "final_equity": summary["final_equity"],
+        "total_return": summary["total_return"],
+        "trade_count": summary["trade_count"],
+        "buy_count": summary["buy_count"],
+        "sell_count": summary["sell_count"],
+    }
+    metadata = summary.get("metadata")
+    if metadata:
+        legacy["metadata"] = metadata
+    return legacy
+
+
+def _result_trades(result) -> tuple[Any, ...]:
+    return tuple(getattr(result, "executions", getattr(result, "trades", ())))
+
+
+def _trade_signal(trade: Any) -> str:
+    side = getattr(trade, "side", None)
+    if side is not None:
+        return str(side)
+    signal = getattr(trade, "signal")
+    return signal.value if hasattr(signal, "value") else str(signal)
 
 def _optional_timestamp(value: str) -> datetime | None:
     if value == "":

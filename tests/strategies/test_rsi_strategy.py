@@ -8,6 +8,9 @@ import pytest
 from quant_bitcoin.strategies import RsiStrategy, Signal, calculate_rsi
 from quant_bitcoin.strategies.rsi import STANDARD_CANDLE_COLUMNS
 
+from quant_bitcoin.strategies.actions import StrategyActionType
+from quant_bitcoin.strategies.rsi_actions import RsiActionStrategy
+
 
 def make_candles(closes: list[float]) -> pd.DataFrame:
     timestamps = pd.date_range("2024-01-01", periods=len(closes), freq="min")
@@ -116,3 +119,21 @@ def test_rsi_strategy_does_not_open_network_connections(monkeypatch):
     )
 
     assert signal is Signal.BUY
+
+
+def test_rsi_action_strategy_emits_enter_long_when_oversold_and_flat():
+    candles = make_candles([100, 99, 98, 97, 96, 95])
+    actions = RsiActionStrategy(window=3, buy_threshold=30, sell_threshold=70).evaluate(
+        candles, portfolio_state={"position": 0.0}
+    )
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.ENTER_LONG
+
+
+def test_rsi_action_strategy_emits_exit_long_when_overbought_and_long():
+    candles = make_candles([100, 101, 102, 103, 104, 105])
+    actions = RsiActionStrategy(window=3, buy_threshold=30, sell_threshold=70).evaluate(
+        candles, portfolio_state={"position": 1.0}
+    )
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.EXIT_LONG
