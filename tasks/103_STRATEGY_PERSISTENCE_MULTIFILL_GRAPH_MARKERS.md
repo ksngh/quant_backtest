@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Completed (2026-05-22)
 
 # Goal
 

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 122: Task 102 canonical pattern action builder CLI integration completed.
+Phase 123: Task 103 strategy persistence multifill graph markers completed.
 
 ## Current Step
-Task 102 completed: canonical pattern action builder integrated into strategy PostgreSQL CLI path.
+Task 103 completed: graph-point metadata now preserves multi-execution markers per timestamp.
 
 ## Current Goal
-Maintain canonical strategy-pattern action generation wiring and synchronized test/ledger state for Task 102 completion.
+Maintain persistence compatibility while preserving same-timestamp multi-fill marker detail for strategy backtest graph points.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 103+).
+No active implementation task (await owner assignment of Task 104+).
 
 ## Last Completed Step (Short)
-Task 102 completed: strategy PostgreSQL CLI now routes pattern entries through canonical pattern action builder for entry/exit/skip action sequences.
+Task 103 completed: persistence adapter now keeps all same-timestamp execution markers in graph-point metadata while preserving scalar compatibility fields.
 
 ## Recommended Next Step
-Recommended next task: Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`.
+Recommended next task: Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
