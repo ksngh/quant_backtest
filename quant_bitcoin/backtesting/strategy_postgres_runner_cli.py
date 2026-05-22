@@ -9,6 +9,8 @@ from quant_bitcoin.runtime_logging import log_runtime_exception
 from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext
 from quant_bitcoin.strategies.patterns import FairValueGapStrategy, strategy_for_pattern
 from quant_bitcoin.backtesting.strategy_engine import run_strategy_backtest_engine, StrategyEngineConfig
+from quant_bitcoin.backtesting.strategy_persistence_adapter import build_strategy_engine_persistence_payload
+from quant_bitcoin.persistence import BACKTEST_ENGINE_NAME, BACKTEST_ENGINE_VERSION, PostgresBacktestResultRepository
 
 DEFAULT_DATABASE_URL="postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
 DEFAULT_SOURCE="binance_spot"; DEFAULT_SYMBOL="BTCUSDT"; DEFAULT_INTERVAL="1m"; DEFAULT_STRATEGY="FAIR_VALUE_GAP"
@@ -54,7 +56,13 @@ def run(argv:Sequence[str]|None=None,*,prog='quant-bitcoin-strategy-backtest',in
   out={"strategy":{"name":f"{_select(args)}_PATTERN_STRATEGY","strategy_type":"single_pattern","pattern":_select(args)},"portfolio":{"starting_cash":args.starting_cash,"ending_cash":args.starting_cash,"ending_position":0.0,"final_equity":args.starting_cash,"total_return":0.0},"summary":{"trade_count":0,"buy_count":0,"sell_count":0,"max_drawdown":0.0},"executions":[],"events":[],"warnings":["candle_count = 0"]}
   print(json.dumps(out)); return 0
  strategy,actions=_build_actions(candles,_select(args));res=run_strategy_backtest_engine(candles,actions,config=StrategyEngineConfig(starting_cash=args.starting_cash,trade_quantity=args.trade_quantity))
+ persisted_run_id=None
+ if not args.no_persist:
+  repo=PostgresBacktestResultRepository(args.database_url)
+  payload=build_strategy_engine_persistence_payload(res,candles,source=args.source,symbol=args.symbol,interval=args.interval,start_time=args.start_time,end_time=args.end_time,strategy_key=strategy.strategy_key.lower(),strategy_name=strategy.strategy_name,strategy_version="strategy_engine_v1",strategy_parameters={"pattern":strategy.strategy_key},starting_cash=args.starting_cash,trade_quantity=args.trade_quantity,engine_name=BACKTEST_ENGINE_NAME,engine_version=BACKTEST_ENGINE_VERSION)
+  persisted_run_id=repo.save_completed_backtest(payload)
  out={"strategy":{"name":strategy.strategy_name,"strategy_type":"single_pattern","pattern":strategy.strategy_key},"portfolio":{"starting_cash":res.summary.starting_cash,"ending_cash":res.summary.ending_cash,"ending_position":res.summary.ending_position,"final_equity":res.summary.final_equity,"total_return":res.summary.total_return},"summary":{"trade_count":res.summary.trade_count,"buy_count":res.summary.buy_count,"sell_count":res.summary.sell_count,"max_drawdown":res.summary.max_drawdown},"executions":[{"timestamp":e.timestamp.isoformat().replace('+00:00','Z') if hasattr(e.timestamp,'isoformat') else str(e.timestamp),"side":e.side,"price":e.price,"quantity":e.quantity,"reason":e.reason} for e in res.executions],"events":[],"warnings":[]}
+ if persisted_run_id is not None: out["backtest_run_id"]=persisted_run_id
  if not actions: out['warnings'].append('no strategy events')
  print(json.dumps(out)); return 0
 

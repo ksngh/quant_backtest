@@ -17,7 +17,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 092 PATTERN_RISK_EXIT_ACTION_BUILDER implemented canonical pattern risk/exit simulation to strategy-action conversion with focused tests.
 - Completed (2026-05-22): Task 093 ENTRY_FILL_INTRABAR_INTEGRATION integrated entry simulation outcomes into pattern action generation with no-fill diagnostics and filled-entry metadata propagation.
 - Completed (2026-05-22): Task 094 PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION implemented FVG cached/local-index detection path with CLI integration and deterministic parity tests.
-- Queued (2026-05-22): Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION (task doc created; implementation pending).
+- Completed (2026-05-22): Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION implemented canonical strategy-engine persistence adapter and CLI payload migration.
 - Queued (2026-05-22): Task 096 LEGACY_DEPRECATED_BACKTEST_CLEANUP (task doc created; implementation pending).
 - Queued (2026-05-22): Task 097 CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE (task doc created; implementation pending).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).

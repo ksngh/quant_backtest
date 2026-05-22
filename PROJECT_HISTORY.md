@@ -190,3 +190,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-22: Completed Task 094 `PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION`; added FVG-oriented indicator/pattern cache context (`quant_bitcoin/backtesting/pattern_detection_cache.py`) with local-index evaluation path, extended `FairValueGapStrategy.evaluate_at(...)`, integrated optimized action generation into strategy PostgreSQL CLI for FVG, and added focused optimization/regression tests in `tests/backtesting/test_pattern_detection_optimization.py`.
+
+- 2026-05-22: Completed Task 095 `CANONICAL_CLI_AND_PERSISTENCE_MIGRATION`; added `strategy_persistence_adapter` for canonical StrategyEngine->persistence payload mapping, migrated RSI and strategy/pattern CLI persistence paths to unified adapter usage, preserved execution-side signals and action metadata in persisted trade metadata, and verified focused CLI persistence tests.

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 114: Task 094 pattern detection performance optimization completed; Task 095 queued.
+Phase 115: Task 095 canonical CLI and persistence migration completed; Task 096 queued.
 
 ## Current Step
-Task 094 completed: FVG path now uses cached indicator/pattern evaluation for local index detection; Task 095 queued next.
+Task 095 completed: canonical strategy-engine persistence adapter now unifies RSI/pattern strategy persistence payload mapping; Task 096 queued next.
 
 ## Current Goal
-Execute Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION per owner assignment.
+Execute Task 096 LEGACY_DEPRECATED_BACKTEST_CLEANUP per owner assignment.
 
 ## Current Active Task
-Task `095_CANONICAL_CLI_AND_PERSISTENCE_MIGRATION` (queued, implementation pending).
+Task `096_LEGACY_DEPRECATED_BACKTEST_CLEANUP` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 094 completed: Added FVG optimization cache/context path and strategy CLI integration to avoid repeated full-prefix detection for FVG.
+Task 095 completed: added canonical strategy persistence adapter; migrated RSI and strategy/pattern CLI persistence mapping to StrategyEngine payload semantics.
 
 ## Recommended Next Step
-Implement Task 095 canonical CLI and persistence migration, then update tests/state docs.
+Implement Task 096 legacy deprecated backtest cleanup, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

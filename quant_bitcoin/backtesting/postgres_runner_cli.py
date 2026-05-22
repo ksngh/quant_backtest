@@ -41,6 +41,7 @@ from quant_bitcoin.persistence import (
     build_rsi_strategy_config_payload,
 )
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
+from quant_bitcoin.backtesting.strategy_persistence_adapter import build_strategy_engine_persistence_payload
 from quant_bitcoin.strategies import RsiActionStrategy
 from quant_bitcoin.runtime_logging import log_runtime_exception
 
@@ -136,19 +137,13 @@ def _main_impl(
     persisted_run_id = None
     if args.persist_results:
         repository = repository_factory(args.database_url)
-        payload = build_persistence_payload(
-            result,
-            candles=candles,
-            source=args.source,
-            symbol=args.symbol,
-            interval=args.interval,
-            start_time=args.start_time,
-            end_time=args.end_time,
-            starting_cash=args.starting_cash,
-            trade_quantity=args.trade_quantity,
-            rsi_window=args.rsi_window,
-            rsi_buy_threshold=args.rsi_buy_threshold,
-            rsi_sell_threshold=args.rsi_sell_threshold,
+        payload = build_strategy_engine_persistence_payload(
+            result, candles, source=args.source, symbol=args.symbol, interval=args.interval,
+            start_time=args.start_time, end_time=args.end_time,
+            strategy_key="rsi", strategy_name="RsiStrategy", strategy_version="rsi_strategy_v1",
+            strategy_parameters={"window": args.rsi_window, "buy_threshold": float(args.rsi_buy_threshold), "sell_threshold": float(args.rsi_sell_threshold)},
+            starting_cash=args.starting_cash, trade_quantity=args.trade_quantity,
+            engine_name=BACKTEST_ENGINE_NAME, engine_version=BACKTEST_ENGINE_VERSION,
         )
         persisted_run_id = repository.save_completed_backtest(payload)
 
