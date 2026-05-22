@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 127: Task 107 strategy execution mapping retirement completed.
+Phase 128: Task 108 patterns public export boundary cleanup completed.
 
 ## Current Step
-Task 107 completed: retired long-only strategy execution mapping helper and moved mapping coverage to canonical long/short action helpers.
+Task 108 completed: migrated pattern-risk internal/test imports to canonical `quant_bitcoin.risk` paths while retaining compatibility shims.
 
 ## Current Goal
-Keep canonical long/short action helper APIs as the single action-to-side mapping contract.
+Keep canonical risk import ownership under `quant_bitcoin.risk` while preserving explicit compatibility shims in `quant_bitcoin.patterns`.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 108+).
+No active implementation task (await owner assignment of Task 109+).
 
 ## Last Completed Step (Short)
-Task 107 completed: removed `quant_bitcoin.backtesting.strategy_execution_mapping`; tests now validate canonical `strategies.actions` long/short execution and position side mappings.
+Task 108 completed: removed active internal/test dependency on `quant_bitcoin.patterns.risk_exit` and `quant_bitcoin.patterns.exit_simulation` by migrating to canonical `quant_bitcoin.risk` imports.
 
 ## Recommended Next Step
-Recommended next task: Task 108 `PATTERNS_PUBLIC_EXPORT_BOUNDARY_CLEANUP`.
+Recommended next task: Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

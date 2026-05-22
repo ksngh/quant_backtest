@@ -14,7 +14,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from quant_bitcoin.patterns.diamond import DiamondDirection, DiamondEvent
-from quant_bitcoin.patterns.risk_exit import (
+from quant_bitcoin.risk import (
     BreakEvenSettings,
     PartialExitSettings,
     RiskExitConfig,

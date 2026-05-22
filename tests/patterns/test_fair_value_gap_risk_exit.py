@@ -9,7 +9,7 @@ from quant_bitcoin.patterns import (
     create_fair_value_gap_risk_exit_plan,
 )
 from quant_bitcoin.patterns.fair_value_gap import PatternEvent
-from quant_bitcoin.patterns.risk_exit import RiskExitTargetSource
+from quant_bitcoin.risk import RiskExitTargetSource
 
 
 def _event(direction: str = "BULLISH") -> PatternEvent:

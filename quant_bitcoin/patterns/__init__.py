@@ -1,6 +1,6 @@
 """Pattern detection engine exports."""
 
-from quant_bitcoin.patterns.risk_exit import (
+from quant_bitcoin.risk import (
     BreakEvenSettings,
     PartialExitSettings,
     RiskExitConfig,
@@ -98,7 +98,7 @@ from quant_bitcoin.patterns.cup_and_handle import (
     detect_cup_and_handle_patterns,
 )
 
-from quant_bitcoin.patterns.exit_simulation import (
+from quant_bitcoin.risk import (
     PatternExitEvent,
     PatternExitReason,
     PatternExitSimulationResult,

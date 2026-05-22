@@ -10,7 +10,7 @@ from quant_bitcoin.patterns import (
     create_diamond_risk_exit_plan,
 )
 from quant_bitcoin.patterns.diamond import DiamondEvent
-from quant_bitcoin.patterns.risk_exit import RiskExitTargetSource
+from quant_bitcoin.risk import RiskExitTargetSource
 
 
 def _event(direction: str = "BULLISH") -> DiamondEvent:
