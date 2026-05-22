@@ -11,7 +11,7 @@ All items below are **candidates only** and are **not approved implementation ta
 - Completed (2026-05-22): Task 087 strategy backtest regression/research tests for accounting, BUY/SELL outputs, DIAMOND diagnostics, and no-exchange safety checks.
 - Queue policy note: when executing queued tasks, process in ascending order (FIFO by task number), not reverse order.
 - Completed (2026-05-22): Task 088 strategy action contract expanded to include explicit long/short semantics and helper mappings.
-- Queued (2026-05-22): Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING (task doc created; implementation pending).
+- Completed (2026-05-22): Task 089 STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING implementation with deterministic long/short cost-aware accounting.
 - Queued (2026-05-22): Task 090 RSI_CANONICAL_ENGINE_MIGRATION (task doc created; implementation pending).
 - Queued (2026-05-22): Task 091 PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT (task doc created; implementation pending).
 - Queued (2026-05-22): Task 092 PATTERN_RISK_EXIT_ACTION_BUILDER (task doc created; implementation pending).

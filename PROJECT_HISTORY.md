@@ -173,3 +173,5 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 - 2026-05-22: Created Task 097 `CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE` task document from owner assignment; per state-driven workflow, implementation not started in this step.
 
 - 2026-05-22: Completed Task 088 `STRATEGY_ACTION_LONG_SHORT_CONTRACT`; expanded canonical strategy actions with short-side action enums, added semantic helper mappings (entry/exit, position side, execution side), added compatibility `execution_side`/`position_side` fields on strategy executions while keeping `side`, and added focused strategy-action mapping tests.
+
+- 2026-05-22: Completed Task 089 `STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING`; upgraded strategy engine to deterministic long/short signed-position accounting, integrated transaction cost config/liquidity role semantics, added compatibility execution cost fields (`raw_price`, `effective_price`, fee/spread/slippage/total cost), blocked opposite-side re-entry while open, and expanded accounting tests for long/short/cost/drawdown behavior.
