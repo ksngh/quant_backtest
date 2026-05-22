@@ -5,7 +5,7 @@ import socket
 import pandas as pd
 import pytest
 
-from quant_bitcoin.backtesting import BasicBacktester, BacktestResult, BacktestSummary
+from quant_bitcoin.backtesting.basic import BasicBacktester, BacktestResult, BacktestSummary
 from quant_bitcoin.market_data import CsvCandleDataProvider
 from quant_bitcoin.strategies import Signal
 

@@ -26,6 +26,8 @@ Older history is preserved in segmented archives:
 
 - 2026-05-22: Completed Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`; switched Docker Compose backtest profile to canonical strategy runner CLI and aligned websocket-ingestion compose assertion to env-interpolated DATABASE_URL semantics.
 
+- 2026-05-22: Completed Task 106 `LEGACY_PUBLIC_API_PRUNING`; pruned deprecated package-level backtesting exports from `quant_bitcoin.backtesting.__all__`, migrated tests/docs to explicit compatibility module imports, and kept canonical strategy-engine symbols as primary public imports.
+
 ## Active Historical Notes
 - Live trading approval/credential policy/endpoint allowlist/kill-switch design remains unresolved and blocking any real-execution phase.
 - Docker runtime verification remains environment-dependent where Docker is unavailable.

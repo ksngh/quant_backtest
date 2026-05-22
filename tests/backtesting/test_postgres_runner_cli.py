@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from quant_bitcoin.backtesting import BasicBacktester
+from quant_bitcoin.backtesting.basic import BasicBacktester
 from quant_bitcoin.backtesting import postgres_runner_cli
 from quant_bitcoin.strategies import RsiActionStrategy, RsiStrategy
 
