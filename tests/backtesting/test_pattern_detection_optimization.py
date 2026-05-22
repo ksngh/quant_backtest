@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext
+from quant_bitcoin.backtesting.fvg_detection_cache import IndicatorCache, PatternEvaluationContext
 from quant_bitcoin.patterns.fair_value_gap import detect_fair_value_gaps
 from quant_bitcoin.strategies.patterns import FairValueGapStrategy
 

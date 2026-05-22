@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 128: Task 108 patterns public export boundary cleanup completed.
+Phase 129: Task 109 FVG cache naming alignment completed.
 
 ## Current Step
-Task 108 completed: migrated pattern-risk internal/test imports to canonical `quant_bitcoin.risk` paths while retaining compatibility shims.
+Task 109 completed: renamed pattern cache ownership to FVG-specific module with compatibility re-export.
 
 ## Current Goal
-Keep canonical risk import ownership under `quant_bitcoin.risk` while preserving explicit compatibility shims in `quant_bitcoin.patterns`.
+Keep optimized FVG cache ownership explicit under `quant_bitcoin.backtesting.fvg_detection_cache` while preserving compatibility imports.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 109+).
+No active implementation task (await owner assignment of Task 110+).
 
 ## Last Completed Step (Short)
-Task 108 completed: removed active internal/test dependency on `quant_bitcoin.patterns.risk_exit` and `quant_bitcoin.patterns.exit_simulation` by migrating to canonical `quant_bitcoin.risk` imports.
+Task 109 completed: moved FVG cache canonical imports to `quant_bitcoin.backtesting.fvg_detection_cache` and retained `pattern_detection_cache` as compatibility re-export.
 
 ## Recommended Next Step
-Recommended next task: Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`.
+Recommended next task: Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
