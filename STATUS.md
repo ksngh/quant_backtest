@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 96: Task 086 strategy backtest CLI and persistence replacement completed.
+Phase 97: Task 087 strategy backtest regression and research tests completed.
 
 ## Current Step
-Task 085 completed: added reusable strategy backtest engine with BUY/SELL cashflow accounting, partial exits, equity curve points, and strategy summary outputs.
+Task 087 completed: added regression/research tests for strategy accounting, CLI BUY/SELL outputs, DIAMOND diagnostics, metadata persistence, and no-exchange behavior checks.
 
 ## Current Goal
-Prepare and execute Task 087 regression/research tests for strategy backtest flow.
+Prepare next queued task after Task 087 completion (owner assignment required).
 
 ## Current Active Task
-Task `086_STRATEGY_BACKTEST_CLI_AND_PERSISTENCE_REPLACEMENT` (completed).
+Task `087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS` (completed).
 
 ## Last Completed Step (Short)
-Task 085 completed: implemented strategy-level cash accounting engine with execution/equity models and deterministic engine tests.
+Task 087 completed: added deterministic regression/research coverage for strategy backtest cash/position/equity accounting and CLI execution semantics.
 
 ## Recommended Next Step
-Start Task 087 implementation from `tasks/087_STRATEGY_BACKTEST_REGRESSION_AND_RESEARCH_TESTS.md`.
+Wait for owner to assign/create the next task document (FIFO order).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
