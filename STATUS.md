@@ -7,16 +7,16 @@ Phase 117: Task 097 canonical backtest regression/research suite completed.
 Task 097 completed: added canonical persistence regression tests and verified project-wide regression suite.
 
 ## Current Goal
-Maintain canonical backtest regression stability and address unrelated compose-test baseline failure separately.
+Prepare and execute Task 099 ledger segmentation/template-enforcement setup before broader ledger cleanup work.
 
 ## Current Active Task
-No active implementation task (awaiting next owner assignment).
+Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT` (task document created; implementation not started).
 
 ## Last Completed Step (Short)
 Task 097 completed: added strategy persistence adapter regression coverage for canonical equity graph values and trade metadata action/position-side preservation.
 
 ## Recommended Next Step
-Create and assign next task document (Task 098+) before implementation.
+Execute Task 099 by segmenting root ledgers into recent-window + archive chunks and adding explicit TASK_TEMPLATE enforcement rule.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
