@@ -1,7 +1,7 @@
 # Task 099: LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT
 
 ## Status
-Planned
+Completed
 
 # Goal
 Reduce context overload by segmenting large ledger documents and enforce task-document template compliance for all newly created tasks.
@@ -54,10 +54,10 @@ Assumptions/notes:
 - Task numbering/range chunking policy will be documented in the task execution notes.
 
 ## After Implementation
-- [ ] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
-- [ ] Leave uncertain items open and document the uncertainty.
-- [ ] Confirm the next step is accurate or explicitly left undecided.
+- [x] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Leave uncertain items open and document the uncertainty.
+- [x] Confirm the next step is accurate or explicitly left undecided.
 
 # Acceptance Criteria
 - Root `BACKLOG.md` keeps only latest active/candidate window and points to archive chunk files.
