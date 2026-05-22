@@ -46,3 +46,12 @@ Older history is preserved in segmented archives:
 - 2026-05-22: Completed Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`; renamed cache ownership to `fvg_detection_cache`, migrated internal imports/tests, and preserved legacy import compatibility via re-export shim.
 
 - 2026-05-22: Completed Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`; enriched strategy CLI JSON executions/events/diagnostics, added warning classification for no-fills/invalid-risk/open-position cases, and extended CLI persistence tests.
+- 2026-05-22: Added Task 111 `CANONICAL_PATTERN_LIFECYCLE_BACKTEST_INTEGRATION` task document from owner requirements; no implementation executed in this step.
+- 2026-05-22: Completed Task 111 execution-price and entry-fill contract integration; added optional StrategyAction requested_price, engine explicit-price execution with validation+fallback, and pattern action-builder price propagation with regression tests.
+- 2026-05-22: Added Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS` task document as a separate task per owner request; no implementation executed in this step.
+- 2026-05-22: Added Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` task document as a separate task per owner request; no implementation executed in this step.

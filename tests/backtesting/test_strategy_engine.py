@@ -51,3 +51,21 @@ def test_engine_rejects_unsorted_candles() -> None:
         assert False, "expected ValueError"
     except ValueError as exc:
         assert "sorted" in str(exc)
+
+
+def test_engine_uses_explicit_requested_price_and_fallback_close() -> None:
+    candles = _candles()
+    actions = [
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1.0, requested_price=99.0),
+        StrategyAction(StrategyActionType.EXIT_LONG, timestamp=2, quantity=1.0),
+    ]
+    result = run_strategy_backtest_engine(candles, actions)
+    assert result.executions[0].raw_price == 99.0
+    assert result.executions[1].raw_price == 102.0
+
+
+def test_engine_skips_invalid_explicit_price() -> None:
+    candles = _candles()
+    actions = [StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1.0, requested_price=0.0)]
+    result = run_strategy_backtest_engine(candles, actions)
+    assert result.summary.trade_count == 0

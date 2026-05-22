@@ -70,3 +70,4 @@ class StrategyAction:
     quantity: float | None = None
     reason: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    requested_price: float | None = None
