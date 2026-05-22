@@ -73,3 +73,67 @@ def test_strategy_cli_no_exchange_network_calls(monkeypatch) -> None:
     )
 
     assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
+
+
+def test_strategy_cli_enriched_execution_and_events(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *args, **kwargs: FakeProvider(_candles()),
+    )
+
+    class StubStrategy:
+        strategy_name = "STUB_PATTERN_STRATEGY"
+        strategy_key = "STUB"
+
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda candles, strategy_key: (
+            StubStrategy(),
+            [
+                StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
+                StrategyAction(StrategyActionType.EXIT_LONG, timestamp=candles.iloc[1]["timestamp"], quantity=1.0),
+            ],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert "diagnostics" in output
+    assert "execution_side" in output["executions"][0]
+    assert output["diagnostics"]["execution_count"] == 2
+
+
+def test_strategy_cli_adds_invalid_risk_and_no_fill_warnings(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *args, **kwargs: FakeProvider(_candles()),
+    )
+
+    class StubStrategy:
+        strategy_name = "STUB_PATTERN_STRATEGY"
+        strategy_key = "STUB"
+
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda candles, strategy_key: (
+            StubStrategy(),
+            [
+                StrategyAction(
+                    StrategyActionType.SKIP,
+                    timestamp=candles.iloc[0]["timestamp"],
+                    quantity=0.0,
+                    reason="RISK_PLAN_INVALID",
+                    metadata={"position_side": "LONG"},
+                ),
+            ],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert "invalid risk plan" in output["warnings"]
+    assert "no fills" in output["warnings"]
