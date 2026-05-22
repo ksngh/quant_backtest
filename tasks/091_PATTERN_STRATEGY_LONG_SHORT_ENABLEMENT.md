@@ -1,7 +1,7 @@
 # Task 091: PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Enable bearish pattern events to emit short semantic strategy actions instead of default skip behavior.

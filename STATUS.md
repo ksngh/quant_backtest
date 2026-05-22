@@ -1,19 +1,19 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 117: Task 097 canonical backtest regression/research suite completed.
+Phase 118: Task 098 task-status ledger synchronization completed.
 
 ## Current Step
-Task 097 completed: added canonical persistence regression tests and verified project-wide regression suite.
+Task 098 completed: synchronized task/ledger status records for Tasks 088-097 and aligned active-task pointer.
 
 ## Current Goal
-Prepare and execute Task 099 ledger segmentation/template-enforcement setup before broader ledger cleanup work.
+Proceed with Task 099 ledger segmentation/template-enforcement setup after ledger synchronization.
 
 ## Current Active Task
-Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT` (task document created; implementation not started).
+Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT` (next active task; implementation not started).
 
 ## Last Completed Step (Short)
-Task 097 completed: added strategy persistence adapter regression coverage for canonical equity graph values and trade metadata action/position-side preservation.
+Task 098 completed: task-file statuses 088-097 synchronized to match BACKLOG/PROJECT_HISTORY completion records and next active task kept at 099.
 
 ## Recommended Next Step
 Execute Task 099 by segmenting root ledgers into recent-window + archive chunks and adding explicit TASK_TEMPLATE enforcement rule.
