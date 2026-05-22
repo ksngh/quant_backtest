@@ -14,6 +14,7 @@ from quant_bitcoin.patterns import (
     detect_adam_and_eve_patterns, detect_cup_and_handle_patterns, detect_diamond_patterns,
     detect_fair_value_gaps, detect_order_blocks, detect_trendline_breaks,
 )
+from quant_bitcoin.backtesting.pattern_detection_cache import IndicatorCache, PatternEvaluationContext, detect_fair_value_gap_at_index
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
@@ -66,6 +67,10 @@ class PatternStrategyBase:
         action_type = StrategyActionType.ENTER_LONG if position_side == "LONG" else StrategyActionType.ENTER_SHORT
         return [StrategyAction(action_type, timestamp, reason="PATTERN_CONFIRMED", metadata=metadata, quantity=1.0)]
 
+    def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
+        frame = context.candles.iloc[: context.current_index + 1]
+        return self.evaluate(frame, portfolio_state=context.portfolio_state)
+
     def _latest_event(self, frame: pd.DataFrame):
         raise NotImplementedError
 
@@ -82,6 +87,23 @@ class FairValueGapStrategy(PatternStrategyBase):
         events = [e for e in detect_fair_value_gaps(frame, config=self.detector_config) if getattr(e, 'end_index', None) == len(frame)-1]
         return events[0] if events else None
     def _risk_plan(self, event, frame): return create_fair_value_gap_risk_exit_plan(event, config=self.risk_config).risk_plan
+
+    def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
+        events = detect_fair_value_gap_at_index(context, config=self.detector_config)
+        if not events:
+            return []
+        event = events[0]
+        direction = str(getattr(event, "direction", "")).upper()
+        timestamp = getattr(event, "timestamp", context.candles.iloc[context.current_index]["timestamp"])
+        position_side = pattern_direction_to_position_side(direction)
+        if position_side is None:
+            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="UNSUPPORTED_DIRECTION", metadata={"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction})]
+        planned = self._risk_plan(event, context.candles.iloc[: context.current_index + 1])
+        metadata = {"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction, "position_side": position_side, "entry_reference": getattr(event, "entry_reference", None), "stop_reference": getattr(event, "stop_reference", None), "target_reference": getattr(event, "target_reference", None), "risk_plan": planned}
+        if planned is None or planned.status != RiskExitPlanStatus.VALID:
+            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
+        action_type = StrategyActionType.ENTER_LONG if position_side == "LONG" else StrategyActionType.ENTER_SHORT
+        return [StrategyAction(action_type, timestamp, reason="PATTERN_CONFIRMED", metadata=metadata, quantity=1.0)]
 
 @dataclass(frozen=True)
 class TrendlineBreakStrategy(PatternStrategyBase):

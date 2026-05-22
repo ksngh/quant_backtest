@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 113: Task 093 entry fill/intrabar integration completed; Task 094 queued.
+Phase 114: Task 094 pattern detection performance optimization completed; Task 095 queued.
 
 ## Current Step
-Task 093 completed: pattern action builder integrates entry fill simulation and no-fill SKIP diagnostics; Task 094 queued next.
+Task 094 completed: FVG path now uses cached indicator/pattern evaluation for local index detection; Task 095 queued next.
 
 ## Current Goal
-Execute Task 094 PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION per owner assignment.
+Execute Task 095 CANONICAL_CLI_AND_PERSISTENCE_MIGRATION per owner assignment.
 
 ## Current Active Task
-Task `094_PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION` (queued, implementation pending).
+Task `095_CANONICAL_CLI_AND_PERSISTENCE_MIGRATION` (queued, implementation pending).
 
 ## Last Completed Step (Short)
-Task 093 completed: Added entry-simulation integration to pattern action builder with filled-entry metadata and no-fill SKIP diagnostics, while preserving canonical exit-action generation.
+Task 094 completed: Added FVG optimization cache/context path and strategy CLI integration to avoid repeated full-prefix detection for FVG.
 
 ## Recommended Next Step
-Implement Task 094 pattern-detection performance optimization, then update tests/state docs.
+Implement Task 095 canonical CLI and persistence migration, then update tests/state docs.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

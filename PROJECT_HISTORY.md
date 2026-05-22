@@ -187,3 +187,6 @@ It is **not** the active execution dashboard. For active work, use `STATUS.md`.
 
 
 - 2026-05-22: Completed Task 093 `ENTRY_FILL_INTRABAR_INTEGRATION`; integrated pattern entry simulation into action builder with entry mode/config inputs, emitted SKIP diagnostics for non-filled/invalid entries, preserved filled-entry metadata (`fill_price`, `fill_timestamp`, `fill_candle_index`, `entry_mode`, `intrabar_policy`), and kept canonical risk-exit action conversion behavior with focused regression coverage.
+
+
+- 2026-05-22: Completed Task 094 `PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION`; added FVG-oriented indicator/pattern cache context (`quant_bitcoin/backtesting/pattern_detection_cache.py`) with local-index evaluation path, extended `FairValueGapStrategy.evaluate_at(...)`, integrated optimized action generation into strategy PostgreSQL CLI for FVG, and added focused optimization/regression tests in `tests/backtesting/test_pattern_detection_optimization.py`.
