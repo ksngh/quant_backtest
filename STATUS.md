@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 93: Task 083 reusable risk/exit policy boundary completed.
+Phase 94: Task 084 single-pattern strategy implementations completed.
 
 ## Current Step
-Task 083 completed: extracted generic risk/exit plan and exit simulation contracts into `quant_bitcoin/risk/` and preserved legacy `quant_bitcoin/patterns/*` imports through compatibility shims.
+Task 084 completed: added single-pattern strategy classes under `quant_bitcoin/strategies/patterns.py` with semantic action outputs and long-only short-disabled skip behavior.
 
 ## Current Goal
-Execute Task 084 by implementing single-pattern strategy classes under `quant_bitcoin/strategies/` using the semantic action contract.
+Execute Task 085 by implementing the cash-based strategy backtest engine.
 
 ## Current Active Task
-Task `084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS` (queued, not started).
+Task `085_CASH_BASED_STRATEGY_BACKTEST_ENGINE` (queued, not started).
 
 ## Last Completed Step (Short)
-Task 083 completed: moved generic risk/exit ownership out of `patterns` into reusable `risk` package and verified deterministic pattern risk/exit tests remain green.
+Task 084 completed: implemented six single-pattern strategies plus factory selection and strategy tests including bullish ENTER_LONG and bearish SHORT_DISABLED semantics.
 
 ## Recommended Next Step
-Start Task 084 implementation from `tasks/084_SINGLE_PATTERN_STRATEGY_IMPLEMENTATIONS.md`.
+Start Task 085 implementation from `tasks/085_CASH_BASED_STRATEGY_BACKTEST_ENGINE.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
