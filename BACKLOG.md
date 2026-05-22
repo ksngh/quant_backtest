@@ -26,6 +26,8 @@ All items below are candidate/planning pointers unless marked completed.
 
 - Completed (2026-05-22): Task 100 `TASK_LEDGER_COMPLETION_RECONCILIATION_FOLLOWUP`.
 
+- Completed (2026-05-22): Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`.
+
 ## Current Candidates / Follow-ups
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.

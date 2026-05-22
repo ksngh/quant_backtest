@@ -24,6 +24,8 @@ Older history is preserved in segmented archives:
 
 - 2026-05-22: Completed Task 100 `TASK_LEDGER_COMPLETION_RECONCILIATION_FOLLOWUP`; reconciled Task 098 file status with root ledgers and confirmed no active implementation task pending owner assignment of Task 101+.
 
+- 2026-05-22: Completed Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`; switched Docker Compose backtest profile to canonical strategy runner CLI and aligned websocket-ingestion compose assertion to env-interpolated DATABASE_URL semantics.
+
 ## Active Historical Notes
 - Live trading approval/credential policy/endpoint allowlist/kill-switch design remains unresolved and blocking any real-execution phase.
 - Docker runtime verification remains environment-dependent where Docker is unavailable.

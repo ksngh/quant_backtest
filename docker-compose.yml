@@ -57,7 +57,7 @@ services:
     command:
       - python
       - -m
-      - quant_bitcoin.backtesting.pattern_postgres_runner_cli
+      - quant_bitcoin.backtesting.strategy_postgres_runner_cli
       - --help
 
   websocket-ingestor:

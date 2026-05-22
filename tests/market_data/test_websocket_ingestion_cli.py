@@ -253,7 +253,7 @@ def test_docker_compose_defines_postgres_and_unbounded_websocket_ingestor_servic
     assert "postgres:" in compose
     assert "websocket-ingestor:" in compose
     assert "build: ." in compose
-    assert "postgresql://quant_bitcoin:quant_bitcoin_dev@postgres:5432/quant_bitcoin" in compose
+    assert "DATABASE_URL: postgresql://${POSTGRES_USER:-quant_bitcoin}:${POSTGRES_PASSWORD:-quant_bitcoin_dev}@postgres:5432/${POSTGRES_DB:-quant_bitcoin}" in compose
     assert "INGEST_MAX_MESSAGES: ${INGEST_MAX_MESSAGES:-unbounded}" in compose
     assert "INGEST_MAX_MESSAGES: ${INGEST_MAX_MESSAGES:-5}" not in compose
     assert "quant-bitcoin-websocket-ingestion" in compose
