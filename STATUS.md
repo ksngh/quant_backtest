@@ -1,28 +1,27 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 120: Task 100 ledger completion reconciliation follow-up completed.
+Phase 121: Task 101 Docker Compose backtest profile canonicalization completed.
 
 ## Current Step
-Task 100 completed: reconciled task-file/ledger completion state alignment (Task 098/099/100).
+Task 101 completed: Docker Compose backtest profile canonicalized and websocket-ingestion compose assertion aligned.
 
 ## Current Goal
-Maintain consistent task/ledger completion state and keep root ledger windows concise with explicit 50-task archive ranges.
+Maintain canonical strategy-backtest Docker Compose wiring and synchronized test/ledger state for Task 101 completion.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 101+).
+No active implementation task (await owner assignment of Task 102+).
 
 ## Last Completed Step (Short)
-Task 100 completed: reconciled Task 098 status mismatch and synchronized task/ledger completion records.
+Task 101 completed: switched backtest compose command to canonical strategy runner CLI and verified websocket-ingestion compose contract test passes.
 
 ## Recommended Next Step
-Await owner assignment/create of next relevant task document (Task 101+) before any further implementation.
+Await owner assignment/create of next relevant task document (Task 102+) before any further implementation.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Frontend package install/build remains blocked in this environment by npm registry access restrictions.
-- Full pytest currently has one unrelated existing failure in `tests/market_data/test_websocket_ingestion_cli.py` docker-compose connection-string assertion.
 
 ## Current Safety Boundary
 - No live trading.
