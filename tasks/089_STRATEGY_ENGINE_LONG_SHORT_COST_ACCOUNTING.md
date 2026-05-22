@@ -1,7 +1,7 @@
 # Task 089: STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Upgrade `StrategyEngine` into the canonical long/short accounting engine and integrate transaction costs.

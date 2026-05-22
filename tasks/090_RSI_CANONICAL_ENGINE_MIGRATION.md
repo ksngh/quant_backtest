@@ -1,7 +1,7 @@
 # Task 090: RSI_CANONICAL_ENGINE_MIGRATION
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Migrate RSI backtesting onto the canonical `StrategyEngine` path while keeping `BasicBacktester` temporarily for compatibility.

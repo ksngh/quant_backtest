@@ -1,7 +1,7 @@
 # Task 092: PATTERN_RISK_EXIT_ACTION_BUILDER
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Create a canonical adapter that converts detected pattern events and risk/exit plans into executable strategy actions.

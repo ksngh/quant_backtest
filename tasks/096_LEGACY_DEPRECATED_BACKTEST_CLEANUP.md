@@ -1,7 +1,7 @@
 # Task 096: LEGACY_DEPRECATED_BACKTEST_CLEANUP
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Remove or clearly deprecate legacy backtest code after canonical StrategyEngine migration is complete.

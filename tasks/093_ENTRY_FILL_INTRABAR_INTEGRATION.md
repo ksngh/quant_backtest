@@ -1,7 +1,7 @@
 # Task 093: ENTRY_FILL_INTRABAR_INTEGRATION
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Integrate entry fill simulation and intrabar sequencing policy into pattern action generation so pattern backtests handle fill/no-fill outcomes and OHLC ambiguity more realistically.

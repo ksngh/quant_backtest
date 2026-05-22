@@ -1,7 +1,7 @@
 # Task 095: CANONICAL_CLI_AND_PERSISTENCE_MIGRATION
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Migrate active CLI and persistence paths to the canonical `StrategyEngine` result model so RSI and pattern backtests produce/persist comparable outputs.

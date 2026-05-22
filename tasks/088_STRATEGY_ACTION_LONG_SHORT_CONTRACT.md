@@ -1,7 +1,7 @@
 # Task 088: STRATEGY_ACTION_LONG_SHORT_CONTRACT
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Refactor the strategy action contract from long-only buy/sell-like semantics into explicit long/short position semantics while keeping execution-side semantics separate.

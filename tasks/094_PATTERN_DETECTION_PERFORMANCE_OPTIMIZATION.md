@@ -1,7 +1,7 @@
 # Task 094: PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION
 
 ## Status
-Planned (created by Codex, implementation not started)
+Completed (2026-05-22)
 
 ## Goal
 Reduce pattern detection complexity during strategy backtests by avoiding repeated full-prefix detector execution.
