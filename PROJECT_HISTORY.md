@@ -38,3 +38,5 @@ Older history is preserved in segmented archives:
 - 2026-05-22: Completed Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`; split canonical strategy CLI into focused core/entry modules and kept contract-compatible behavior with updated CLI tests.
 - 2026-05-22: Completed Task 105 `README_AND_API_CONTRACT_CANONICAL_BACKTEST_REFRESH`; updated README/API/backend warning text to prefer canonical strategy backtest CLI and classify placeholder-neutral warnings as older compatibility-run diagnostics.
 
+
+- 2026-05-22: Completed Task 107 `STRATEGY_EXECUTION_MAPPING_RETIREMENT`; removed long-only mapping helper module and migrated mapping tests to canonical long/short strategy action helper coverage.
