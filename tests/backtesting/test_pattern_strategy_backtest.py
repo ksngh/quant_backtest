@@ -4,15 +4,15 @@ import ast
 import pandas as pd
 import pytest
 
-from quant_bitcoin.backtesting import (
+from quant_bitcoin.backtesting.pattern_strategy import (
     DEFAULT_PATTERN,
+    PATTERN_REGISTRY,
     SUPPORTED_PATTERNS,
     PatternStrategyBacktestConfig,
     run_pattern_strategy_backtest,
     strategy_name_for_patterns,
     validate_pattern_selection,
 )
-from quant_bitcoin.backtesting.pattern_strategy import PATTERN_REGISTRY
 from quant_bitcoin.indicators import AtrConfig, VolumeRatioConfig
 from quant_bitcoin.patterns import (
     FairValueGapConfig,

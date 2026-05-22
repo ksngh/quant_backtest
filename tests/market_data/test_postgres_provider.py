@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from quant_bitcoin.backtesting import BasicBacktester
+from quant_bitcoin.backtesting.basic import BasicBacktester
 from quant_bitcoin.market_data import PostgresCandleDataProvider
 from quant_bitcoin.market_data.postgres_provider import STANDARD_CANDLE_COLUMNS
 from quant_bitcoin.strategies import Signal

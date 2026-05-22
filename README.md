@@ -397,7 +397,7 @@ rows into the same standard candle schema used by CSV-backed backtests:
 ```python
 from datetime import datetime, timezone
 
-from quant_bitcoin.backtesting import BasicBacktester
+from quant_bitcoin.backtesting.basic import BasicBacktester
 from quant_bitcoin.market_data import PostgresCandleDataProvider
 from quant_bitcoin.persistence import PostgresCandleRepository
 from quant_bitcoin.strategies import RsiStrategy
@@ -439,7 +439,7 @@ The RSI strategy consumes standard candle data only. It does not fetch data, dec
 ### Run a basic backtest
 
 ```python
-from quant_bitcoin.backtesting import BasicBacktester
+from quant_bitcoin.backtesting.basic import BasicBacktester
 from quant_bitcoin.strategies import RsiStrategy
 
 strategy = RsiStrategy(window=14, buy_threshold=30.0, sell_threshold=70.0)

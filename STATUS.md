@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 125: Task 105 README/API canonical backtest refresh completed.
+Phase 126: Task 106 legacy public API pruning completed.
 
 ## Current Step
-Task 105 completed: README/API/backend warning language aligned to canonical strategy-backtest CLI and legacy placeholder warning semantics.
+Task 106 completed: deprecated backtesting package-level exports pruned to canonical-first imports and compatibility usage moved to direct module paths.
 
 ## Current Goal
-Keep canonical strategy-backtest documentation and API warning semantics aligned with persisted-run behavior.
+Keep canonical strategy-engine-first public API surface while preserving explicit compatibility module imports.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 106+).
+No active implementation task (await owner assignment of Task 107+).
 
 ## Last Completed Step (Short)
-Task 105 completed: canonical CLI docs now prefer `quant-bitcoin-strategy-backtest`; compatibility aliases and legacy placeholder warnings are explicitly documented.
+Task 106 completed: `quant_bitcoin.backtesting` public exports now prioritize canonical strategy-engine symbols; legacy Basic/pattern imports require explicit module-level compatibility imports.
 
 ## Recommended Next Step
-Recommended next task: Task 106 `LEGACY_PUBLIC_API_PRUNING`.
+Recommended next task: Task 107 `STRATEGY_EXECUTION_MAPPING_RETIREMENT`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
