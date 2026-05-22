@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 130: Task 110 pattern strategy output schema enrichment completed.
+Phase 131: Task 111 execution-price and entry-fill contract completed.
 
 ## Current Step
-Task 110 completed: enriched strategy CLI output schema with event/diagnostic metadata and warning classification.
+Task 111 completed: explicit requested execution price support added to canonical engine and pattern action builder.
 
 ## Current Goal
-Expose inspectable pattern-action/event diagnostics in strategy CLI stdout while preserving core JSON compatibility fields.
+Execute canonical backtest actions at simulated fill/exit prices when provided, with close-price fallback for backward compatibility.
 
 ## Current Active Task
-No active implementation task (await owner assignment of Task 111+).
+Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` drafted (ready for implementation assignment).
 
 ## Last Completed Step (Short)
 Task 110 completed: added enriched execution/event/diagnostic fields and warnings for no-fills/risk-plan/open-position cases in strategy CLI output.
 
 ## Recommended Next Step
-Recommended next task: Task 111 `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION`.
+Execute Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` or explicitly reprioritize against Tasks 112-117 and existing documentation/fixture candidate work.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

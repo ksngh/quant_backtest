@@ -45,6 +45,14 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Created (2026-05-22): Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` (task document added; requested as separate task).
+- Created (2026-05-22): Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS` (task document added; requested as separate task).
+- Created (2026-05-22): Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS` (task document added; requested as separate task).
+- Created (2026-05-22): Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY` (task document added; requested as separate task).
+- Created (2026-05-22): Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY` (task document added; requested as separate task).
+- Created (2026-05-22): Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION` (task document added; requested as separate task).
+- Created (2026-05-22): Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` (task document added; requested as separate task from Task 111).
+- Completed (2026-05-22): Task 111 `CANONICAL_PATTERN_LIFECYCLE_BACKTEST_INTEGRATION` (execution-price/entry-fill contract delivered).
 - Candidate: Task 111 `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION` (document enriched stdout schema and broaden deterministic fixtures for short-side/no-fill cases).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema (replace current placeholder-neutral cash/equity values if owner requires richer financial outputs).
 - Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.

@@ -117,3 +117,9 @@ def test_soft_invalidation_metadata_flow() -> None:
         soft_invalidation=SoftInvalidationRule("close < neckline", reference_price=99.0),
     )
     assert actions[-1].metadata["exit_reason"] == "SOFT_INVALIDATION"
+
+
+def test_actions_include_requested_prices_for_entry_and_exit() -> None:
+    actions = build_pattern_trade_actions(_Event(), _plan("LONG"), _candles([{"high": 106.0, "low": 100.0}]), entry_action_timestamp=123, position_side="LONG")
+    assert actions[0].requested_price == pytest.approx(actions[0].metadata["fill_price"])
+    assert actions[1].requested_price == pytest.approx(actions[1].metadata["exit_price"])

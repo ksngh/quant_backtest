@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Any
 
 import pandas as pd
@@ -129,6 +130,9 @@ def _apply_action(cash: float, position: float, avg_entry: float, close: float, 
     if action_type == StrategyActionType.SKIP:
         return None
 
+    explicit_price, explicit_price_valid = _resolve_requested_price(action)
+    if not explicit_price_valid:
+        return None
     if action_type in (StrategyActionType.ENTER_LONG, StrategyActionType.ENTER_SHORT):
         if action_type == StrategyActionType.ENTER_SHORT and not cfg.allow_short:
             return None
@@ -139,26 +143,26 @@ def _apply_action(cash: float, position: float, avg_entry: float, close: float, 
             execution = _execution_record(action, side, position_side, close, close, 0.0, cash, position, cash + (position * close), reason=reason)
             return cash, position, avg_entry, execution, 0.0
 
-        return _open_position(cash, close, qty, action, cfg)
+        return _open_position(cash, close, qty, action, cfg, explicit_price=explicit_price)
 
     if action_type in (StrategyActionType.EXIT_LONG, StrategyActionType.PARTIAL_EXIT_LONG):
         if position <= 0:
             return None
-        return _close_position(cash, position, avg_entry, close, qty, action, cfg)
+        return _close_position(cash, position, avg_entry, close, qty, action, cfg, explicit_price=explicit_price)
 
     if action_type in (StrategyActionType.EXIT_SHORT, StrategyActionType.PARTIAL_EXIT_SHORT):
         if position >= 0:
             return None
-        return _close_position(cash, position, avg_entry, close, qty, action, cfg)
+        return _close_position(cash, position, avg_entry, close, qty, action, cfg, explicit_price=explicit_price)
 
     return None
 
 
-def _open_position(cash, close, qty, action, cfg):
+def _open_position(cash, close, qty, action, cfg, *, explicit_price=None):
     is_short = action.action_type == StrategyActionType.ENTER_SHORT
     side = "SELL" if is_short else "BUY"
     signed_qty = -qty if is_short else qty
-    raw_price = close
+    raw_price = explicit_price if explicit_price is not None else close
     cost = _cost(raw_price, qty, side, cfg)
     effective_price = cost.effective_price
     notional = effective_price * qty
@@ -179,11 +183,11 @@ def _open_position(cash, close, qty, action, cfg):
     return cash_after, position_after, avg_entry_after, execution, 0.0
 
 
-def _close_position(cash, position, avg_entry, close, qty, action, cfg):
+def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, explicit_price=None):
     close_qty = min(abs(position), qty)
     is_short = position < 0
     side = "BUY" if is_short else "SELL"
-    raw_price = close
+    raw_price = explicit_price if explicit_price is not None else close
     cost = _cost(raw_price, close_qty, side, cfg)
     effective_price = cost.effective_price
     notional = effective_price * close_qty
@@ -208,6 +212,21 @@ def _cost(raw_price, qty, side, cfg):
         return c
     return calculate_transaction_cost(raw_price, qty, CostExecutionSide(side), cfg.default_liquidity_role, cfg.transaction_cost_config)
 
+
+
+def _resolve_requested_price(action: StrategyAction) -> tuple[float | None, bool]:
+    requested = action.requested_price
+    if requested is None and isinstance(action.metadata, dict):
+        requested = action.metadata.get("execution_price", action.metadata.get("fill_price", action.metadata.get("exit_price")))
+    if requested is None:
+        return None, True
+    try:
+        value = float(requested)
+    except (TypeError, ValueError):
+        return None, False
+    if not isfinite(value) or value <= 0:
+        return None, False
+    return value, True
 
 def _execution_record(action, side, position_side, raw_price, effective_price, qty, cash_after, position_after, equity_after, reason=None, gross=None, net=None, cost=None):
     metadata = dict(action.metadata) if isinstance(action.metadata, dict) else {}

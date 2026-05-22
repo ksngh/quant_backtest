@@ -90,6 +90,7 @@ def build_pattern_trade_actions(
             quantity=1.0,
             reason="PATTERN_CONFIRMED",
             metadata={**event_metadata, "fill_price": entry.fill_price, "fill_timestamp": entry.fill_timestamp, "fill_candle_index": entry.fill_candle_index, "intrabar_policy": intrabar_policy_config.mode.value if intrabar_policy_config else "CONSERVATIVE"},
+            requested_price=entry.fill_price,
         )
     ]
 
@@ -113,7 +114,7 @@ def _to_exit_action(exit_event: PatternExitEvent, risk_plan: RiskExitPlan, posit
         metadata["realized_r_multiple"] = realized_r
     if exit_event.metadata:
         metadata["exit_metadata"] = dict(exit_event.metadata)
-    return StrategyAction(action_type=action_type, timestamp=exit_event.timestamp, quantity=exit_event.quantity_ratio, reason=exit_event.reason.value, metadata=metadata)
+    return StrategyAction(action_type=action_type, timestamp=exit_event.timestamp, quantity=exit_event.quantity_ratio, reason=exit_event.reason.value, metadata=metadata, requested_price=exit_event.price)
 
 
 def _realized_r_multiple(exit_event: PatternExitEvent, risk_plan: RiskExitPlan) -> float | None:
