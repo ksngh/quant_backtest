@@ -95,8 +95,10 @@ def run_strategy_backtest_engine(
     final_equity = cash + (position * final_price)
     net_rs = [e.realized_r_multiple for e in executions if e.realized_r_multiple is not None]
     sell_execs = [e for e in executions if e.side == "SELL"]
-    win_count = len([e for e in sell_execs if (e.net_pnl or 0.0) > 0])
-    loss_count = len([e for e in sell_execs if (e.net_pnl or 0.0) < 0])
+    closing_execs = [e for e in executions if e.gross_pnl is not None]
+    win_count = len([e for e in closing_execs if (e.net_pnl or 0.0) > 0])
+    loss_count = len([e for e in closing_execs if (e.net_pnl or 0.0) < 0])
+    short_closing_execs = [e for e in closing_execs if e.position_side == "SHORT"]
 
     summary = StrategyBacktestSummary(
         starting_cash=cfg.starting_cash,
@@ -128,7 +130,12 @@ def run_strategy_backtest_engine(
                 "No borrow fees modeled",
                 "No futures funding modeled",
                 "No maintenance margin or liquidation model",
-            ]
+            ],
+            "short_performance": {
+                "short_close_count": len(short_closing_execs),
+                "short_win_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) > 0]),
+                "short_loss_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) < 0]),
+            },
         },
     )
     return StrategyBacktestResult(tuple(executions), tuple(equity_points), summary)

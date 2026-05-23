@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 132: Task 118 transaction-cost CLI and accounting integration completed (2026-05-23).
+Phase 133: Task 117 short-accounting consistency and limitations completed (2026-05-23).
 
 ## Current Step
-Task 118 completed: canonical strategy backtest CLI now exposes transaction-cost configuration and passes it into strategy-engine accounting/persistence metadata.
+Task 117 completed: short win/loss counting now uses closing executions (including BUY short exits), short PnL behavior is regression-tested, and short-model limitations remain explicit in summary metadata/CLI output.
 
 ## Current Goal
-Run canonical backtests with configurable fee/spread/slippage/liquidity-role while preserving deterministic zero-cost defaults.
+Keep canonical long/short accounting internally consistent while making unsupported short-economics limitations explicit in outputs.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 110 completed: added enriched execution/event/diagnostic fields and warnings for no-fills/risk-plan/open-position cases in strategy CLI output.
+Task 117 completed: corrected short-close win/loss accounting, added short accounting regression coverage, and preserved explicit short-model limitations metadata.
 
 ## Recommended Next Step
-Execute Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS` or reprioritize Tasks 112-116 based on owner direction.
+Execute Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS` or reprioritize Tasks 112-115 based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

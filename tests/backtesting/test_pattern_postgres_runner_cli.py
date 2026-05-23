@@ -99,3 +99,47 @@ def test_build_transaction_cost_config_from_args():
     assert config.minimum_slippage_bps == 0.5
     assert config.volatility_slippage_multiplier == 4.0
     assert liquidity_role.value == "MAKER"
+
+
+def test_strategy_cli_output_includes_short_model_limitations(monkeypatch, capsys):
+    candles = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-05-18", periods=2, freq="min", tz="UTC"),
+            "open": [100, 90],
+            "high": [101, 91],
+            "low": [99, 89],
+            "close": [100, 90],
+            "volume": [1, 1],
+        }
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda *_: (
+            type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
+            [
+                strategy_postgres_runner_cli.StrategyAction(
+                    strategy_postgres_runner_cli.StrategyActionType.ENTER_SHORT,
+                    timestamp=candles.iloc[0]["timestamp"],
+                    quantity=1.0,
+                ),
+                strategy_postgres_runner_cli.StrategyAction(
+                    strategy_postgres_runner_cli.StrategyActionType.EXIT_SHORT,
+                    timestamp=candles.iloc[1]["timestamp"],
+                    quantity=1.0,
+                ),
+            ],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    limitations = out["summary"]["metadata"]["limitations"]
+    assert "No borrow fees modeled" in limitations
+    assert "No futures funding modeled" in limitations
+    assert "No maintenance margin or liquidation model" in limitations

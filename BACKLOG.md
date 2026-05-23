@@ -46,7 +46,7 @@ All items below are candidate/planning pointers unless marked completed.
 
 ## Current Candidates / Follow-ups
 - Completed (2026-05-23): Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION`.
-- Created (2026-05-22): Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS` (task document added; requested as separate task).
+- Completed (2026-05-23): Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS`.
 - Created (2026-05-22): Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS` (task document added; requested as separate task).
 - Created (2026-05-22): Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY` (task document added; requested as separate task).
 - Created (2026-05-22): Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY` (task document added; requested as separate task).
