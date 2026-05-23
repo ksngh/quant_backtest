@@ -45,6 +45,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Completed (2026-05-23): Task 139 `GITIGNORE_ARTIFACT_CLEANUP_AND_PR_RESCOPE` (clean PR branch scope and ignore local/generated artifacts).
 - Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` pending explicit owner approval for live order execution.
 - Completed (2026-05-23): Task 137 `EXECUTION_FILL_RECONCILIATION_AND_ACTUAL_COST_METRICS`.
 - Completed (2026-05-23): Task 136 `BINANCE_SPOT_TESTNET_EXECUTION_CLIENT_SAFETY_AND_POLICY`.
