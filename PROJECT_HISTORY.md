@@ -95,3 +95,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS`; added fixture-based 400-candle runtime regression tests across all supported patterns plus optional `@pytest.mark.benchmark` smoke output reporting pattern/candle/runtime/event/action counts.
 
 - 2026-05-23: Completed Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX`; added recursive JSON-safe serialization for canonical strategy CLI stdout payloads, corrected strategy/pattern CLI exception logging calls, and covered timestamp metadata serialization plus logger signature regressions. Targeted CLI tests passed; full pytest surfaced two unrelated Diamond strategy status-filtering expectation failures.
+
+- 2026-05-23: Added Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` task document from owner assignment; no implementation executed in this step.

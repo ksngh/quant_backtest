@@ -10,13 +10,13 @@ Task 128 fixed canonical strategy CLI JSON serialization of timestamp-like value
 Maintain canonical strategy CLI output stability and address unrelated strategy test failures if assigned.
 
 ## Current Active Task
-No active implementation task (awaiting owner assignment after Task 128 completion).
+Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` assigned (task document created; implementation not started in this step).
 
 ## Last Completed Step (Short)
 Task 128 completed with recursive JSON-safe CLI output serialization and regression coverage for timestamp metadata plus exception logging.
 
 ## Recommended Next Step
-Owner to assign next task. Candidate: investigate existing Diamond strategy unit-test failures around default pattern status filtering.
+Execute Task 129 by reproducing Diamond status-filtering failures, clarifying default policy, and applying minimal code/test alignment changes.
 
 ## Current Blockers (Short)
 - Full pytest currently has two unrelated failures in `tests/strategies/test_single_pattern_strategies.py` for Diamond bullish/bearish entry expectations versus current status filtering behavior.
