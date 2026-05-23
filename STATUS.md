@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 136: Task 114 intrabar stop/target ambiguity policy completed (2026-05-23).
+Phase 137: Task 113 FVG no-look-ahead cache correction completed (2026-05-23).
 
 ## Current Step
-Task 114 completed: exit simulation now records explicit intrabar stop-first precedence metadata and deterministic ambiguous stop/target handling for long/short same-candle touches.
+Task 113 completed: optimized FVG cache detection now evaluates lifecycle-sensitive logic on visible candle prefixes only, preventing future-candle look-ahead bias.
 
 ## Current Goal
-Keep backtest exit sequencing deterministic and explicitly documented in simulation/action metadata for ambiguous intrabar candles.
+Keep optimized FVG detection prefix-deterministic so future candles cannot alter event emission/state at the historical evaluation index.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 114 completed: added intrabar precedence metadata (`stop_before_target`) for stop exits and regression tests for long/short ambiguous same-candle stop/target touches.
+Task 113 completed: sliced optimized FVG evaluation to current-index visible prefix and added regression tests ensuring future fill/break candles do not alter historical event detection output.
 
 ## Recommended Next Step
-Execute Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION` or Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` based on owner direction.
+Execute Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
