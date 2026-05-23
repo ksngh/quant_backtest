@@ -71,6 +71,36 @@ def test_trade_metadata_preserves_action_and_position_side() -> None:
     assert payload.result.metadata["performance_metrics"]["interval"] == "1m"
 
 
+def test_trade_metadata_preserves_account_state_fields() -> None:
+    candles = _candles()
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=candles.iloc[0]["timestamp"], quantity=1.0)],
+    )
+    payload = build_strategy_engine_persistence_payload(
+        result,
+        candles,
+        source="postgres",
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_time=datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc),
+        strategy_key="TEST",
+        strategy_name="TEST_STRATEGY",
+        strategy_version="v1",
+        strategy_parameters={"window": 14},
+        starting_cash=10000.0,
+        trade_quantity=1.0,
+        engine_name="strategy_engine",
+        engine_version="v1",
+    )
+
+    trade_metadata = payload.trades[0].metadata
+    assert trade_metadata["free_cash_after"] == result.executions[0].free_cash_after
+    assert trade_metadata["short_proceeds_locked_after"] == result.executions[0].short_proceeds_locked_after
+    assert payload.graph_points[0].metadata["free_cash"] == result.equity_points[0].free_cash
+
+
 def test_graph_points_preserve_multiple_same_timestamp_executions() -> None:
     candles = _candles()
     result = run_strategy_backtest_engine(

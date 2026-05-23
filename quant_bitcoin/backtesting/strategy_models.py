@@ -18,6 +18,11 @@ class StrategyExecution:
     cash_after: float
     position_after: float
     equity_after: float
+    free_cash_after: float | None = None
+    margin_used_after: float | None = None
+    short_proceeds_locked_after: float | None = None
+    available_buying_power_after: float | None = None
+    cash_after_semantics: str | None = None
     execution_side: ExecutionSide | None = None
     position_side: Literal["LONG", "SHORT"] | None = None
     raw_price: float | None = None
@@ -45,6 +50,11 @@ class StrategyEquityPoint:
     unrealized_pnl: float
     realized_pnl: float
     drawdown: float
+    free_cash: float | None = None
+    margin_used: float | None = None
+    short_proceeds_locked: float | None = None
+    available_buying_power: float | None = None
+    cash_semantics: str | None = None
 
 
 @dataclass(frozen=True)

@@ -33,6 +33,13 @@ from quant_bitcoin.backtesting.pattern_event_study import (
 )
 
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
+from quant_bitcoin.backtesting.sizing import (
+    InsufficientFundsPolicy,
+    PositionSizingConfig,
+    PositionSizingMode,
+    ShortExposureMode,
+    SimulatedMarginConfig,
+)
 from quant_bitcoin.backtesting.strategy_models import (
     StrategyBacktestResult,
     StrategyBacktestSummary,
@@ -65,6 +72,11 @@ __all__ = [
     "pattern_event_to_study_record",
     "records_to_dataframe",
     "StrategyEngineConfig",
+    "InsufficientFundsPolicy",
+    "PositionSizingConfig",
+    "PositionSizingMode",
+    "ShortExposureMode",
+    "SimulatedMarginConfig",
     "run_strategy_backtest_engine",
     "StrategyBacktestResult",
     "StrategyBacktestSummary",

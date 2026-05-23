@@ -1,27 +1,27 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 172: Task 139 gitignore artifact cleanup and PR rescope completed (2026-05-23).
+Phase 173: Tasks 140-148 cash/sizing/accounting window completed (2026-05-23).
 
 ## Current Step
-Task 139 added ignore rules for generated/local artifacts and prepared a clean PR branch containing only the recent task work plus repository hygiene/state updates.
+Completed the sequential cash/sizing/accounting window from Task 140 through Task 148.
 
 ## Current Goal
-Keep PR scope clean and leave Task 138 blocked unless explicit live-order approval is provided.
+Keep the new backtest sizing, cash/equity, simulated short, CLI/persistence, display, and documentation contracts stable under regression tests.
 
 ## Current Active Task
-No active implementation task. Task 139 completed; Task 138 remains blocked pending explicit live-order approval.
+No active implementation task. Tasks 140-148 are completed; Task 138 remains blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Task 139 completed with `.gitignore` artifact rules, scoped branch/commit/PR preparation, and unrelated tracked frontend changes left unstaged.
+Task 148 completed after Tasks 140-147: docs and ledgers now match the new cash-bounded sizing, short buying-power, simulated-margin, account-state, CLI/persistence, display/API, and refactor work.
 
 ## Recommended Next Step
-Owner must explicitly approve live order execution before Task 138 can be implemented.
+No new next implementation task is assigned. Task 138 remains blocked unless the owner explicitly approves live order execution.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
-- Frontend package install/build remains blocked in this environment by npm registry access restrictions.
+- Backend FastAPI route tests are not runnable in the current Python environment because `fastapi` is not installed; FastAPI-independent backend service tests passed.
 
 ## Current Safety Boundary
 - No live trading.

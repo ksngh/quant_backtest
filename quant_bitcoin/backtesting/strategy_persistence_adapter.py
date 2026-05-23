@@ -132,6 +132,11 @@ def build_strategy_engine_persistence_payload(
                     "spread_cost": e.spread_cost,
                     "slippage_cost": e.slippage_cost,
                     "total_cost": e.total_cost,
+                    "free_cash_after": e.free_cash_after,
+                    "margin_used_after": e.margin_used_after,
+                    "short_proceeds_locked_after": e.short_proceeds_locked_after,
+                    "available_buying_power_after": e.available_buying_power_after,
+                    "cash_after_semantics": e.cash_after_semantics,
                 },
             )
             for i, e in enumerate(result.executions, start=1)
@@ -155,6 +160,10 @@ def _build_graph_points(result):
                 "action_type": execution.action_type,
                 "position_side": execution.position_side,
                 "execution_side": execution.execution_side,
+                "free_cash_after": execution.free_cash_after,
+                "margin_used_after": execution.margin_used_after,
+                "short_proceeds_locked_after": execution.short_proceeds_locked_after,
+                "available_buying_power_after": execution.available_buying_power_after,
             }
         )
 
@@ -175,6 +184,11 @@ def _build_graph_points(result):
                 signal=(first_trade["signal"] if first_trade else None),
                 metadata={
                     "drawdown": float(equity_point.drawdown),
+                    "free_cash": equity_point.free_cash,
+                    "margin_used": equity_point.margin_used,
+                    "short_proceeds_locked": equity_point.short_proceeds_locked,
+                    "available_buying_power": equity_point.available_buying_power,
+                    "cash_semantics": equity_point.cash_semantics,
                     "trades": trades,
                 },
             )

@@ -13,15 +13,18 @@ Implemented components:
 - **Binance candle downloader** for public historical spot klines only; it normalizes responses to the standard candle schema and rejects order endpoints.
 - **RSI strategy** that returns `BUY`, `SELL`, or `HOLD` signals from standard candle data.
 - **Basic backtester** for a simple long-only, fixed-quantity historical simulation.
+- **Canonical strategy-engine backtester** for strategy actions, long/short simulation, transaction costs, explicit position sizing, account-state metadata, and persisted graph-ready outputs.
 - **Paper trader** for in-memory fake trade recording and paper cash/position updates.
 - **Paper risk checker** for deterministic cash and position checks before paper trades.
 - **PostgreSQL candle persistence** for Binance spot candle storage, restartable historical backfill, and public WebSocket closed-candle ingestion.
+- **Read-only dashboard API/frontend** for inspecting saved simulated backtest results.
 
 Out of scope unless a future approved task explicitly asks for it:
 
 - Live trading or real order execution.
 - API keys, signed requests, or tracked `.env` files.
-- Futures, leverage, portfolio optimization, dashboards, schedulers, FastAPI, Streamlit, and machine learning.
+- Real futures/margin trading, real leverage, portfolio optimization, schedulers, Streamlit, and machine learning.
+- New dashboard/API behavior beyond the existing read-only saved-result viewer.
 - Additional databases or Dockerized application services beyond the Task 014 local PostgreSQL developer service.
 
 ## Project layout
@@ -232,7 +235,13 @@ Common backtest options and matching environment variables:
 | `--start-time` | `BACKTEST_START_TIME` | No lower bound. |
 | `--end-time` | `BACKTEST_END_TIME` | No upper bound. |
 | `--starting-cash` | `BACKTEST_STARTING_CASH` | `10000.0` |
-| `--trade-quantity` | `BACKTEST_TRADE_QUANTITY` | `0.01` |
+| `--trade-quantity` | `BACKTEST_TRADE_QUANTITY` | `1.0` |
+| `--position-sizing-mode` | None | `fixed_quantity` |
+| `--position-sizing-value` | None | unset |
+| `--insufficient-funds-policy` | None | `resize` |
+| `--short-exposure-mode` | None | `cash_bounded` |
+| `--simulated-margin-leverage` | None | unset |
+| `--insufficient-margin-policy` | None | `block` |
 | `--rsi-window` | `BACKTEST_RSI_WINDOW` | `14` |
 | `--rsi-buy-threshold` | `BACKTEST_RSI_BUY_THRESHOLD` | `30.0` |
 | `--rsi-sell-threshold` | `BACKTEST_RSI_SELL_THRESHOLD` | `70.0` |
@@ -283,6 +292,38 @@ This is a historical simulation over stored standard candles only. It does not
 place orders, does not call exchange order or account endpoints, does not sign
 requests, and does not require API keys or `.env` files.
 
+### Strategy-engine sizing, cash, and short simulation
+
+The canonical strategy engine supports three backtest-only sizing modes:
+
+- `fixed_quantity`: use an action quantity when present, otherwise use
+  `--trade-quantity`.
+- `cash_fraction`: size entries from a fraction of available cash.
+- `target_notional`: size entries from a quote-currency notional target.
+
+Action-level quantities take precedence over engine-level sizing. When a long
+entry or default cash-bounded short entry asks for more exposure than the
+starting cash can support, the default behavior is to resize the fill; set
+`--insufficient-funds-policy block` to block instead. This prevents a
+`10_000` cash run from silently opening a full `1 BTC` exposure at an
+`80_000` BTC price.
+
+Short simulation is not spot execution. The default `cash_bounded` mode limits
+short exposure by cash/buying power. Explicit `simulated_margin` mode is
+backtest-only and requires `--simulated-margin-leverage`; it checks initial
+margin as `notional / leverage`. Borrow fees, futures funding, maintenance
+margin, and liquidation are still not modeled.
+
+Result fields distinguish cash balance from free cash:
+
+- `cash_after` / `ending_cash` are cash-balance fields and can include
+  short-sale proceeds.
+- `free_cash_after`, `margin_used_after`, and
+  `short_proceeds_locked_after` are additive metadata for spendable cash and
+  simulated short state.
+- `equity_after` / `final_equity` are the net account value fields when a
+  position is open.
+
 ## Read saved backtest results for graph inputs
 
 Future graphing workflows should read persisted simulated output through the
@@ -302,13 +343,17 @@ The returned `BacktestRunReadModel` has this shape:
   parameter hash, and optional metadata.
 - `summary`: persisted summary metrics including starting cash, ending cash,
   ending position, final price, final equity, total return, trade count, buy
-  count, sell count, metadata, and creation timestamp.
+  count, sell count, metadata, account-state semantics, and creation
+  timestamp.
 - `trades`: simulated trade rows ordered by `sequence ASC` for deterministic
   marker overlays. Each row includes candle timestamp, signal, price, quantity,
-  cash after, position after, and optional metadata.
+  cash after, position after, and optional metadata. New strategy-engine runs
+  include additive free-cash, margin-used, locked-short-proceeds, and
+  cash-semantics metadata.
 - `graph_points`: dense graph-ready rows ordered by `candle_open_time ASC,
   sequence ASC`. Each point includes close price, cash, position, equity, and
-  nullable trade marker fields (`trade_id` and `signal`).
+  nullable trade marker fields (`trade_id` and `signal`). New strategy-engine
+  runs include additive account-state metadata for display.
 
 Use `list_completed_runs(...)` to select recent graph inputs. It returns
 newest completed runs first and includes the associated strategy config id, key,

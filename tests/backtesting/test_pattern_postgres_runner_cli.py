@@ -101,6 +101,53 @@ def test_build_transaction_cost_config_from_args():
     assert liquidity_role.value == "MAKER"
 
 
+def test_build_position_sizing_and_margin_config_from_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(
+        [
+            "--position-sizing-mode",
+            "target_notional",
+            "--position-sizing-value",
+            "2500",
+            "--insufficient-funds-policy",
+            "block",
+            "--short-exposure-mode",
+            "simulated_margin",
+            "--simulated-margin-leverage",
+            "10",
+            "--no-persist",
+        ]
+    )
+    sizing = strategy_postgres_runner_core._build_position_sizing_config(args)
+    short_mode, margin = strategy_postgres_runner_core._build_simulated_margin_config(args)
+    assert sizing.mode.value == "TARGET_NOTIONAL"
+    assert sizing.value == 2500
+    assert sizing.insufficient_funds_policy.value == "BLOCK"
+    assert short_mode.value == "SIMULATED_MARGIN"
+    assert margin.enabled is True
+    assert margin.leverage == 10
+
+
+def test_cash_fraction_position_sizing_requires_value():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--position-sizing-mode", "cash_fraction", "--no-persist"])
+    try:
+        strategy_postgres_runner_core._build_position_sizing_config(args)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "requires --position-sizing-value" in str(exc)
+
+
+def test_simulated_margin_mode_requires_leverage():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--short-exposure-mode", "simulated_margin", "--no-persist"])
+    try:
+        strategy_postgres_runner_core._build_simulated_margin_config(args)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "requires --simulated-margin-leverage" in str(exc)
+
+
 def test_strategy_cli_output_includes_short_model_limitations(monkeypatch, capsys):
     candles = pd.DataFrame(
         {
@@ -143,6 +190,46 @@ def test_strategy_cli_output_includes_short_model_limitations(monkeypatch, capsy
     assert "No borrow fees modeled" in limitations
     assert "No futures funding modeled" in limitations
     assert "No maintenance margin or liquidation model" in limitations
+
+
+def test_strategy_cli_output_includes_sizing_and_margin_metadata(monkeypatch, capsys):
+    candles = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-05-18", periods=1, freq="min", tz="UTC"),
+            "open": [80000],
+            "high": [80000],
+            "low": [80000],
+            "close": [80000],
+            "volume": [1],
+        }
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda *_: (
+            type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
+            [
+                strategy_postgres_runner_cli.StrategyAction(
+                    strategy_postgres_runner_cli.StrategyActionType.ENTER_SHORT,
+                    timestamp=candles.iloc[0]["timestamp"],
+                    quantity=1.0,
+                ),
+            ],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    metadata = out["summary"]["metadata"]
+    assert metadata["position_sizing"]["mode"] == "FIXED_QUANTITY"
+    assert metadata["short_exposure_policy"]["mode"] == "CASH_BOUNDED"
+    assert out["executions"][0]["quantity"] == 0.125
+    assert out["executions"][0]["free_cash_after"] == 10000
 
 
 def test_build_pattern_entry_filter_config_args():
