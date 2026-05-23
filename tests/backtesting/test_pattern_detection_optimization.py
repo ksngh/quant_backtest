@@ -6,11 +6,13 @@ from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
     detect_fair_value_gap_at_index,
+    detect_order_block_at_index,
 )
 from quant_bitcoin.patterns.fair_value_gap import FairValueGapConfig, detect_fair_value_gaps
+from quant_bitcoin.patterns.order_block import OrderBlockConfig, detect_order_blocks
+from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy
 from quant_bitcoin.indicators.atr import AtrConfig
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig
-from quant_bitcoin.strategies.patterns import FairValueGapStrategy
 
 
 def _candles() -> pd.DataFrame:
@@ -130,5 +132,31 @@ def test_fvg_optimized_cache_matches_rolling_prefix_detection() -> None:
         )
         optimized = detect_fair_value_gap_at_index(context, config=config)
         prefix_events = detect_fair_value_gaps(candles.iloc[: current_index + 1], config=config)
+        expected = [event for event in prefix_events if event.end_index == current_index]
+        assert [event.event_id for event in optimized] == [event.event_id for event in expected]
+
+
+def test_order_block_optimized_cache_matches_rolling_prefix_detection() -> None:
+    candles = _candles()
+    strategy = OrderBlockStrategy()
+    config = OrderBlockConfig(
+        minimum_displacement_atr_multiplier=0.0,
+        minimum_volume_ratio=0.0,
+        weak_volume_ratio=0.0,
+        minimum_pattern_score=0.0,
+        weak_pattern_score=0.0,
+    )
+    cache = IndicatorCache.for_pattern(candles, config)
+    seen: set[str] = set()
+
+    for current_index in range(1, len(candles)):
+        context = PatternEvaluationContext(
+            candles=candles,
+            current_index=current_index,
+            indicator_cache=cache,
+            seen_event_ids=seen.copy(),
+        )
+        optimized = detect_order_block_at_index(context, config=config)
+        prefix_events = detect_order_blocks(candles.iloc[: current_index + 1], config=config)
         expected = [event for event in prefix_events if event.end_index == current_index]
         assert [event.event_id for event in optimized] == [event.event_id for event in expected]
