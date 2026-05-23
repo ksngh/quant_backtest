@@ -153,3 +153,25 @@ def test_build_pattern_entry_filter_config_args():
     assert cfg.minimum_pattern_score == 0.8
     assert cfg.minimum_risk_reward == 1.5
     assert cfg.quantity_override == 3
+
+
+def test_profile_output_contains_timing_keys(monkeypatch, capsys):
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        'from_database_url',
+        lambda *a, **k: FakeProvider(make_candles()),
+    )
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--profile", "--pattern", "FAIR_VALUE_GAP"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    profile = out["profiling"]
+    for key in [
+        "total_elapsed_ms",
+        "load_candles_ms",
+        "build_actions_ms",
+        "run_engine_ms",
+        "persist_ms",
+        "json_output_ms",
+    ]:
+        assert key in profile
+    assert profile["pattern_timings"][0]["pattern_key"] == "FAIR_VALUE_GAP"
+    assert "top_functions" in profile

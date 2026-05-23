@@ -79,3 +79,4 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Added Task 125 `DASHBOARD_RUNTIME_DISPLAY` task document from owner-provided optimization pack requirements; no implementation executed in this step.
 - 2026-05-23: Added Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE` task document from owner-provided optimization pack requirements; no implementation executed in this step.
 - 2026-05-23: Added Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Completed Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME`; added optional `--profile` timing/cProfile instrumentation to canonical strategy runner output (`load/build/engine/persist/json/total` + pattern timing + top cumulative functions) and added no-persist profiling regression coverage.

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import cProfile
 import json
 import os
+import pstats
+import time
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from math import isfinite
@@ -71,7 +74,12 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--volatility-slippage-multiplier", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--liquidity-role", type=_liquidity_role, default=LiquidityRole.TAKER.value)
     parser.add_argument("--no-persist", action="store_true")
+    parser.add_argument("--profile", action="store_true")
     return parser
+
+
+def _ms(start: float, end: float) -> float:
+    return round((end - start) * 1000.0, 3)
 
 
 def _optional_timestamp(value: str | None) -> datetime | None:
@@ -152,6 +160,28 @@ def _build_actions(candles: pd.DataFrame, strategy_key: str, entry_filter_config
         actions.extend(_expand_raw_actions(raw_actions, candles, index))
 
     return strategy, actions
+
+
+def _summarize_profiler(profiler: cProfile.Profile, limit: int = 10) -> list[dict[str, object]]:
+    stats = pstats.Stats(profiler)
+    entries: list[dict[str, object]] = []
+    for (filename, line_no, func_name), (cc, nc, tt, ct, callers) in sorted(
+        stats.stats.items(),
+        key=lambda item: item[1][3],
+        reverse=True,
+    )[:limit]:
+        entries.append(
+            {
+                "function": func_name,
+                "file": filename,
+                "line": line_no,
+                "primitive_calls": cc,
+                "total_calls": nc,
+                "total_time_s": round(tt, 6),
+                "cumulative_time_s": round(ct, 6),
+            }
+        )
+    return entries
 
 
 def _expand_raw_actions(
@@ -338,7 +368,18 @@ def run(
     args = build_parser(prog, include_strategy).parse_args(argv)
     strategy_key = _select_strategy_key(args)
     transaction_cost_config, default_liquidity_role = _build_transaction_cost_config(args)
+    start_total = time.perf_counter()
+    timings: dict[str, float] = {}
+    pattern_profile: dict[str, object] = {
+        "pattern_key": strategy_key,
+        "candle_count": 0,
+        "events_detected": 0,
+        "actions_emitted": 0,
+        "elapsed_ms": 0.0,
+    }
+    profiler = cProfile.Profile() if args.profile else None
 
+    start_load = time.perf_counter()
     provider = PostgresCandleDataProvider.from_database_url(
         args.database_url,
         source=args.source,
@@ -348,12 +389,24 @@ def run(
         end_time=args.end_time,
     )
     candles = provider.load()
+    timings["load_candles_ms"] = _ms(start_load, time.perf_counter())
     if candles.empty:
         print(json.dumps(_empty_output(strategy_key, args.starting_cash)))
         return 0
+    pattern_profile["candle_count"] = int(len(candles))
 
+    start_build = time.perf_counter()
+    if profiler is not None:
+        profiler.enable()
     entry_filter_config = _build_pattern_entry_filter_config(args)
     strategy, actions = _build_actions(candles, strategy_key, entry_filter_config)
+    if profiler is not None:
+        profiler.disable()
+    timings["build_actions_ms"] = _ms(start_build, time.perf_counter())
+    pattern_profile["actions_emitted"] = len(actions)
+    pattern_profile["events_detected"] = sum(1 for a in actions if getattr(a, "metadata", None) and a.metadata.get("event_id"))
+
+    start_engine = time.perf_counter()
     result = run_strategy_backtest_engine(
         candles,
         actions,
@@ -364,8 +417,10 @@ def run(
             default_liquidity_role=default_liquidity_role,
         ),
     )
+    timings["run_engine_ms"] = _ms(start_engine, time.perf_counter())
 
     persisted_run_id = None
+    start_persist = time.perf_counter()
     if not args.no_persist:
         repository = PostgresBacktestResultRepository(args.database_url)
         payload = build_strategy_engine_persistence_payload(
@@ -398,7 +453,9 @@ def run(
             engine_version=BACKTEST_ENGINE_VERSION,
         )
         persisted_run_id = repository.save_completed_backtest(payload)
+    timings["persist_ms"] = _ms(start_persist, time.perf_counter())
 
+    start_json = time.perf_counter()
     output = _serialize_output(result, strategy.strategy_key, strategy.strategy_name)
     if persisted_run_id is not None:
         output["backtest_run_id"] = persisted_run_id
@@ -412,6 +469,16 @@ def run(
         output["warnings"].append("invalid risk plan")
     if output["portfolio"]["ending_position"] != 0:
         output["warnings"].append("open position remains at end of backtest")
+
+    timings["json_output_ms"] = _ms(start_json, time.perf_counter())
+    timings["total_elapsed_ms"] = _ms(start_total, time.perf_counter())
+    if args.profile:
+        pattern_profile["elapsed_ms"] = timings["build_actions_ms"]
+        output["profiling"] = {
+            **timings,
+            "pattern_timings": [pattern_profile],
+            "top_functions": _summarize_profiler(profiler) if profiler is not None else [],
+        }
 
     print(json.dumps(output))
     return 0
