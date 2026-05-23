@@ -100,7 +100,8 @@ Frontend URL: `http://localhost:3000`
 2. Confirm completed run list loads.
 3. Select a run row.
 4. Confirm summary cards, close-price chart, equity chart, trade markers, and trades table render.
-5. Confirm strategy/run/result metadata panels render.
+5. Confirm cash-balance/free-cash labels render when account-state metadata is present.
+6. Confirm strategy/run/result metadata panels render.
 
 ## 6) Placeholder-neutral equity/cash limitation
 
@@ -111,7 +112,18 @@ Expected behavior:
 - Frontend displays warning banner/panel.
 - If equity series is all zero, UI shows explicit caution and should not imply real PnL quality.
 
-## 7) Verification commands
+## 7) Cash/free-cash display limitation
+
+For new canonical strategy-engine runs, trade/result metadata can include
+`free_cash_after`, `margin_used_after`, `short_proceeds_locked_after`, and
+`cash_after_semantics`. The dashboard should show `cash_after` as a cash
+balance and use free-cash metadata for spendable-cash display when available.
+
+Legacy runs may not have this metadata. In that case the UI should preserve the
+raw cash/equity fields and avoid implying that short-sale proceeds are free
+buying power.
+
+## 8) Verification commands
 
 ```bash
 pytest -q backend/tests

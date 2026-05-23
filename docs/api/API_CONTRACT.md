@@ -199,7 +199,15 @@ Field mapping notes:
     "trade_count": 2,
     "buy_count": 1,
     "sell_count": 1,
-    "metadata": {},
+    "metadata": {
+      "account_state": {
+        "free_cash_after": 9500.0,
+        "margin_used_after": 0.0,
+        "short_proceeds_locked_after": 0.0,
+        "available_buying_power_after": 9500.0,
+        "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
+      }
+    },
     "created_at": "2026-05-21T00:00:01Z"
   },
   "trades": [
@@ -212,7 +220,13 @@ Field mapping notes:
       "quantity": 0.01,
       "cash_after": 9500.0,
       "position_after": 0.01,
-      "metadata": {}
+      "metadata": {
+        "free_cash_after": 9500.0,
+        "margin_used_after": 0.0,
+        "short_proceeds_locked_after": 0.0,
+        "available_buying_power_after": 9500.0,
+        "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
+      }
     }
   ],
   "graph_points": [
@@ -226,7 +240,13 @@ Field mapping notes:
       "equity": 10000.0,
       "trade_id": null,
       "signal": null,
-      "metadata": {}
+      "metadata": {
+        "free_cash": 10000.0,
+        "margin_used": 0.0,
+        "short_proceeds_locked": 0.0,
+        "available_buying_power": 10000.0,
+        "cash_semantics": "cash_after equals free_cash_after when flat"
+      }
     }
   ],
   "warnings": [
@@ -242,6 +262,14 @@ Warning behavior:
 
 - `warnings` is always present (may be empty array).
 - Include `PATTERN_PLACEHOLDER_EQUITY` when run data indicates older placeholder-neutral pattern persistence (for example legacy pattern metadata without summary metadata, or zeroed cash/equity semantics).
+
+Cash/equity semantics:
+
+- `ending_cash`, `cash_after`, and graph `cash` are cash-balance fields, not always spendable free cash.
+- `final_equity`, `equity_after`, and graph `equity` are the net account value fields when positions are open.
+- New account-state fields are additive and optional for legacy runs. When present, `free_cash_after`/`free_cash`, `margin_used_after`/`margin_used`, and `short_proceeds_locked_after`/`short_proceeds_locked` should be preferred for buying-power display.
+- For short simulations, `cash_after` may include short-sale proceeds. Those proceeds must not be displayed as unrestricted free cash.
+- Simulated margin metadata is backtest-only and must not be represented as real exchange margin/futures account state.
 
 ## 5.4 Optional `GET /api/backtest-runs/{backtest_run_id}/chart` (200)
 

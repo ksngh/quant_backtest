@@ -25,6 +25,13 @@ from quant_bitcoin.backtesting.strategy_engine import (
     StrategyEngineConfig,
     run_strategy_backtest_engine,
 )
+from quant_bitcoin.backtesting.sizing import (
+    InsufficientFundsPolicy,
+    PositionSizingConfig,
+    PositionSizingMode,
+    ShortExposureMode,
+    SimulatedMarginConfig,
+)
 from quant_bitcoin.backtesting.strategy_persistence_adapter import (
     build_strategy_engine_persistence_payload,
 )
@@ -70,6 +77,31 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
     parser.add_argument("--starting-cash", type=float, default=10000.0)
     parser.add_argument("--trade-quantity", type=float, default=1.0)
+    parser.add_argument(
+        "--position-sizing-mode",
+        choices=["fixed_quantity", "cash_fraction", "target_notional"],
+        default="fixed_quantity",
+        help="Backtest sizing mode. fixed_quantity uses --trade-quantity unless an action has quantity.",
+    )
+    parser.add_argument("--position-sizing-value", type=_positive_finite_float, default=None)
+    parser.add_argument(
+        "--insufficient-funds-policy",
+        choices=["resize", "block"],
+        default="resize",
+        help="Resize or block entries when cash/buying power is insufficient.",
+    )
+    parser.add_argument(
+        "--short-exposure-mode",
+        choices=["cash_bounded", "simulated_margin"],
+        default="cash_bounded",
+        help="Backtest-only short exposure mode. simulated_margin is opt-in and not real exchange margin.",
+    )
+    parser.add_argument("--simulated-margin-leverage", type=_positive_finite_float, default=None)
+    parser.add_argument(
+        "--insufficient-margin-policy",
+        choices=["block", "resize"],
+        default="block",
+    )
     parser.add_argument("--maker-fee-bps", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--taker-fee-bps", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--spread-bps", type=_non_negative_finite_float, default=0.0)
@@ -123,6 +155,13 @@ def _non_negative_finite_float(value: str) -> float:
     return parsed
 
 
+def _positive_finite_float(value: str) -> float:
+    parsed = float(value)
+    if not isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be a positive finite float")
+    return parsed
+
+
 def _finite_float(value: str) -> float:
     parsed = float(value)
     if not isfinite(parsed):
@@ -149,6 +188,36 @@ def _build_transaction_cost_config(args: argparse.Namespace) -> tuple[Transactio
         ),
         LiquidityRole(args.liquidity_role),
     )
+
+
+def _build_position_sizing_config(args: argparse.Namespace) -> PositionSizingConfig:
+    mode = PositionSizingMode(args.position_sizing_mode.upper())
+    policy = InsufficientFundsPolicy(args.insufficient_funds_policy.upper())
+    if mode in (PositionSizingMode.CASH_FRACTION, PositionSizingMode.TARGET_NOTIONAL) and args.position_sizing_value is None:
+        raise ValueError(f"{mode.value} requires --position-sizing-value")
+    if mode is PositionSizingMode.CASH_FRACTION and args.position_sizing_value is not None and args.position_sizing_value > 1.0:
+        raise ValueError("cash_fraction --position-sizing-value must be <= 1.0")
+    return PositionSizingConfig(
+        mode=mode,
+        value=args.position_sizing_value,
+        insufficient_funds_policy=policy,
+    )
+
+
+def _build_simulated_margin_config(args: argparse.Namespace) -> tuple[ShortExposureMode, SimulatedMarginConfig]:
+    short_mode = ShortExposureMode(args.short_exposure_mode.upper())
+    margin_policy = InsufficientFundsPolicy(args.insufficient_margin_policy.upper())
+    if short_mode is ShortExposureMode.SIMULATED_MARGIN:
+        if args.simulated_margin_leverage is None:
+            raise ValueError("simulated_margin short exposure requires --simulated-margin-leverage")
+        return short_mode, SimulatedMarginConfig(
+            enabled=True,
+            leverage=args.simulated_margin_leverage,
+            insufficient_margin_policy=margin_policy,
+        )
+    if args.simulated_margin_leverage is not None:
+        raise ValueError("--simulated-margin-leverage requires --short-exposure-mode simulated_margin")
+    return short_mode, SimulatedMarginConfig(enabled=False, insufficient_margin_policy=margin_policy)
 
 
 def _select_strategy_key(args: argparse.Namespace) -> str:
@@ -282,7 +351,17 @@ def _empty_output(
     *,
     interval: str = DEFAULT_INTERVAL,
     risk_free_rate: float = 0.0,
+    policy_metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    metadata = {
+        "performance_metrics": calculate_performance_metrics(
+            [],
+            interval=interval,
+            risk_free_rate=risk_free_rate,
+        ).to_metadata()
+    }
+    if policy_metadata:
+        metadata.update(policy_metadata)
     return {
         "strategy": {
             "name": f"{strategy_key}_PATTERN_STRATEGY",
@@ -301,13 +380,7 @@ def _empty_output(
             "buy_count": 0,
             "sell_count": 0,
             "max_drawdown": 0.0,
-            "metadata": {
-                "performance_metrics": calculate_performance_metrics(
-                    [],
-                    interval=interval,
-                    risk_free_rate=risk_free_rate,
-                ).to_metadata()
-            },
+            "metadata": metadata,
         },
         "executions": [],
         "events": [],
@@ -354,6 +427,11 @@ def _serialize_execution(execution) -> dict[str, object]:
         "cash_after": execution.cash_after,
         "position_after": execution.position_after,
         "equity_after": execution.equity_after,
+        "free_cash_after": execution.free_cash_after,
+        "margin_used_after": execution.margin_used_after,
+        "short_proceeds_locked_after": execution.short_proceeds_locked_after,
+        "available_buying_power_after": execution.available_buying_power_after,
+        "cash_after_semantics": execution.cash_after_semantics,
         "raw_price": execution.raw_price,
         "effective_price": execution.effective_price,
         "fee_cost": execution.fee_cost,
@@ -412,6 +490,7 @@ def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str
             "ending_position": result.summary.ending_position,
             "final_equity": result.summary.final_equity,
             "total_return": result.summary.total_return,
+            "account_state": _json_safe((result.summary.metadata or {}).get("account_state", {})),
         },
         "summary": {
             "trade_count": result.summary.trade_count,
@@ -436,6 +515,16 @@ def run(
     args = build_parser(prog, include_strategy).parse_args(argv)
     strategy_key = _select_strategy_key(args)
     transaction_cost_config, default_liquidity_role = _build_transaction_cost_config(args)
+    position_sizing = _build_position_sizing_config(args)
+    short_exposure_mode, simulated_margin = _build_simulated_margin_config(args)
+    policy_metadata = {
+        "position_sizing": position_sizing.to_metadata(),
+        "short_exposure_policy": {
+            "mode": short_exposure_mode.value,
+            "default_policy": "short exposure is bounded by cash unless explicit simulated-margin mode is enabled",
+        },
+        "simulated_margin": simulated_margin.to_metadata(),
+    }
     start_total = time.perf_counter()
     timings: dict[str, float] = {}
     pattern_profile: dict[str, object] = {
@@ -467,6 +556,7 @@ def run(
                         args.starting_cash,
                         interval=args.interval,
                         risk_free_rate=args.risk_free_rate,
+                        policy_metadata=policy_metadata,
                     )
                 )
             )
@@ -496,6 +586,9 @@ def run(
             default_liquidity_role=default_liquidity_role,
             interval=args.interval,
             risk_free_rate=args.risk_free_rate,
+            position_sizing=position_sizing,
+            short_exposure_mode=short_exposure_mode,
+            simulated_margin=simulated_margin,
         ),
     )
     timings["run_engine_ms"] = _ms(start_engine, time.perf_counter())
@@ -534,6 +627,9 @@ def run(
                     "volatility_slippage_multiplier": transaction_cost_config.volatility_slippage_multiplier,
                     "liquidity_role": default_liquidity_role.value,
                 },
+                "position_sizing": position_sizing.to_metadata(),
+                "short_exposure_policy": policy_metadata["short_exposure_policy"],
+                "simulated_margin": simulated_margin.to_metadata(),
                 "risk_free_rate": args.risk_free_rate,
             },
             starting_cash=args.starting_cash,

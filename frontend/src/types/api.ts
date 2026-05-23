@@ -72,6 +72,11 @@ export type BacktestTrade = {
   price: number;
   quantity: number;
   cash_after: number;
+  free_cash_after?: number | null;
+  margin_used_after?: number | null;
+  short_proceeds_locked_after?: number | null;
+  available_buying_power_after?: number | null;
+  cash_after_semantics?: string | null;
   position_after: number;
   metadata: Record<string, unknown> | null;
 };
@@ -82,6 +87,11 @@ export type BacktestGraphPoint = {
   candle_open_time: string;
   close_price: number;
   cash: number;
+  free_cash?: number | null;
+  margin_used?: number | null;
+  short_proceeds_locked?: number | null;
+  available_buying_power?: number | null;
+  cash_semantics?: string | null;
   position: number;
   equity: number;
   trade_id: number | null;

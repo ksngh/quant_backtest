@@ -41,6 +41,29 @@ function getRuntimeBreakdown(detail: BacktestRunDetailResponse | null) {
   return runtime;
 }
 
+function metaNum(record: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = record?.[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function metaText(record: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function tradeFreeCash(trade: BacktestTrade): number | undefined {
+  return trade.free_cash_after ?? metaNum(trade.metadata, "free_cash_after");
+}
+
+function tradeCashSemantics(trade: BacktestTrade): string | undefined {
+  return trade.cash_after_semantics ?? metaText(trade.metadata, "cash_after_semantics");
+}
+
+function accountState(summaryMetadata: Record<string, unknown> | null | undefined) {
+  const state = summaryMetadata?.account_state;
+  return state && typeof state === "object" ? (state as Record<string, unknown>) : null;
+}
+
 
 function ExplanationCard({ title, items }: { title: string; items: unknown }) {
   const list = Array.isArray(items) ? items : [];
@@ -117,9 +140,13 @@ function LineChart({
                 <circle cx={toX(idx)} cy={toY(point[valueKey])} r={4} fill={color}>
                   <title>{`time: ${point.candle_open_time}\nsignal: ${point.signal}\nprice: ${fmtNum(
                     point.close_price,
-                  )}\nquantity: ${fmtNum(trade?.quantity)}\ncash_after: ${fmtNum(
+                  )}\nquantity: ${fmtNum(trade?.quantity)}\ncash_balance_after: ${fmtNum(
                     trade?.cash_after,
-                  )}\nposition_after: ${fmtNum(trade?.position_after)}\nmetadata: ${JSON.stringify(
+                  )}\nfree_cash_after: ${fmtNum(
+                    trade ? tradeFreeCash(trade) : undefined,
+                  )}\nposition_after: ${fmtNum(trade?.position_after)}\ncash_semantics: ${
+                    trade ? tradeCashSemantics(trade) ?? "-" : "-"
+                  }\nmetadata: ${JSON.stringify(
                     trade?.metadata ?? point.metadata ?? {},
                   )}`}</title>
                 </circle>
@@ -168,6 +195,7 @@ export default function DashboardPage() {
   }, [selectedId]);
 
   const runtime = useMemo(() => getRuntimeBreakdown(detail), [detail]);
+  const finalAccountState = useMemo(() => accountState(detail?.summary.metadata), [detail]);
 
   const allEquityZero = useMemo(
     () => Boolean(detail && detail.graph_points.length && detail.graph_points.every((p) => p.equity === 0)),
@@ -239,6 +267,8 @@ export default function DashboardPage() {
             <div><strong>Symbol/Interval:</strong> {detail.run.market.symbol} / {detail.run.market.interval}</div>
             <div><strong>Candle Range:</strong> {fmtTime(detail.run.market.actual_start_time)} → {fmtTime(detail.run.market.actual_end_time)}</div>
             <div><strong>Starting Cash:</strong> {fmtNum(detail.summary.starting_cash)}</div>
+            <div><strong>Ending Cash Balance:</strong> {fmtNum(detail.summary.ending_cash)}</div>
+            <div><strong>Free Cash:</strong> {fmtNum(metaNum(finalAccountState, "free_cash_after"))}</div>
             <div><strong>Final Equity:</strong> {fmtNum(detail.summary.final_equity)}</div>
             <div><strong>Total Return:</strong> {fmtPct(detail.summary.total_return)}</div>
             <div><strong>Trade Count:</strong> {detail.summary.trade_count}</div>
@@ -298,19 +328,22 @@ export default function DashboardPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Seq</th><th>Timestamp</th><th>Signal</th><th>Price</th><th>Qty</th><th>Cash After</th><th>Position After</th><th>Metadata</th>
+                  <th>Seq</th><th>Timestamp</th><th>Signal</th><th>Price</th><th>Qty</th><th>Cash Balance / Free Cash</th><th>Position After</th><th>Metadata</th>
                 </tr>
               </thead>
               <tbody>
                 {detail.trades.map((trade) => (
                   <tr key={trade.id}>
                     <td>{trade.sequence}</td><td>{trade.candle_open_time}</td><td>{trade.signal}</td><td>{fmtNum(trade.price)}</td>
-                    <td>{fmtNum(trade.quantity)}</td><td>{fmtNum(trade.cash_after)}</td><td>{fmtNum(trade.position_after)}</td>
+                    <td>{fmtNum(trade.quantity)}</td><td>{fmtNum(trade.cash_after)} / {fmtNum(tradeFreeCash(trade))}</td><td>{fmtNum(trade.position_after)}</td>
                     <td>{JSON.stringify({
                       event_id: trade.metadata?.event_id,
                       pattern_type: trade.metadata?.pattern_type,
                       pattern_direction: trade.metadata?.pattern_direction,
                       exit_reason: trade.metadata?.exit_reason,
+                      cash_after_semantics: tradeCashSemantics(trade),
+                      short_proceeds_locked_after: trade.metadata?.short_proceeds_locked_after,
+                      margin_used_after: trade.metadata?.margin_used_after,
                       exit_timestamp: trade.metadata?.exit_timestamp,
                       exit_price: trade.metadata?.exit_price,
                       realized_pnl_per_unit: trade.metadata?.realized_pnl_per_unit,

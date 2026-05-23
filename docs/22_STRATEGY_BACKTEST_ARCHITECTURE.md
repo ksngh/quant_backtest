@@ -80,16 +80,28 @@ These sides provide explicit cashflow direction required for accounting.
 
 Semantic action labels do not guarantee deterministic cashflow direction or quantity movement. Portfolio accounting requires explicit BUY/SELL side mapping.
 
-## Long-Only Spot Default Mapping
+## Strategy-Engine Execution Mapping
 
-Default mode is long-only spot:
+The strategy engine maps semantic actions into simulated cashflow sides:
 
 - `ENTER_LONG` -> `BUY`
 - `EXIT_LONG` -> `SELL`
 - `PARTIAL_EXIT_LONG` -> `SELL`
+- `ENTER_SHORT` -> `SELL`
+- `EXIT_SHORT` -> `BUY`
+- `PARTIAL_EXIT_SHORT` -> `BUY`
 - `SKIP` -> no execution
 
-Short entries remain disabled unless a future, explicitly assigned research-only task enables paper shorting.
+Short actions are backtest simulation semantics only. They do not imply spot
+paper/testnet/live short support and do not call exchange order/account
+endpoints. Default simulated shorts are cash-bounded; explicit simulated margin
+is opt-in, backtest-only, and models initial margin only. Borrow fees, futures
+funding, maintenance margin, and liquidation remain unsupported.
+
+The engine records both cash-balance fields (`cash_after`, `ending_cash`) and
+account-state metadata (`free_cash_after`, `margin_used_after`,
+`short_proceeds_locked_after`). When shorts are open, cash balance can include
+short-sale proceeds and must not be presented as unrestricted free cash.
 
 ## Single-Pattern Strategy Naming Convention
 
