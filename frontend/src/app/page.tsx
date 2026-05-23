@@ -41,6 +41,18 @@ function getRuntimeBreakdown(detail: BacktestRunDetailResponse | null) {
   return runtime;
 }
 
+
+function ExplanationCard({ title, items }: { title: string; items: unknown }) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return null;
+  return (
+    <section className="card">
+      <h3>{title}</h3>
+      <ul>{list.map((v, i) => <li key={`${title}-${i}`}>{String(v)}</li>)}</ul>
+    </section>
+  );
+}
+
 function JsonPanel({ title, value }: { title: string; value: unknown }) {
   return (
     <section className="card">
@@ -264,6 +276,19 @@ export default function DashboardPage() {
               <div><strong>JSON:</strong> {fmtDurationMs(runtime?.json_elapsed_ms)}</div>
             </div>
           </section>
+          {(() => {
+            const explanation = (detail.strategy_config.metadata as Record<string, unknown> | null)?.explanation as Record<string, unknown> | undefined;
+            if (!explanation) return null;
+            return (<>
+              <section className="card"><h3>Algorithm Summary</h3><p><strong>{String(explanation.algorithm_name ?? "-")}</strong> ({String(explanation.algorithm_key ?? "-")})</p></section>
+              <ExplanationCard title="Entry Rules" items={explanation.entry_rules} />
+              <ExplanationCard title="Stop-Loss Rules" items={explanation.stop_loss_rules} />
+              <ExplanationCard title="Take-Profit Rules" items={explanation.take_profit_rules} />
+              <ExplanationCard title="Risk/Exit Management" items={[...(Array.isArray(explanation.partial_exit_rules) ? explanation.partial_exit_rules : []), ...(Array.isArray(explanation.soft_invalidation_rules) ? explanation.soft_invalidation_rules : []), ...(Array.isArray(explanation.time_stop_rules) ? explanation.time_stop_rules : [])]} />
+              <ExplanationCard title="Design Rationale" items={explanation.design_rationale} />
+              <ExplanationCard title="Limitations" items={explanation.known_limitations} />
+            </>);
+          })()}
           <LineChart title="Close Price" points={detail.graph_points} valueKey="close_price" markerTrades={detail.trades} />
           <LineChart title="Equity" points={detail.graph_points} valueKey="equity" />
           {allEquityZero && <p className="error">Equity series is all zero; treat as placeholder-neutral and not real performance.</p>}
