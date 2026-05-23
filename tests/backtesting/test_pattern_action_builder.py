@@ -137,3 +137,18 @@ def test_ambiguous_same_candle_exit_metadata_contains_precedence_policy() -> Non
     assert exit_metadata["precedence"] == "stop_before_target"
     assert exit_metadata["intrabar_precedence_policy"] == "stop_before_target"
     assert exit_metadata["ambiguous_stop_target"] is True
+
+
+def test_builder_does_not_mutate_future_candles_input() -> None:
+    future = _candles([{"high": 106.0, "low": 100.0}])
+    original = future.copy(deep=True)
+
+    build_pattern_trade_actions(
+        _Event(),
+        _plan("LONG"),
+        future,
+        entry_action_timestamp=123,
+        position_side="LONG",
+    )
+
+    pd.testing.assert_frame_equal(future, original)

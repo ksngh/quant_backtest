@@ -83,3 +83,5 @@ Older history is preserved in segmented archives:
 
 - 2026-05-23: Completed Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION`; generalized shared indicator cache builder for pattern detectors, added Order Block at-index detection with early seen-event suppression, wired canonical runner to reuse cache/evaluate_at for Order Block, and added rolling-prefix parity regression coverage for optimized Order Block path.
 - 2026-05-23: Completed Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING`; added deterministic recent-pivot windows and candidate caps for Trendline Break/Cup and Handle/Diamond/Adam and Eve detection paths and validated existing pattern fixtures via targeted regression suite.
+
+- 2026-05-23: Completed Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP`; removed avoidable deep copies in canonical pattern strategy/action-builder hot paths, preserved caller input immutability with explicit regression coverage, and revalidated canonical pattern runner optimization suites.
