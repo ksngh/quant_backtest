@@ -131,6 +131,59 @@ def test_cli_can_skip_schema_initialization_for_prepared_database(capsys):
     assert output["stored_candles"] == 0
 
 
+def test_cli_runs_multi_interval_backfill_once_per_requested_interval(capsys):
+    calls = {"repositories": [], "run_kwargs": []}
+
+    class FakeRepository:
+        def __init__(self, database_url: str) -> None:
+            calls["repositories"].append(self)
+
+        def initialize_schema(self) -> None:
+            return None
+
+    class FakeBackfiller:
+        def __init__(self, repository, **kwargs) -> None:
+            self.repository = repository
+
+        def run(self, **kwargs):
+            calls["run_kwargs"].append(kwargs)
+            return BackfillResult(
+                symbol=kwargs["symbol"],
+                interval=kwargs["interval"],
+                requested_start_time=kwargs["start_time"],
+                requested_end_time=kwargs["end_time"],
+                stored_candles=7,
+                pages_fetched=1,
+            )
+
+    exit_code = main(
+        ["--symbol", "btcusdt", "--intervals", "1m, 5m,15m,5m"],
+        repository_factory=FakeRepository,
+        backfiller_factory=FakeBackfiller,
+    )
+    output = _json_output(capsys)
+
+    assert exit_code == 0
+    assert output["symbol"] == "BTCUSDT"
+    assert output["intervals"] == ["1m", "5m", "15m"]
+    assert [call["interval"] for call in calls["run_kwargs"]] == ["1m", "5m", "15m"]
+    assert output["results"][1]["interval"] == "5m"
+    assert output["results"][1]["stored_candles"] == 7
+
+
+def test_cli_rejects_invalid_interval_list_before_database_or_network_work():
+    class UnexpectedRepository:
+        def __init__(self, database_url: str) -> None:
+            raise AssertionError("database should not be opened for invalid intervals")
+
+    try:
+        main(["--intervals", "1m,2h"], repository_factory=UnexpectedRepository)
+    except ValueError as error:
+        assert "supported minute interval" in str(error)
+    else:
+        raise AssertionError("expected invalid interval list to fail")
+
+
 def test_cli_rejects_invalid_limit_before_any_database_or_network_work():
     class UnexpectedRepository:
         def __init__(self, database_url: str) -> None:

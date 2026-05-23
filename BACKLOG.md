@@ -45,6 +45,15 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` pending explicit owner approval for live order execution.
+- Completed (2026-05-23): Task 137 `EXECUTION_FILL_RECONCILIATION_AND_ACTUAL_COST_METRICS`.
+- Completed (2026-05-23): Task 136 `BINANCE_SPOT_TESTNET_EXECUTION_CLIENT_SAFETY_AND_POLICY`.
+- Completed (2026-05-23): Task 135 `PRODUCT_SPECIFIC_SHORT_POLICY_AND_EXECUTION_BOUNDARIES`.
+- Completed (2026-05-23): Task 134 `REALTIME_CANDLE_CLOSE_STRATEGY_TRIGGER_AND_PAPER_EXECUTION`.
+- Completed (2026-05-23): Task 133 `ORDER_INTENT_AND_PAPER_EXECUTION_CONTRACT`.
+- Completed (2026-05-23): Task 132 `BACKTEST_PERFORMANCE_METRICS_FROM_EQUITY_CURVE`.
+- Completed (2026-05-23): Task 131 `MULTI_INTERVAL_BINANCE_CANDLE_ORCHESTRATION` (multi-interval public candle backfill workflow with parser, runner, CLI summary, and tests).
+- Completed (2026-05-23): Task 130 `STATE_RECONCILIATION_AND_EXECUTION_TASK_BUNDLE` (reconciled the created 131-138 task window and next-task pointer).
 - Completed (2026-05-23): Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` (reproduced Diamond failures, clarified VALID-only default status filter contract, and aligned Diamond tests with explicit status semantics).
 - Completed (2026-05-23): Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX` (canonical strategy CLI JSON-safe timestamp metadata serialization + exception logging signature fix).
 - Completed (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).

@@ -68,6 +68,7 @@ def test_trade_metadata_preserves_action_and_position_side() -> None:
     assert first_trade.metadata["action_type"] == "ENTER_LONG"
     assert first_trade.metadata["position_side"] == "LONG"
     assert first_trade.metadata["execution_side"] == "BUY"
+    assert payload.result.metadata["performance_metrics"]["interval"] == "1m"
 
 
 def test_graph_points_preserve_multiple_same_timestamp_executions() -> None:

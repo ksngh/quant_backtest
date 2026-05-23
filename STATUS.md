@@ -1,25 +1,25 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 162: Task 129 Diamond status filtering investigation completed (2026-05-23).
+Phase 170: Task 137 execution fill reconciliation completed; Task 138 blocked pending explicit live approval (2026-05-23).
 
 ## Current Step
-Task 129 resolved Diamond single-pattern test contract mismatch by keeping default VALID-only status filtering explicit and aligning Diamond unit expectations.
+Task 137 added execution fill reconciliation for VWAP, side-aware slippage, raw commission preservation, quote-commission availability, and simulated-vs-actual comparison. Task 138 was inspected and remains blocked because explicit owner approval for live order execution was not provided.
 
 ## Current Goal
-Keep single-pattern status-filtering semantics explicit and regression-backed for Diamond strategy behavior.
+Keep live spot execution disabled and require explicit owner approval before Task 138 implementation.
 
 ## Current Active Task
-No active implementation task (Task 129 completed).
+No active implementation task. Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` is blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Task 129 completed with Diamond default status-filtering policy clarification and passing targeted diamond strategy tests.
+Task 137 completed with execution-quality metric serialization and passing execution/persistence/backtesting tests. Task 138 blocked by its own prerequisite.
 
 ## Recommended Next Step
-Owner to assign next task (no new task.md selected yet).
+Owner must explicitly approve live order execution before Task 138 can be implemented.
 
 ## Current Blockers (Short)
-- Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
+- Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Frontend package install/build remains blocked in this environment by npm registry access restrictions.
 
@@ -30,6 +30,7 @@ Owner to assign next task (no new task.md selected yet).
 - No committed `.env` files.
 - No signed exchange requests.
 - No order/account endpoint usage.
+- Testnet signed order request code exists only in the explicit execution client and is covered by fake-HTTP tests; live order execution remains disabled.
 
 ## Focused Context Pointers
 - Historical/completed ledger: `PROJECT_HISTORY.md`

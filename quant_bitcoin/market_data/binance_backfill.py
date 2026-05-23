@@ -64,12 +64,88 @@ class BackfillResult:
     pages_fetched: int
 
 
+@dataclass(frozen=True)
+class MultiIntervalBackfillResult:
+    """Summary of a multi-interval historical backfill run."""
+
+    symbol: str
+    intervals: tuple[str, ...]
+    results: tuple[BackfillResult, ...]
+
+
 class BinanceBackfillError(RuntimeError):
     """Base error for Binance historical backfill failures."""
 
 
 class RetryableBinanceError(BinanceBackfillError):
     """A public market-data request failed in a retryable way."""
+
+
+class MultiIntervalBackfillError(BinanceBackfillError):
+    """A specific interval failed during multi-interval backfill."""
+
+    def __init__(self, interval: str, error: Exception) -> None:
+        super().__init__(f"backfill failed for interval {interval}: {error}")
+        self.interval = interval
+        self.error = error
+
+
+def parse_interval_list(value: str) -> tuple[str, ...]:
+    """Parse a comma-separated interval list, preserving order and de-duplicating."""
+
+    if not isinstance(value, str):
+        raise ValueError("intervals must be a string")
+    intervals: list[str] = []
+    seen: set[str] = set()
+    for raw_interval in value.split(","):
+        interval = raw_interval.strip()
+        if not interval:
+            continue
+        _validate_interval(interval)
+        if interval not in seen:
+            intervals.append(interval)
+            seen.add(interval)
+    if not intervals:
+        raise ValueError("intervals must include at least one supported interval")
+    return tuple(intervals)
+
+
+class MultiIntervalBinanceBackfillRunner:
+    """Run the existing single-interval backfiller once per requested interval."""
+
+    def __init__(self, backfiller: BinanceHistoricalBackfiller) -> None:
+        self.backfiller = backfiller
+
+    def run(
+        self,
+        *,
+        symbol: str = "BTCUSDT",
+        intervals: Sequence[str],
+        start_time: datetime | int | None = None,
+        end_time: datetime | int | None = None,
+        limit: int = BINANCE_MAX_KLINE_LIMIT,
+    ) -> MultiIntervalBackfillResult:
+        normalized_symbol = _normalize_symbol(symbol)
+        parsed_intervals = parse_interval_list(",".join(intervals))
+        results: list[BackfillResult] = []
+        for interval in parsed_intervals:
+            try:
+                results.append(
+                    self.backfiller.run(
+                        symbol=normalized_symbol,
+                        interval=interval,
+                        start_time=start_time,
+                        end_time=end_time,
+                        limit=limit,
+                    )
+                )
+            except Exception as error:
+                raise MultiIntervalBackfillError(interval, error) from error
+        return MultiIntervalBackfillResult(
+            symbol=normalized_symbol,
+            intervals=parsed_intervals,
+            results=tuple(results),
+        )
 
 
 class BinanceHistoricalBackfiller:

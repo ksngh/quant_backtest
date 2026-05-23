@@ -16,6 +16,7 @@ import pandas as pd
 
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
 from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
+from quant_bitcoin.backtesting.performance_metrics import calculate_performance_metrics
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
@@ -76,6 +77,7 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--minimum-slippage-bps", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--volatility-slippage-multiplier", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--liquidity-role", type=_liquidity_role, default=LiquidityRole.TAKER.value)
+    parser.add_argument("--risk-free-rate", type=_finite_float, default=0.0)
     parser.add_argument("--no-persist", action="store_true")
     parser.add_argument("--profile", action="store_true")
     return parser
@@ -118,6 +120,13 @@ def _non_negative_finite_float(value: str) -> float:
     parsed = float(value)
     if not isfinite(parsed) or parsed < 0:
         raise argparse.ArgumentTypeError("value must be a non-negative finite float")
+    return parsed
+
+
+def _finite_float(value: str) -> float:
+    parsed = float(value)
+    if not isfinite(parsed):
+        raise argparse.ArgumentTypeError("value must be finite")
     return parsed
 
 
@@ -267,7 +276,13 @@ def _risk_plan_invalid_skip(
     )
 
 
-def _empty_output(strategy_key: str, starting_cash: float) -> dict[str, object]:
+def _empty_output(
+    strategy_key: str,
+    starting_cash: float,
+    *,
+    interval: str = DEFAULT_INTERVAL,
+    risk_free_rate: float = 0.0,
+) -> dict[str, object]:
     return {
         "strategy": {
             "name": f"{strategy_key}_PATTERN_STRATEGY",
@@ -286,6 +301,13 @@ def _empty_output(strategy_key: str, starting_cash: float) -> dict[str, object]:
             "buy_count": 0,
             "sell_count": 0,
             "max_drawdown": 0.0,
+            "metadata": {
+                "performance_metrics": calculate_performance_metrics(
+                    [],
+                    interval=interval,
+                    risk_free_rate=risk_free_rate,
+                ).to_metadata()
+            },
         },
         "executions": [],
         "events": [],
@@ -437,7 +459,18 @@ def run(
     candles = provider.load()
     timings["load_candles_ms"] = _ms(start_load, time.perf_counter())
     if candles.empty:
-        print(json.dumps(_json_safe(_empty_output(strategy_key, args.starting_cash))))
+        print(
+            json.dumps(
+                _json_safe(
+                    _empty_output(
+                        strategy_key,
+                        args.starting_cash,
+                        interval=args.interval,
+                        risk_free_rate=args.risk_free_rate,
+                    )
+                )
+            )
+        )
         return 0
     pattern_profile["candle_count"] = int(len(candles))
 
@@ -461,6 +494,8 @@ def run(
             trade_quantity=args.trade_quantity,
             transaction_cost_config=transaction_cost_config,
             default_liquidity_role=default_liquidity_role,
+            interval=args.interval,
+            risk_free_rate=args.risk_free_rate,
         ),
     )
     timings["run_engine_ms"] = _ms(start_engine, time.perf_counter())
@@ -499,6 +534,7 @@ def run(
                     "volatility_slippage_multiplier": transaction_cost_config.volatility_slippage_multiplier,
                     "liquidity_role": default_liquidity_role.value,
                 },
+                "risk_free_rate": args.risk_free_rate,
             },
             starting_cash=args.starting_cash,
             trade_quantity=args.trade_quantity,
