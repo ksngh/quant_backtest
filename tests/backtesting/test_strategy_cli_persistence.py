@@ -45,7 +45,7 @@ def test_strategy_cli_outputs_buy_sell_not_entry(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "_build_actions",
-        lambda candles, strategy_key: (
+        lambda candles, strategy_key, *args, **kwargs: (
             StubStrategy(),
             [
                 StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
@@ -89,7 +89,7 @@ def test_strategy_cli_enriched_execution_and_events(monkeypatch, capsys) -> None
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "_build_actions",
-        lambda candles, strategy_key: (
+        lambda candles, strategy_key, *args, **kwargs: (
             StubStrategy(),
             [
                 StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
@@ -119,7 +119,7 @@ def test_strategy_cli_adds_invalid_risk_and_no_fill_warnings(monkeypatch, capsys
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "_build_actions",
-        lambda candles, strategy_key: (
+        lambda candles, strategy_key, *args, **kwargs: (
             StubStrategy(),
             [
                 StrategyAction(
@@ -137,3 +137,58 @@ def test_strategy_cli_adds_invalid_risk_and_no_fill_warnings(monkeypatch, capsys
     output = json.loads(capsys.readouterr().out)
     assert "invalid risk plan" in output["warnings"]
     assert "no fills" in output["warnings"]
+
+
+def test_strategy_cli_json_serializes_timestamp_metadata(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *args, **kwargs: FakeProvider(_candles()),
+    )
+
+    class StubStrategy:
+        strategy_name = "STUB_PATTERN_STRATEGY"
+        strategy_key = "STUB"
+
+    def build_actions(candles, strategy_key, *args, **kwargs):
+        return (
+            StubStrategy(),
+            [
+                StrategyAction(
+                    StrategyActionType.ENTER_LONG,
+                    timestamp=candles.iloc[0]["timestamp"],
+                    quantity=1.0,
+                    metadata={
+                        "fill_timestamp": candles.iloc[0]["timestamp"],
+                        "nested": {"exit_timestamp": candles.iloc[1]["timestamp"]},
+                    },
+                ),
+                StrategyAction(
+                    StrategyActionType.EXIT_LONG,
+                    timestamp=candles.iloc[1]["timestamp"],
+                    quantity=1.0,
+                    metadata={"exit_timestamp": pd.Timestamp("2026-01-01T00:01:00Z")},
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(strategy_postgres_runner_core, "_build_actions", build_actions)
+
+    assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["executions"][0]["metadata"]["fill_timestamp"] == "2026-01-01T00:00:00Z"
+    assert output["executions"][0]["metadata"]["nested"]["exit_timestamp"] == "2026-01-01T00:01:00Z"
+    assert output["executions"][1]["metadata"]["exit_timestamp"] == "2026-01-01T00:01:00Z"
+
+
+def test_strategy_cli_exception_logging_uses_current_signature(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fail_run(argv=None):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(strategy_postgres_runner_cli, "run", fail_run)
+    monkeypatch.setattr(strategy_postgres_runner_cli, "log_runtime_exception", calls.append)
+
+    assert strategy_postgres_runner_cli.main(["--no-persist"]) == 1
+    assert calls == [strategy_postgres_runner_cli.__name__]

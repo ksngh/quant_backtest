@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import cProfile
+from dataclasses import asdict, is_dataclass
+from datetime import date, datetime, timezone
+from enum import Enum
 import json
 import os
 import pstats
 import time
 from collections.abc import Sequence
-from datetime import datetime, timezone
 from math import isfinite
 
 import pandas as pd
@@ -297,6 +299,26 @@ def _iso_timestamp(value: object) -> str:
     return str(value)
 
 
+def _json_safe(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, pd.Timestamp):
+        return _iso_timestamp(value)
+    if isinstance(value, (datetime, date)):
+        return _iso_timestamp(value)
+    if isinstance(value, Enum):
+        return _json_safe(value.value)
+    if is_dataclass(value) and not isinstance(value, type):
+        return _json_safe(asdict(value))
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return [_json_safe(item) for item in sorted(value, key=repr)]
+    return str(value)
+
+
 def _serialize_execution(execution) -> dict[str, object]:
     return {
         "timestamp": _iso_timestamp(execution.timestamp),
@@ -322,7 +344,7 @@ def _serialize_execution(execution) -> dict[str, object]:
         "gross_pnl": execution.gross_pnl,
         "net_pnl": execution.net_pnl,
         "realized_r_multiple": execution.realized_r_multiple,
-        "metadata": execution.metadata or {},
+        "metadata": _json_safe(execution.metadata or {}),
     }
 
 
@@ -374,7 +396,7 @@ def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str
             "buy_count": result.summary.buy_count,
             "sell_count": result.summary.sell_count,
             "max_drawdown": result.summary.max_drawdown,
-            "metadata": result.summary.metadata or {},
+            "metadata": _json_safe(result.summary.metadata or {}),
         },
         "executions": [_serialize_execution(execution) for execution in result.executions],
         "events": events,
@@ -415,7 +437,7 @@ def run(
     candles = provider.load()
     timings["load_candles_ms"] = _ms(start_load, time.perf_counter())
     if candles.empty:
-        print(json.dumps(_empty_output(strategy_key, args.starting_cash)))
+        print(json.dumps(_json_safe(_empty_output(strategy_key, args.starting_cash))))
         return 0
     pattern_profile["candle_count"] = int(len(candles))
 
@@ -518,5 +540,5 @@ def run(
             "top_functions": _summarize_profiler(profiler) if profiler is not None else [],
         }
 
-    print(json.dumps(output))
+    print(json.dumps(_json_safe(output)))
     return 0

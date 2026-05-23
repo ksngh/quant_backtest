@@ -6,6 +6,6 @@ from quant_bitcoin.backtesting.strategy_postgres_runner_cli import run
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         return run(argv, prog="quant-bitcoin-pattern-backtest", include_strategy=False)
-    except Exception as exc:
-        log_runtime_exception(__name__, exc)
+    except Exception:
+        log_runtime_exception(__name__)
         return 1

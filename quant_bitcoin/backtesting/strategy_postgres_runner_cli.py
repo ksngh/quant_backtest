@@ -19,6 +19,6 @@ from .strategy_postgres_runner_core import (
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         return run(argv)
-    except Exception as exc:
-        log_runtime_exception(__name__, exc)
+    except Exception:
+        log_runtime_exception(__name__)
         return 1

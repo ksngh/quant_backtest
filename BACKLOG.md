@@ -45,6 +45,8 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Completed (2026-05-23): Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX` (canonical strategy CLI JSON-safe timestamp metadata serialization + exception logging signature fix).
+- Candidate: investigate existing Diamond strategy unit-test failures around default pattern status filtering (`tests/strategies/test_single_pattern_strategies.py`).
 - Completed (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).
 - Completed (2026-05-23): Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS` (added 400-candle fixture runtime guardrails across all supported pattern paths and optional benchmark smoke output).
 - Completed (2026-05-23): Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE` (human-readable algorithm/SL/TP rationale metadata + dashboard display after Task 125).
