@@ -16,6 +16,18 @@ export type BacktestRunListFilters = {
   limit?: number;
 };
 
+export type BacktestRuntimeSummary = {
+  total_elapsed_ms?: number;
+  action_build_elapsed_ms?: number;
+  engine_elapsed_ms?: number;
+};
+
+export type BacktestRuntimeBreakdown = BacktestRuntimeSummary & {
+  load_elapsed_ms?: number;
+  persist_elapsed_ms?: number;
+  json_elapsed_ms?: number;
+};
+
 export type BacktestRunListItem = {
   id: number;
   run_key: string;
@@ -40,6 +52,7 @@ export type BacktestRunListItem = {
     total_return: number;
     trade_count: number;
   };
+  runtime?: BacktestRuntimeSummary | null;
   created_at: string;
   completed_at: string | null;
 };
@@ -97,7 +110,10 @@ export type BacktestRunDetailResponse = {
     trade_quantity: number;
     created_at: string;
     completed_at: string | null;
-    metadata: Record<string, unknown> | null;
+    metadata: {
+      runtime?: BacktestRuntimeBreakdown;
+      [key: string]: unknown;
+    } | null;
   };
   strategy_config: {
     id: number;

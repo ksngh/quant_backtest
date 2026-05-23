@@ -45,9 +45,9 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Completed (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).
 - Active follow-up candidate (2026-05-23): Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS` (lightweight guardrails to prevent runtime regressions after Tasks 120-126).
 - Active follow-up candidate (2026-05-23): Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE` (human-readable algorithm/SL/TP rationale metadata + dashboard display after Task 125).
-- Active follow-up candidate (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).
 - Completed (2026-05-23): Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA` (persisted canonical runtime metadata under `backtest_runs.metadata.runtime` and included runtime payload in `--no-persist` CLI JSON output).
 - Completed (2026-05-23): Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP` (removed avoidable deep-copy overhead in canonical pattern strategy/action-builder paths with no-mutation regression coverage).
 - Completed (2026-05-23): Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING` (deterministic recent-pivot/candidate-cap pruning for pivot-heavy detectors).
