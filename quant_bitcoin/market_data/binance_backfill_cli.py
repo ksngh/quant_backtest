@@ -18,6 +18,8 @@ from typing import Any
 from quant_bitcoin.market_data.binance_backfill import (
     BINANCE_MAX_KLINE_LIMIT,
     BinanceHistoricalBackfiller,
+    MultiIntervalBinanceBackfillRunner,
+    parse_interval_list,
 )
 from quant_bitcoin.market_data.binance_downloader import DEFAULT_MARKET_DATA_BASE_URL
 from quant_bitcoin.persistence import PostgresCandleRepository
@@ -44,6 +46,7 @@ def _main_impl(
     """Run the Binance historical backfill CLI and return a process exit code."""
 
     args = build_parser().parse_args(argv)
+    intervals = parse_interval_list(args.intervals) if args.intervals else None
     repository = repository_factory(args.database_url)
     if args.initialize_schema:
         repository.initialize_schema()
@@ -54,13 +57,22 @@ def _main_impl(
         timeout=args.timeout_seconds,
         max_retries=args.max_retries,
     )
-    result = backfiller.run(
-        symbol=args.symbol,
-        interval=args.interval,
-        start_time=args.start_time,
-        end_time=args.end_time,
-        limit=args.limit,
-    )
+    if intervals is None:
+        result = backfiller.run(
+            symbol=args.symbol,
+            interval=args.interval,
+            start_time=args.start_time,
+            end_time=args.end_time,
+            limit=args.limit,
+        )
+    else:
+        result = MultiIntervalBinanceBackfillRunner(backfiller).run(
+            symbol=args.symbol,
+            intervals=intervals,
+            start_time=args.start_time,
+            end_time=args.end_time,
+            limit=args.limit,
+        )
     _print_json(asdict(result))
     return 0
 
@@ -86,6 +98,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--interval",
         default=os.environ.get("INTERVAL", DEFAULT_INTERVAL),
         help="Binance kline interval to backfill",
+    )
+    parser.add_argument(
+        "--intervals",
+        default=os.environ.get("INTERVALS"),
+        help="comma-separated Binance kline intervals to backfill in order",
     )
     parser.add_argument(
         "--start-time",

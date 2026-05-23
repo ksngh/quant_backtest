@@ -9,8 +9,11 @@ import pytest
 from quant_bitcoin.market_data.binance_backfill import (
     RETRYABLE_HTTP_STATUS_CODES,
     BinanceHistoricalBackfiller,
+    MultiIntervalBackfillError,
+    MultiIntervalBinanceBackfillRunner,
     RetryableBinanceError,
     map_binance_kline_to_persisted_candle,
+    parse_interval_list,
 )
 from quant_bitcoin.persistence import HISTORICAL_BACKFILL_MODE, SOURCE_BINANCE_SPOT
 
@@ -237,6 +240,83 @@ def test_backfill_uses_public_market_data_endpoint_without_signed_request_data()
     ).run(start_time=1_704_067_200_000, end_time=1_704_067_200_000)
 
     assert result.stored_candles == 0
+
+
+def test_interval_list_parser_trims_deduplicates_and_preserves_order():
+    assert parse_interval_list("1m, 5m,15m,5m") == ("1m", "5m", "15m")
+
+
+def test_interval_list_parser_rejects_unsupported_interval():
+    with pytest.raises(ValueError, match="supported minute interval"):
+        parse_interval_list("1m,2h")
+
+
+def test_multi_interval_runner_calls_backfiller_once_per_interval():
+    calls = []
+
+    class FakeBackfiller:
+        def run(self, **kwargs):
+            calls.append(kwargs)
+            return type(
+                "Result",
+                (),
+                {
+                    "symbol": kwargs["symbol"],
+                    "interval": kwargs["interval"],
+                    "requested_start_time": kwargs["start_time"],
+                    "requested_end_time": kwargs["end_time"],
+                    "stored_candles": 1,
+                    "pages_fetched": 1,
+                },
+            )()
+
+    result = MultiIntervalBinanceBackfillRunner(FakeBackfiller()).run(
+        symbol="btcusdt",
+        intervals=("1m", "5m", "15m"),
+        start_time=1,
+        end_time=2,
+        limit=100,
+    )
+
+    assert result.symbol == "BTCUSDT"
+    assert result.intervals == ("1m", "5m", "15m")
+    assert [call["interval"] for call in calls] == ["1m", "5m", "15m"]
+    assert all(call["symbol"] == "BTCUSDT" for call in calls)
+
+
+def test_multi_interval_runner_reports_failing_interval():
+    class FailingBackfiller:
+        def run(self, **kwargs):
+            if kwargs["interval"] == "5m":
+                raise RuntimeError("network down")
+            return object()
+
+    with pytest.raises(MultiIntervalBackfillError) as error:
+        MultiIntervalBinanceBackfillRunner(FailingBackfiller()).run(
+            intervals=("1m", "5m", "15m")
+        )
+
+    assert error.value.interval == "5m"
+    assert "5m" in str(error.value)
+
+
+def test_persisted_candle_identity_separates_same_open_time_by_interval():
+    repository = InMemoryCandleRepository()
+    one_minute = map_binance_kline_to_persisted_candle(
+        sample_kline(1_704_067_200_000),
+        symbol="BTCUSDT",
+        interval="1m",
+        now=fixed_now(),
+    )
+    five_minute = map_binance_kline_to_persisted_candle(
+        sample_kline(1_704_067_200_000),
+        symbol="BTCUSDT",
+        interval="5m",
+        now=fixed_now(),
+    )
+
+    assert repository.upsert_candles([one_minute, five_minute]) == 2
+    assert len(repository.rows) == 2
 
 
 @pytest.mark.parametrize(

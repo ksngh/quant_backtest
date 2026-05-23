@@ -584,7 +584,10 @@ def read_run_row() -> dict[str, Any]:
         "trade_count": 1,
         "buy_count": 1,
         "sell_count": 0,
-        "result_metadata": {"source": "unit-test"},
+        "result_metadata": {
+            "source": "unit-test",
+            "performance_metrics": {"schema_version": "performance_metrics_v1"},
+        },
         "result_created_at": created_at,
     }
 
@@ -663,6 +666,7 @@ def test_backtest_read_model_loads_run_summary_trades_and_graph_points(monkeypat
     assert model.run.symbol == "BTCUSDT"
     assert model.strategy_config.parameters["window"] == 2
     assert model.summary.final_equity == 1010.0
+    assert model.summary.metadata["performance_metrics"]["schema_version"] == "performance_metrics_v1"
     assert [trade.sequence for trade in model.trades] == [1]
     assert model.trades[0].signal == "BUY"
     assert [point.candle_open_time for point in model.graph_points] == [t0, t1, t2]

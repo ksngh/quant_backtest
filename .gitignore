@@ -2,3 +2,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .DS_Store
+
+# Python packaging/build artifacts
+*.egg-info/
+
+# Frontend local dependency/build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/package-lock.json

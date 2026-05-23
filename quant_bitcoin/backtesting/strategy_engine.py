@@ -13,6 +13,7 @@ from quant_bitcoin.backtesting.costs import (
     TransactionCostConfig,
     calculate_transaction_cost,
 )
+from quant_bitcoin.backtesting.performance_metrics import calculate_performance_metrics
 from quant_bitcoin.backtesting.strategy_models import (
     StrategyBacktestResult,
     StrategyBacktestSummary,
@@ -34,6 +35,8 @@ class StrategyEngineConfig:
     transaction_cost_config: TransactionCostConfig | None = None
     default_liquidity_role: LiquidityRole = LiquidityRole.TAKER
     allow_short: bool = True
+    interval: str = "1m"
+    risk_free_rate: float = 0.0
 
 
 def run_strategy_backtest_engine(
@@ -158,6 +161,11 @@ def run_strategy_backtest_engine(
                 "net_pnl": sum(e.net_pnl for e in executions if e.net_pnl is not None),
                 "max_drawdown": min([p.drawdown for p in equity_points], default=0.0),
             },
+            "performance_metrics": calculate_performance_metrics(
+                equity_points,
+                interval=cfg.interval,
+                risk_free_rate=cfg.risk_free_rate,
+            ).to_metadata(),
         },
     )
     return StrategyBacktestResult(tuple(executions), tuple(equity_points), summary)

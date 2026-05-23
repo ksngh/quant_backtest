@@ -59,6 +59,7 @@ def test_strategy_cli_outputs_buy_sell_not_entry(monkeypatch, capsys) -> None:
     assert [row["side"] for row in output["executions"]] == ["BUY", "SELL"]
     assert output["summary"]["buy_count"] == 1
     assert output["summary"]["sell_count"] == 1
+    assert output["summary"]["metadata"]["performance_metrics"]["interval"] == "1m"
 
 
 def test_strategy_cli_no_exchange_network_calls(monkeypatch) -> None:
@@ -135,6 +136,7 @@ def test_strategy_cli_adds_invalid_risk_and_no_fill_warnings(monkeypatch, capsys
 
     assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
     output = json.loads(capsys.readouterr().out)
+    assert output["summary"]["metadata"]["performance_metrics"]["period_count"] == 1
     assert "invalid risk plan" in output["warnings"]
     assert "no fills" in output["warnings"]
 
