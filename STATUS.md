@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 156: Task 123 hot-loop DataFrame/persistence I/O cleanup completed (2026-05-23).
+Phase 157: Task 124 runtime metadata persistence completed (2026-05-23).
 
 ## Current Step
-Task 123 removed avoidable hot-loop defensive deep copies in canonical pattern strategy/action-building paths while preserving no-mutation guarantees via regression tests.
+Task 124 persisted canonical backtest runtime metadata into backtest run metadata and surfaced runtime payload in non-persist CLI JSON output.
 
 ## Current Goal
-Execute Task 124 runtime metadata persistence, then Tasks 125-127 in sequence.
+Execute Task 125 dashboard runtime display, then Tasks 126-127 in sequence.
 
 ## Current Active Task
-Task 124 is the current active optimization task; Tasks 125-127 remain defined follow-ups.
+Task 125 is the current active optimization task; Tasks 126-127 remain defined follow-ups.
 
 ## Last Completed Step (Short)
-Task 123 completed with hot-loop copy cleanup and no-mutation regression coverage; next step is Task 124, then Tasks 125-127 in sequence.
+Task 124 completed with persisted runtime metadata and runtime JSON output coverage; next step is Task 125, then Tasks 126-127 in sequence.
 
 ## Recommended Next Step
-Implement Task 124 (persist runtime metadata), then Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
+Implement Task 125 (dashboard runtime display), then Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

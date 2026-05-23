@@ -175,3 +175,18 @@ def test_profile_output_contains_timing_keys(monkeypatch, capsys):
         assert key in profile
     assert profile["pattern_timings"][0]["pattern_key"] == "FAIR_VALUE_GAP"
     assert "top_functions" in profile
+
+
+def test_no_persist_output_contains_runtime_metadata(monkeypatch, capsys):
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(make_candles()),
+    )
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--pattern", "FAIR_VALUE_GAP"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    runtime = out["runtime"]
+    assert runtime["runtime_schema_version"] == "v1"
+    assert runtime["strategy_key"] == "FAIR_VALUE_GAP"
+    assert "total_elapsed_ms" in runtime
+    assert "pattern_timings" in runtime

@@ -85,3 +85,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING`; added deterministic recent-pivot windows and candidate caps for Trendline Break/Cup and Handle/Diamond/Adam and Eve detection paths and validated existing pattern fixtures via targeted regression suite.
 
 - 2026-05-23: Completed Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP`; removed avoidable deep copies in canonical pattern strategy/action-builder hot paths, preserved caller input immutability with explicit regression coverage, and revalidated canonical pattern runner optimization suites.
+
+- 2026-05-23: Completed Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA`; added canonical runtime payload (`runtime_schema_version`, strategy/candle context, phase timings, pattern timings) to strategy CLI stdout and persisted it under `backtest_runs.metadata.runtime` without changing deterministic run-key construction, with targeted CLI/persistence regression tests.

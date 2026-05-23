@@ -82,6 +82,29 @@ def _ms(start: float, end: float) -> float:
     return round((end - start) * 1000.0, 3)
 
 
+def _build_runtime_metadata(
+    strategy_key: str,
+    candle_count: int,
+    pattern_profile: dict[str, object],
+    timings: dict[str, float],
+) -> dict[str, object]:
+    return {
+        "runtime": {
+            "runtime_schema_version": "v1",
+            "strategy_key": strategy_key,
+            "created_by": "quant-bitcoin-strategy-backtest",
+            "candle_count": candle_count,
+            "total_elapsed_ms": timings.get("total_elapsed_ms", 0.0),
+            "candle_load_elapsed_ms": timings.get("load_candles_ms", 0.0),
+            "action_build_elapsed_ms": timings.get("build_actions_ms", 0.0),
+            "engine_elapsed_ms": timings.get("run_engine_ms", 0.0),
+            "persistence_elapsed_ms": timings.get("persist_ms", 0.0),
+            "json_output_elapsed_ms": timings.get("json_output_ms", 0.0),
+            "pattern_timings": [pattern_profile],
+        }
+    }
+
+
 def _optional_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -423,6 +446,12 @@ def run(
     start_persist = time.perf_counter()
     if not args.no_persist:
         repository = PostgresBacktestResultRepository(args.database_url)
+        runtime_metadata = _build_runtime_metadata(
+            strategy_key=strategy.strategy_key,
+            candle_count=len(candles),
+            pattern_profile=pattern_profile,
+            timings=timings,
+        )
         payload = build_strategy_engine_persistence_payload(
             result,
             candles,
@@ -451,6 +480,7 @@ def run(
             trade_quantity=args.trade_quantity,
             engine_name=BACKTEST_ENGINE_NAME,
             engine_version=BACKTEST_ENGINE_VERSION,
+            run_metadata=runtime_metadata,
         )
         persisted_run_id = repository.save_completed_backtest(payload)
     timings["persist_ms"] = _ms(start_persist, time.perf_counter())
@@ -472,8 +502,14 @@ def run(
 
     timings["json_output_ms"] = _ms(start_json, time.perf_counter())
     timings["total_elapsed_ms"] = _ms(start_total, time.perf_counter())
+    pattern_profile["elapsed_ms"] = timings["build_actions_ms"]
+    output["runtime"] = _build_runtime_metadata(
+        strategy_key=strategy.strategy_key,
+        candle_count=len(candles),
+        pattern_profile=pattern_profile,
+        timings=timings,
+    )["runtime"]
     if args.profile:
-        pattern_profile["elapsed_ms"] = timings["build_actions_ms"]
         output["profiling"] = {
             **timings,
             "pattern_timings": [pattern_profile],
