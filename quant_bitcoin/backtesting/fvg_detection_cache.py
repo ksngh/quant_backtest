@@ -16,6 +16,15 @@ from quant_bitcoin.patterns.fair_value_gap import (
     _normalize_candles,
     _validate_external_filters,
 )
+from quant_bitcoin.patterns.order_block import (
+    OrderBlockConfig,
+    OrderBlockDirection,
+    OrderBlockEvent,
+    _displacement_config as _ob_displacement_config,
+    _evaluate_order_block as _evaluate_order_block_event,
+    _find_source_candle as _find_order_block_source_candle,
+    _validate_external_filters as _validate_order_block_external_filters,
+)
 
 
 @dataclass
@@ -26,27 +35,30 @@ class IndicatorCache:
     displacement_rows: pd.DataFrame
 
     @classmethod
-    def for_fvg(
+    def for_pattern(
         cls,
         candles: pd.DataFrame | list[dict[str, Any]],
-        config: FairValueGapConfig | None = None,
+        config: FairValueGapConfig | OrderBlockConfig | None = None,
     ) -> "IndicatorCache":
-        fvg_config = config or FairValueGapConfig()
+        detector_config = config or FairValueGapConfig()
         normalized = _normalize_candles(candles, None)
         atr_rows = calculate_atr(
             normalized[["symbol", "timestamp", "high", "low", "close"]],
-            fvg_config.atr_config,
+            detector_config.atr_config,
         )
         volume_rows = calculate_volume_ratio(
             normalized[["symbol", "timestamp", "volume"]],
-            fvg_config.volume_ratio_config,
+            detector_config.volume_ratio_config,
         )
         enriched = normalized.copy()
         enriched["atr"] = atr_rows["atr"]
         enriched["volume_ratio"] = volume_rows["volume_ratio"]
+        displacement_config = getattr(detector_config, "displacement_config", None)
+        if displacement_config is None and isinstance(detector_config, OrderBlockConfig):
+            displacement_config = _ob_displacement_config(detector_config)
         displacement_rows = detect_displacement_candles(
             enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr", "volume_ratio"]],
-            fvg_config.displacement_config,
+            displacement_config,
         )
         return cls(
             candles=enriched,
@@ -124,3 +136,52 @@ def detect_fair_value_gap_at_index(
     for ev in events:
         context.seen_event_ids.add(ev.event_id)
     return events
+
+
+
+def detect_order_block_at_index(
+    context: PatternEvaluationContext,
+    *,
+    config: OrderBlockConfig | None = None,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+) -> list[OrderBlockEvent]:
+    order_block_config = config or OrderBlockConfig()
+    _validate_order_block_external_filters(order_block_config)
+    if context.current_index < 1 or context.current_index >= len(context.indicator_cache.candles):
+        return []
+    displacement = context.indicator_cache.displacement_rows.iloc[context.current_index]
+    if str(displacement.get("displacement_status", "")) != "VALID":
+        return []
+    displacement_direction = str(displacement.get("displacement_direction", ""))
+    if displacement_direction == "BULLISH":
+        direction = OrderBlockDirection.BULLISH
+    elif displacement_direction == "BEARISH":
+        direction = OrderBlockDirection.BEARISH
+    else:
+        return []
+    source_index = _find_order_block_source_candle(
+        context.indicator_cache.candles,
+        context.current_index,
+        direction,
+        order_block_config,
+    )
+    if source_index is None:
+        return []
+    event = _evaluate_order_block_event(
+        direction,
+        context.indicator_cache.candles.iloc[: context.current_index + 1].reset_index(drop=True),
+        displacement,
+        source_index,
+        context.current_index,
+        symbol=symbol or str(context.indicator_cache.candles.iloc[0]["symbol"]),
+        timeframe=timeframe,
+        config=order_block_config,
+    )
+    if event is None or event.event_id in context.seen_event_ids:
+        return []
+    context.seen_event_ids.add(event.event_id)
+    return [event]
+
+
+IndicatorCache.for_fvg = IndicatorCache.for_pattern

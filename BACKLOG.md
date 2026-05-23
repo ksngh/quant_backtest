@@ -51,7 +51,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Active follow-up candidate (2026-05-23): Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA` (persist runtime fields via JSONB metadata after Tasks 120-123).
 - Active follow-up candidate (2026-05-23): Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP` (high-priority hot-loop overhead cleanup after Tasks 120-122).
 - Active follow-up candidate (2026-05-23): Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING` (highest-priority pivot-heavy optimization after Tasks 120-121).
-- Active task candidate (2026-05-23): Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION` (highest-priority implementation task after Task 120 profiling output).
+- Completed (2026-05-23): Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION` (shared cache generalized + at-index Order Block path + duplicate suppression parity tests).
 - Completed (2026-05-23): Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME` (added optional profiling instrumentation and no-persist regression coverage for phase/runtime bottleneck visibility).
 - Completed (2026-05-23): Task 119 `LEDGER_RECHECK_TASKS_111_118` (reconciled root status pointer with latest completed task window and confirmed 111-118 completion chronology across root ledgers).
 - Completed (2026-05-23): Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION`.

@@ -14,7 +14,7 @@ from quant_bitcoin.patterns import (
     detect_adam_and_eve_patterns, detect_cup_and_handle_patterns, detect_diamond_patterns,
     detect_fair_value_gaps, detect_order_blocks, detect_trendline_breaks,
 )
-from quant_bitcoin.backtesting.fvg_detection_cache import IndicatorCache, PatternEvaluationContext, detect_fair_value_gap_at_index
+from quant_bitcoin.backtesting.fvg_detection_cache import PatternEvaluationContext, detect_fair_value_gap_at_index, detect_order_block_at_index
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
@@ -36,6 +36,32 @@ def pattern_direction_to_position_side(direction: str) -> str | None:
         return "SHORT"
     return None
 
+
+
+
+def _event_to_actions(strategy: "PatternStrategyBase", event: Any, timestamp: Any, frame: pd.DataFrame) -> list[StrategyAction]:
+    direction = str(getattr(event, "direction", "")).upper()
+    position_side = pattern_direction_to_position_side(direction)
+    if position_side is None:
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="UNSUPPORTED_DIRECTION", metadata={"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction})]
+    pattern_status = str(getattr(event, "pattern_status", "")).upper()
+    pattern_score = getattr(event, "pattern_score", None)
+    risk_reward = getattr(event, "risk_reward", None)
+    planned = strategy._risk_plan(event, frame)
+    metadata = {"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction, "position_side": position_side, "pattern_status": pattern_status, "pattern_score": pattern_score, "risk_reward": risk_reward, "entry_reference": getattr(event, "entry_reference", None), "stop_reference": getattr(event, "stop_reference", None), "target_reference": getattr(event, "target_reference", None), "risk_plan": planned}
+    if planned is None or planned.status != RiskExitPlanStatus.VALID:
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
+    if pattern_status not in strategy.entry_filter_config.allowed_statuses:
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="PATTERN_STATUS_NOT_ALLOWED", metadata=metadata)]
+    if strategy.entry_filter_config.minimum_pattern_score is not None and (pattern_score is None or pattern_score < strategy.entry_filter_config.minimum_pattern_score):
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="PATTERN_SCORE_BELOW_MINIMUM", metadata=metadata)]
+    if strategy.entry_filter_config.minimum_risk_reward is not None and (risk_reward is None or risk_reward < strategy.entry_filter_config.minimum_risk_reward):
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_REWARD_BELOW_MINIMUM", metadata=metadata)]
+    action_type = StrategyActionType.ENTER_LONG if position_side == "LONG" else StrategyActionType.ENTER_SHORT
+    quantity_override = strategy.entry_filter_config.quantity_override
+    if quantity_override is not None:
+        metadata["quantity_override"] = quantity_override
+    return [StrategyAction(action_type, timestamp, reason="PATTERN_CONFIRMED", metadata=metadata, quantity=quantity_override)]
 
 @dataclass(frozen=True)
 class PatternStrategyBase:
@@ -116,29 +142,8 @@ class FairValueGapStrategy(PatternStrategyBase):
         if not events:
             return []
         event = events[0]
-        direction = str(getattr(event, "direction", "")).upper()
         timestamp = getattr(event, "timestamp", context.candles.iloc[context.current_index]["timestamp"])
-        position_side = pattern_direction_to_position_side(direction)
-        if position_side is None:
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="UNSUPPORTED_DIRECTION", metadata={"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction})]
-        pattern_status = str(getattr(event, "pattern_status", "")).upper()
-        pattern_score = getattr(event, "pattern_score", None)
-        risk_reward = getattr(event, "risk_reward", None)
-        planned = self._risk_plan(event, context.candles.iloc[: context.current_index + 1])
-        metadata = {"pattern_event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction, "position_side": position_side, "pattern_status": pattern_status, "pattern_score": pattern_score, "risk_reward": risk_reward, "entry_reference": getattr(event, "entry_reference", None), "stop_reference": getattr(event, "stop_reference", None), "target_reference": getattr(event, "target_reference", None), "risk_plan": planned}
-        if planned is None or planned.status != RiskExitPlanStatus.VALID:
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
-        if pattern_status not in self.entry_filter_config.allowed_statuses:
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="PATTERN_STATUS_NOT_ALLOWED", metadata=metadata)]
-        if self.entry_filter_config.minimum_pattern_score is not None and (pattern_score is None or pattern_score < self.entry_filter_config.minimum_pattern_score):
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="PATTERN_SCORE_BELOW_MINIMUM", metadata=metadata)]
-        if self.entry_filter_config.minimum_risk_reward is not None and (risk_reward is None or risk_reward < self.entry_filter_config.minimum_risk_reward):
-            return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_REWARD_BELOW_MINIMUM", metadata=metadata)]
-        action_type = StrategyActionType.ENTER_LONG if position_side == "LONG" else StrategyActionType.ENTER_SHORT
-        quantity_override = self.entry_filter_config.quantity_override
-        if quantity_override is not None:
-            metadata["quantity_override"] = quantity_override
-        return [StrategyAction(action_type, timestamp, reason="PATTERN_CONFIRMED", metadata=metadata, quantity=quantity_override)]
+        return _event_to_actions(self, event, timestamp, context.candles.iloc[: context.current_index + 1])
 
 @dataclass(frozen=True)
 class TrendlineBreakStrategy(PatternStrategyBase):
@@ -155,6 +160,14 @@ class OrderBlockStrategy(PatternStrategyBase):
     def _latest_event(self, frame):
         events=[e for e in detect_order_blocks(frame, config=self.detector_config) if getattr(e,'end_index',None)==len(frame)-1]; return events[0] if events else None
     def _risk_plan(self, event, frame): return create_order_block_risk_exit_plan(event, config=self.risk_config).risk_plan
+
+    def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
+        events = detect_order_block_at_index(context, config=self.detector_config)
+        if not events:
+            return []
+        event = events[0]
+        timestamp = getattr(event, "timestamp", context.candles.iloc[context.current_index]["timestamp"])
+        return _event_to_actions(self, event, timestamp, context.candles.iloc[: context.current_index + 1])
 
 @dataclass(frozen=True)
 class CupAndHandleStrategy(PatternStrategyBase):

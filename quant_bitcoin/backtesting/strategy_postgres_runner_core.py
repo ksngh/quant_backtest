@@ -33,7 +33,7 @@ from quant_bitcoin.persistence import (
 )
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
-from quant_bitcoin.strategies.patterns import FairValueGapStrategy, PatternEntryFilterConfig, strategy_for_pattern
+from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy, PatternEntryFilterConfig, strategy_for_pattern
 
 DEFAULT_DATABASE_URL = "postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
 DEFAULT_SOURCE = "binance_spot"
@@ -138,8 +138,8 @@ def _build_actions(candles: pd.DataFrame, strategy_key: str, entry_filter_config
     strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     actions: list[StrategyAction] = []
     cache = (
-        IndicatorCache.for_fvg(candles, strategy.detector_config)
-        if isinstance(strategy, FairValueGapStrategy)
+        IndicatorCache.for_pattern(candles, strategy.detector_config)
+        if isinstance(strategy, (FairValueGapStrategy, OrderBlockStrategy))
         else None
     )
     seen_event_ids = set()
@@ -154,7 +154,7 @@ def _build_actions(candles: pd.DataFrame, strategy_key: str, entry_filter_config
                     seen_event_ids=seen_event_ids,
                 )
             )
-            if isinstance(strategy, FairValueGapStrategy)
+            if isinstance(strategy, (FairValueGapStrategy, OrderBlockStrategy))
             else strategy.evaluate(candles.iloc[:index])
         )
         actions.extend(_expand_raw_actions(raw_actions, candles, index))

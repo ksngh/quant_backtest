@@ -80,3 +80,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Added Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE` task document from owner-provided optimization pack requirements; no implementation executed in this step.
 - 2026-05-23: Added Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS` task document from owner-provided optimization pack requirements; no implementation executed in this step.
 - 2026-05-23: Completed Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME`; added optional `--profile` timing/cProfile instrumentation to canonical strategy runner output (`load/build/engine/persist/json/total` + pattern timing + top cumulative functions) and added no-persist profiling regression coverage.
+
+- 2026-05-23: Completed Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION`; generalized shared indicator cache builder for pattern detectors, added Order Block at-index detection with early seen-event suppression, wired canonical runner to reuse cache/evaluate_at for Order Block, and added rolling-prefix parity regression coverage for optimized Order Block path.
