@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 137: Task 113 FVG no-look-ahead cache correction completed (2026-05-23).
+Phase 138: Task 112 execution-price and entry-fill contract completed (2026-05-23).
 
 ## Current Step
-Task 113 completed: optimized FVG cache detection now evaluates lifecycle-sensitive logic on visible candle prefixes only, preventing future-candle look-ahead bias.
+Task 112 completed: explicit requested execution-price contract is validated and executed by engine with deterministic fallback to candle close when absent.
 
 ## Current Goal
-Keep optimized FVG detection prefix-deterministic so future candles cannot alter event emission/state at the historical evaluation index.
+Keep execution-price semantics deterministic across pattern entry simulation, action conversion, and engine accounting.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 113 completed: sliced optimized FVG evaluation to current-index visible prefix and added regression tests ensuring future fill/break candles do not alter historical event detection output.
+Task 112 completed: revalidated explicit requested_price usage for entries/exits, close-price fallback behavior, and pattern entry simulation modes via targeted regression tests.
 
 ## Recommended Next Step
-Execute Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` based on owner direction.
+Await owner prioritization for next implementation task (recommended: Task 111 documentation/fixture follow-up candidate).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

@@ -67,3 +67,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY`; made stop exits emit explicit intrabar precedence metadata, preserved conservative stop-first resolution for ambiguous same-candle stop/target touches, and added long/short + action-builder regression coverage.
 
 - 2026-05-23: Completed Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION`; corrected optimized FVG cache path to evaluate with current-index candle prefixes only and added regression coverage proving future fill/break candles cannot change historical event output.
+- 2026-05-23: Completed Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT`; confirmed engine requested-price execution path for long/short entry/exit actions, preserved close fallback when requested_price is absent/invalid, and revalidated pattern action-builder + entry-simulation integration via targeted tests.
+
