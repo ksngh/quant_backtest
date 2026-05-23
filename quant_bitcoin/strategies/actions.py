@@ -53,6 +53,22 @@ def position_side_for_action(action_type: StrategyActionType) -> str | None:
     return None
 
 
+def position_signal_for_action(action_type: StrategyActionType) -> str | None:
+    if action_type == StrategyActionType.ENTER_LONG:
+        return "LONG_ENTRY"
+    if action_type == StrategyActionType.EXIT_LONG:
+        return "LONG_EXIT"
+    if action_type == StrategyActionType.PARTIAL_EXIT_LONG:
+        return "LONG_PARTIAL_EXIT"
+    if action_type == StrategyActionType.ENTER_SHORT:
+        return "SHORT_ENTRY"
+    if action_type == StrategyActionType.EXIT_SHORT:
+        return "SHORT_EXIT"
+    if action_type == StrategyActionType.PARTIAL_EXIT_SHORT:
+        return "SHORT_PARTIAL_EXIT"
+    return None
+
+
 def execution_side_for_action(action_type: StrategyActionType) -> str | None:
     if action_type in (StrategyActionType.ENTER_LONG, StrategyActionType.EXIT_SHORT, StrategyActionType.PARTIAL_EXIT_SHORT):
         return "BUY"

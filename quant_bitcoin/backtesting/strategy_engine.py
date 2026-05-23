@@ -31,6 +31,7 @@ from quant_bitcoin.strategies.actions import (
     StrategyAction,
     StrategyActionType,
     execution_side_for_action,
+    position_signal_for_action,
     position_side_for_action,
 )
 
@@ -120,8 +121,10 @@ def run_strategy_backtest_engine(
                 free_cash=account_state["free_cash_after"],
                 margin_used=account_state["margin_used_after"],
                 short_proceeds_locked=account_state["short_proceeds_locked_after"],
+                short_collateral_locked=account_state["short_collateral_locked_after"],
                 available_buying_power=account_state["available_buying_power_after"],
                 cash_semantics=account_state["cash_after_semantics"],
+                equity_semantics=account_state["equity_after_semantics"],
             )
         )
 
@@ -184,6 +187,11 @@ def run_strategy_backtest_engine(
             },
             "simulated_margin": cfg.simulated_margin.to_metadata(),
             "account_state": _account_state(cash, position, final_price, avg_entry, cfg),
+            "equity_semantics": {
+                "execution_equity_after": "net account value immediately after the fill at effective execution price",
+                "mark_to_market_equity_after": "net account value after the fill marked to the candle close",
+                "equity_points.equity": "candle-close mark-to-market equity after all actions on that candle",
+            },
             "execution_metrics": {
                 "filled_execution_count": len(filled_execs),
                 "skipped_action_count": skipped_action_count,
@@ -330,6 +338,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
     position_after = signed_qty
     avg_entry_after = effective_price
     equity_after = cash_after + (position_after * close)
+    execution_equity_after = cash_after + (position_after * effective_price)
     execution = _execution_record(
         action,
         side,
@@ -343,6 +352,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
         cost=cost,
         extra_metadata=extra_metadata,
         account_state=_account_state(cash_after, position_after, close, avg_entry_after, cfg),
+        execution_equity_after=execution_equity_after,
     )
     return cash_after, position_after, avg_entry_after, execution, 0.0
 
@@ -365,6 +375,7 @@ def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, expli
     net = gross - cost.total_cost
     avg_entry_after = 0.0 if position_after == 0 else avg_entry
     equity_after = cash_after + (position_after * close)
+    execution_equity_after = cash_after + (position_after * effective_price)
     execution = _execution_record(
         action,
         side,
@@ -379,6 +390,7 @@ def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, expli
         net=net,
         cost=cost,
         account_state=_account_state(cash_after, position_after, close, avg_entry_after, cfg),
+        execution_equity_after=execution_equity_after,
     )
     return cash_after, position_after, avg_entry_after, execution, net
 
@@ -483,18 +495,24 @@ def _account_state(cash_after: float, position_after: float, mark_price: float, 
     equity_after = cash_after + (position_after * mark_price)
     if position_after < 0:
         short_proceeds_locked = abs(position_after) * avg_entry
+        short_collateral_locked = 0.0
         margin_used = 0.0
         if cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled:
             margin_used = cfg.simulated_margin.required_initial_margin(short_proceeds_locked)
-        free_cash = cash_after - short_proceeds_locked - margin_used
-        semantics = "cash_after includes short-sale proceeds; free_cash_after excludes locked proceeds and simulated initial margin"
+            semantics = "cash_after is cash balance including short-sale proceeds; free_cash_after excludes locked proceeds and simulated initial margin"
+        else:
+            short_collateral_locked = short_proceeds_locked
+            semantics = "cash_after is cash balance including short-sale proceeds; free_cash_after excludes locked proceeds and cash-bounded short collateral"
+        free_cash = cash_after - short_proceeds_locked - short_collateral_locked - margin_used
     elif position_after > 0:
         short_proceeds_locked = 0.0
+        short_collateral_locked = 0.0
         margin_used = 0.0
         free_cash = cash_after
         semantics = "cash_after is cash balance; equity_after includes long position market value"
     else:
         short_proceeds_locked = 0.0
+        short_collateral_locked = 0.0
         margin_used = 0.0
         free_cash = cash_after
         semantics = "cash_after equals free_cash_after when flat"
@@ -502,13 +520,15 @@ def _account_state(cash_after: float, position_after: float, mark_price: float, 
         "free_cash_after": free_cash,
         "margin_used_after": margin_used,
         "short_proceeds_locked_after": short_proceeds_locked,
+        "short_collateral_locked_after": short_collateral_locked,
         "available_buying_power_after": max(0.0, free_cash),
         "cash_after_semantics": semantics,
         "equity_after": equity_after,
+        "equity_after_semantics": "candle-close mark-to-market equity after applying actions at this timestamp",
     }
 
 
-def _execution_record(action, side, position_side, raw_price, effective_price, qty, cash_after, position_after, equity_after, reason=None, gross=None, net=None, cost=None, extra_metadata=None, account_state=None):
+def _execution_record(action, side, position_side, raw_price, effective_price, qty, cash_after, position_after, equity_after, reason=None, gross=None, net=None, cost=None, extra_metadata=None, account_state=None, execution_equity_after=None):
     metadata = dict(action.metadata) if isinstance(action.metadata, dict) else {}
     if extra_metadata:
         metadata.update(extra_metadata)
@@ -517,6 +537,7 @@ def _execution_record(action, side, position_side, raw_price, effective_price, q
         timestamp=action.timestamp,
         side=side,
         action_type=action.action_type.value,
+        position_signal=position_signal_for_action(action.action_type),
         execution_side=execution_side_for_action(action.action_type),
         position_side=position_side,
         price=effective_price,
@@ -525,11 +546,15 @@ def _execution_record(action, side, position_side, raw_price, effective_price, q
         quantity=qty,
         notional=effective_price * qty,
         cash_after=cash_after,
+        cash_balance_after=cash_after,
         position_after=position_after,
         equity_after=equity_after,
+        execution_equity_after=execution_equity_after if execution_equity_after is not None else cash_after + (position_after * effective_price),
+        mark_to_market_equity_after=equity_after,
         free_cash_after=account_state.get("free_cash_after"),
         margin_used_after=account_state.get("margin_used_after"),
         short_proceeds_locked_after=account_state.get("short_proceeds_locked_after"),
+        short_collateral_locked_after=account_state.get("short_collateral_locked_after"),
         available_buying_power_after=account_state.get("available_buying_power_after"),
         cash_after_semantics=account_state.get("cash_after_semantics"),
         reason=reason or action.reason,

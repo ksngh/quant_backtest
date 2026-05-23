@@ -229,7 +229,11 @@ def test_strategy_cli_output_includes_sizing_and_margin_metadata(monkeypatch, ca
     assert metadata["position_sizing"]["mode"] == "FIXED_QUANTITY"
     assert metadata["short_exposure_policy"]["mode"] == "CASH_BOUNDED"
     assert out["executions"][0]["quantity"] == 0.125
-    assert out["executions"][0]["free_cash_after"] == 10000
+    assert out["executions"][0]["position_signal"] == "SHORT_ENTRY"
+    assert out["executions"][0]["execution_side"] == "SELL"
+    assert out["executions"][0]["cash_balance_after"] == 20000
+    assert out["executions"][0]["free_cash_after"] == 0
+    assert out["executions"][0]["short_collateral_locked_after"] == 10000
 
 
 def test_build_pattern_entry_filter_config_args():

@@ -33,9 +33,11 @@ def test_engine_buy_sell_and_equity_accounting() -> None:
     assert result.summary.final_equity == 10003.8
     assert result.executions[0].side == "BUY"
     assert result.executions[0].execution_side == "BUY"
+    assert result.executions[0].position_signal == "LONG_ENTRY"
     assert result.executions[0].position_side == "LONG"
     assert result.executions[1].side == "SELL"
     assert result.executions[1].execution_side == "SELL"
+    assert result.executions[1].position_signal == "LONG_PARTIAL_EXIT"
     assert result.executions[1].position_side == "LONG"
     assert result.executions[1].quantity == 0.4
     assert result.executions[2].quantity == 0.6
@@ -62,6 +64,8 @@ def test_engine_uses_explicit_requested_price_and_fallback_close() -> None:
     result = run_strategy_backtest_engine(candles, actions)
     assert result.executions[0].raw_price == 99.0
     assert result.executions[1].raw_price == 102.0
+    assert result.executions[0].execution_equity_after == 10000.0
+    assert result.executions[0].mark_to_market_equity_after == 10001.0
 
 
 def test_engine_skips_invalid_explicit_price() -> None:

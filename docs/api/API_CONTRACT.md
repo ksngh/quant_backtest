@@ -204,6 +204,7 @@ Field mapping notes:
         "free_cash_after": 9500.0,
         "margin_used_after": 0.0,
         "short_proceeds_locked_after": 0.0,
+        "short_collateral_locked_after": 0.0,
         "available_buying_power_after": 9500.0,
         "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
       }
@@ -215,15 +216,26 @@ Field mapping notes:
       "id": 1,
       "sequence": 1,
       "candle_open_time": "2024-01-01T00:10:00Z",
-      "signal": "BUY",
+      "signal": "LONG_ENTRY",
+      "position_signal": "LONG_ENTRY",
+      "execution_side": "BUY",
+      "position_side": "LONG",
       "price": 50000.0,
       "quantity": 0.01,
       "cash_after": 9500.0,
+      "cash_balance_after": 9500.0,
       "position_after": 0.01,
       "metadata": {
+        "position_signal": "LONG_ENTRY",
+        "execution_side": "BUY",
+        "position_side": "LONG",
+        "cash_balance_after": 9500.0,
+        "execution_equity_after": 10000.0,
+        "mark_to_market_equity_after": 10000.0,
         "free_cash_after": 9500.0,
         "margin_used_after": 0.0,
         "short_proceeds_locked_after": 0.0,
+        "short_collateral_locked_after": 0.0,
         "available_buying_power_after": 9500.0,
         "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
       }
@@ -244,8 +256,10 @@ Field mapping notes:
         "free_cash": 10000.0,
         "margin_used": 0.0,
         "short_proceeds_locked": 0.0,
+        "short_collateral_locked": 0.0,
         "available_buying_power": 10000.0,
-        "cash_semantics": "cash_after equals free_cash_after when flat"
+        "cash_semantics": "cash_after equals free_cash_after when flat",
+        "equity_semantics": "candle-close mark-to-market equity after applying actions at this timestamp"
       }
     }
   ],
@@ -265,10 +279,15 @@ Warning behavior:
 
 Cash/equity semantics:
 
+- `signal` is the preferred semantic position signal for new strategy-engine runs. Expected values include `LONG_ENTRY`, `LONG_EXIT`, `LONG_PARTIAL_EXIT`, `SHORT_ENTRY`, `SHORT_EXIT`, and `SHORT_PARTIAL_EXIT`.
+- Raw execution side remains available separately as `execution_side` (`BUY`/`SELL`) and may also appear in trade metadata as `side` for audit/cashflow compatibility.
+- Legacy persisted runs may still have `signal=BUY` or `signal=SELL`; clients should prefer `position_signal` when present and fall back to `signal` for older runs.
 - `ending_cash`, `cash_after`, and graph `cash` are cash-balance fields, not always spendable free cash.
+- `cash_balance_after` is the explicit alias for the same cash-balance accounting value retained for compatibility.
 - `final_equity`, `equity_after`, and graph `equity` are the net account value fields when positions are open.
+- `execution_equity_after` is fill-price equity immediately after execution. `mark_to_market_equity_after` and graph `equity` are candle-close mark-to-market values after all actions on the candle.
 - New account-state fields are additive and optional for legacy runs. When present, `free_cash_after`/`free_cash`, `margin_used_after`/`margin_used`, and `short_proceeds_locked_after`/`short_proceeds_locked` should be preferred for buying-power display.
-- For short simulations, `cash_after` may include short-sale proceeds. Those proceeds must not be displayed as unrestricted free cash.
+- For cash-bounded short simulations, `cash_after` may include short-sale proceeds. Those proceeds and the matching cash-bounded short collateral must not be displayed as unrestricted free cash; use `free_cash_after`/`available_buying_power_after`.
 - Simulated margin metadata is backtest-only and must not be represented as real exchange margin/futures account state.
 
 ## 5.4 Optional `GET /api/backtest-runs/{backtest_run_id}/chart` (200)
@@ -331,10 +350,10 @@ Recommended error codes:
   - run summary cards
   - close price line
   - equity line
-  - buy/sell/entry markers
-  - trade table
-  - strategy metadata
-  - run metadata
+  - semantic position-signal markers with raw execution-side context
+  - compact trade table
+  - curated strategy parameters and metadata rather than raw JSON by default
+  - strategy/pattern explanation, indicator usage, economic interpretation, and limitations when metadata is available
   - warnings banner/panel
 
 ## 8) Known Limitations

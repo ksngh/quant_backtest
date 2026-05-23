@@ -64,8 +64,10 @@ def test_trade_metadata_preserves_action_and_position_side() -> None:
     _, payload = _payload()
 
     first_trade = payload.trades[0]
-    assert first_trade.signal == "BUY"
+    assert first_trade.signal == "LONG_ENTRY"
     assert first_trade.metadata["action_type"] == "ENTER_LONG"
+    assert first_trade.metadata["position_signal"] == "LONG_ENTRY"
+    assert first_trade.metadata["side"] == "BUY"
     assert first_trade.metadata["position_side"] == "LONG"
     assert first_trade.metadata["execution_side"] == "BUY"
     assert payload.result.metadata["performance_metrics"]["interval"] == "1m"
@@ -96,9 +98,15 @@ def test_trade_metadata_preserves_account_state_fields() -> None:
     )
 
     trade_metadata = payload.trades[0].metadata
+    assert payload.trades[0].signal == "SHORT_ENTRY"
+    assert trade_metadata["execution_side"] == "SELL"
+    assert trade_metadata["position_signal"] == "SHORT_ENTRY"
+    assert trade_metadata["cash_balance_after"] == result.executions[0].cash_balance_after
     assert trade_metadata["free_cash_after"] == result.executions[0].free_cash_after
     assert trade_metadata["short_proceeds_locked_after"] == result.executions[0].short_proceeds_locked_after
+    assert trade_metadata["short_collateral_locked_after"] == result.executions[0].short_collateral_locked_after
     assert payload.graph_points[0].metadata["free_cash"] == result.equity_points[0].free_cash
+    assert payload.graph_points[0].metadata["short_collateral_locked"] == result.equity_points[0].short_collateral_locked
 
 
 def test_graph_points_preserve_multiple_same_timestamp_executions() -> None:
@@ -131,9 +139,10 @@ def test_graph_points_preserve_multiple_same_timestamp_executions() -> None:
 
     marker = payload.graph_points[0]
     assert marker.trade_sequence == 1
-    assert marker.signal == "BUY"
+    assert marker.signal == "LONG_ENTRY"
     assert [trade["trade_sequence"] for trade in marker.metadata["trades"]] == [1, 2]
-    assert [trade["signal"] for trade in marker.metadata["trades"]] == ["BUY", "SELL"]
+    assert [trade["signal"] for trade in marker.metadata["trades"]] == ["LONG_ENTRY", "LONG_EXIT"]
+    assert [trade["execution_side"] for trade in marker.metadata["trades"]] == ["BUY", "SELL"]
 
 
 def test_run_metadata_runtime_is_included_without_affecting_run_key() -> None:

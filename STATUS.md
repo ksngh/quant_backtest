@@ -1,27 +1,28 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 173: Tasks 140-148 cash/sizing/accounting window completed (2026-05-23).
+Phase 177: Task 150 frontend dashboard analytics upgrade completed (2026-05-24).
 
 ## Current Step
-Completed the sequential cash/sizing/accounting window from Task 140 through Task 148.
+Completed Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE`.
 
 ## Current Goal
-Keep the new backtest sizing, cash/equity, simulated short, CLI/persistence, display, and documentation contracts stable under regression tests.
+Keep the read-only dashboard usable for backtest analysis while preserving Task 149 cash/equity/signal semantics.
 
 ## Current Active Task
-No active implementation task. Tasks 140-148 are completed; Task 138 remains blocked pending explicit live-order approval.
+No active implementation task. Task 150 is complete; Task 138 remains blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Task 148 completed after Tasks 140-147: docs and ledgers now match the new cash-bounded sizing, short buying-power, simulated-margin, account-state, CLI/persistence, display/API, and refactor work.
+Implemented Task 150 dashboard analytics upgrade: range-inspectable charts with axes/reference lines, compact paged trade review, curated parameters/metadata, account-state panels, and strategy indicator/economic explanation sections.
 
 ## Recommended Next Step
-No new next implementation task is assigned. Task 138 remains blocked unless the owner explicitly approves live order execution.
+Review the Task 149-150 diff and assign the next explicit task. Task 138 remains blocked unless the owner explicitly approves live order execution.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Backend FastAPI route tests are not runnable in the current Python environment because `fastapi` is not installed; FastAPI-independent backend service tests passed.
+- In-app browser automation could not be used in this session because the required Node REPL browser-control tool was not exposed; local Next server HTML response was verified with `curl`.
 
 ## Current Safety Boundary
 - No live trading.

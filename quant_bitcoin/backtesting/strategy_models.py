@@ -18,9 +18,14 @@ class StrategyExecution:
     cash_after: float
     position_after: float
     equity_after: float
+    position_signal: str | None = None
+    cash_balance_after: float | None = None
+    execution_equity_after: float | None = None
+    mark_to_market_equity_after: float | None = None
     free_cash_after: float | None = None
     margin_used_after: float | None = None
     short_proceeds_locked_after: float | None = None
+    short_collateral_locked_after: float | None = None
     available_buying_power_after: float | None = None
     cash_after_semantics: str | None = None
     execution_side: ExecutionSide | None = None
@@ -53,8 +58,10 @@ class StrategyEquityPoint:
     free_cash: float | None = None
     margin_used: float | None = None
     short_proceeds_locked: float | None = None
+    short_collateral_locked: float | None = None
     available_buying_power: float | None = None
     cash_semantics: str | None = None
+    equity_semantics: str | None = None
 
 
 @dataclass(frozen=True)
