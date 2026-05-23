@@ -30,7 +30,7 @@ from quant_bitcoin.persistence import (
 )
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
-from quant_bitcoin.strategies.patterns import FairValueGapStrategy, strategy_for_pattern
+from quant_bitcoin.strategies.patterns import FairValueGapStrategy, PatternEntryFilterConfig, strategy_for_pattern
 
 DEFAULT_DATABASE_URL = "postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
 DEFAULT_SOURCE = "binance_spot"
@@ -54,6 +54,11 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     if include_strategy:
         parser.add_argument("--strategy", default=DEFAULT_STRATEGY)
     parser.add_argument("--pattern", default=None)
+    parser.add_argument("--allow-weak-pattern-events", action="store_true")
+    parser.add_argument("--allowed-pattern-statuses", default=None)
+    parser.add_argument("--min-pattern-score", type=float, default=None)
+    parser.add_argument("--min-risk-reward", type=float, default=None)
+    parser.add_argument("--pattern-quantity-override", type=float, default=None)
     parser.add_argument("--start-time", type=_optional_timestamp, default=None)
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
     parser.add_argument("--starting-cash", type=float, default=10000.0)
@@ -107,8 +112,22 @@ def _select_strategy_key(args: argparse.Namespace) -> str:
     return (args.pattern or getattr(args, "strategy", None) or DEFAULT_STRATEGY).upper()
 
 
-def _build_actions(candles: pd.DataFrame, strategy_key: str):
-    strategy = strategy_for_pattern(strategy_key)
+def _build_pattern_entry_filter_config(args: argparse.Namespace) -> PatternEntryFilterConfig:
+    statuses = {"VALID"}
+    if args.allowed_pattern_statuses:
+        statuses = {v.strip().upper() for v in args.allowed_pattern_statuses.split(",") if v.strip()}
+    if args.allow_weak_pattern_events:
+        statuses.add("WEAK")
+    return PatternEntryFilterConfig(
+        allowed_statuses=tuple(sorted(statuses)),
+        minimum_pattern_score=args.min_pattern_score,
+        minimum_risk_reward=args.min_risk_reward,
+        quantity_override=args.pattern_quantity_override,
+    )
+
+
+def _build_actions(candles: pd.DataFrame, strategy_key: str, entry_filter_config: PatternEntryFilterConfig | None = None):
+    strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     actions: list[StrategyAction] = []
     cache = (
         IndicatorCache.for_fvg(candles, strategy.detector_config)
@@ -333,7 +352,8 @@ def run(
         print(json.dumps(_empty_output(strategy_key, args.starting_cash)))
         return 0
 
-    strategy, actions = _build_actions(candles, strategy_key)
+    entry_filter_config = _build_pattern_entry_filter_config(args)
+    strategy, actions = _build_actions(candles, strategy_key, entry_filter_config)
     result = run_strategy_backtest_engine(
         candles,
         actions,
@@ -361,6 +381,7 @@ def run(
             strategy_version="strategy_engine_v1",
             strategy_parameters={
                 "pattern": strategy.strategy_key,
+                "pattern_entry_filter": {"allowed_statuses": list(entry_filter_config.allowed_statuses), "minimum_pattern_score": entry_filter_config.minimum_pattern_score, "minimum_risk_reward": entry_filter_config.minimum_risk_reward, "quantity_override": entry_filter_config.quantity_override},
                 "transaction_cost": {
                     "maker_fee_bps": transaction_cost_config.maker_fee_bps,
                     "taker_fee_bps": transaction_cost_config.taker_fee_bps,
