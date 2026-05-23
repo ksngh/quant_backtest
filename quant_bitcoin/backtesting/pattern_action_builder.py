@@ -39,7 +39,7 @@ def build_pattern_trade_actions(
     if side not in {"LONG", "SHORT"}:
         raise ValueError("position_side must be LONG or SHORT")
 
-    frame = future_candles.copy(deep=True) if isinstance(future_candles, pd.DataFrame) else pd.DataFrame(future_candles)
+    frame = future_candles.copy(deep=False) if isinstance(future_candles, pd.DataFrame) else pd.DataFrame(future_candles)
     if "open" not in frame.columns and "close" in frame.columns:
         frame["open"] = frame["close"]
     for col in ("timestamp", "open", "high", "low", "close"):

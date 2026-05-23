@@ -71,7 +71,7 @@ class PatternStrategyBase:
     entry_filter_config: PatternEntryFilterConfig = field(default_factory=PatternEntryFilterConfig)
 
     def evaluate(self, candles_so_far: pd.DataFrame | list[dict[str, Any]], portfolio_state: dict[str, Any] | None = None) -> list[StrategyAction]:
-        frame = candles_so_far.copy(deep=True) if isinstance(candles_so_far, pd.DataFrame) else pd.DataFrame(list(candles_so_far))
+        frame = candles_so_far if isinstance(candles_so_far, pd.DataFrame) else pd.DataFrame(candles_so_far)
         missing = [c for c in ("timestamp","open","high","low","close","volume") if c not in frame.columns]
         if missing or frame.empty:
             return []
