@@ -1,25 +1,24 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 161: Task 128 strategy CLI JSON timestamp serialization fix completed (2026-05-23).
+Phase 162: Task 129 Diamond status filtering investigation completed (2026-05-23).
 
 ## Current Step
-Task 128 fixed canonical strategy CLI JSON serialization of timestamp-like values and corrected strategy/pattern CLI exception logging calls.
+Task 129 resolved Diamond single-pattern test contract mismatch by keeping default VALID-only status filtering explicit and aligning Diamond unit expectations.
 
 ## Current Goal
-Maintain canonical strategy CLI output stability and address unrelated strategy test failures if assigned.
+Keep single-pattern status-filtering semantics explicit and regression-backed for Diamond strategy behavior.
 
 ## Current Active Task
-Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` assigned (task document created; implementation not started in this step).
+No active implementation task (Task 129 completed).
 
 ## Last Completed Step (Short)
-Task 128 completed with recursive JSON-safe CLI output serialization and regression coverage for timestamp metadata plus exception logging.
+Task 129 completed with Diamond default status-filtering policy clarification and passing targeted diamond strategy tests.
 
 ## Recommended Next Step
-Execute Task 129 by reproducing Diamond status-filtering failures, clarifying default policy, and applying minimal code/test alignment changes.
+Owner to assign next task (no new task.md selected yet).
 
 ## Current Blockers (Short)
-- Full pytest currently has two unrelated failures in `tests/strategies/test_single_pattern_strategies.py` for Diamond bullish/bearish entry expectations versus current status filtering behavior.
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Frontend package install/build remains blocked in this environment by npm registry access restrictions.
