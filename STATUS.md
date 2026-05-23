@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 157: Task 124 runtime metadata persistence completed (2026-05-23).
+Phase 158: Task 125 dashboard runtime display completed (2026-05-23).
 
 ## Current Step
-Task 124 persisted canonical backtest runtime metadata into backtest run metadata and surfaced runtime payload in non-persist CLI JSON output.
+Task 125 exposed runtime summary in dashboard list/detail views with backward-compatible API serialization and safe missing-runtime fallbacks.
 
 ## Current Goal
-Execute Task 125 dashboard runtime display, then Tasks 126-127 in sequence.
+Execute Task 126 strategy explanation metadata display, then Task 127 runtime regression guardrail tests.
 
 ## Current Active Task
-Task 125 is the current active optimization task; Tasks 126-127 remain defined follow-ups.
+Task 126 is the current active optimization task; Task 127 remains a defined follow-up.
 
 ## Last Completed Step (Short)
-Task 124 completed with persisted runtime metadata and runtime JSON output coverage; next step is Task 125, then Tasks 126-127 in sequence.
+Task 125 completed with runtime serialization in list responses and runtime breakdown rendering in dashboard summary/detail cards; next step is Task 126, then Task 127.
 
 ## Recommended Next Step
-Implement Task 125 (dashboard runtime display), then Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
+Implement Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

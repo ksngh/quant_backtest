@@ -54,6 +54,7 @@ class BacktestResultsService:
 
     def _serialize_list_item(self, item: Any) -> dict[str, Any]:
         data = self._serialize_dataclass(item)
+        runtime_summary = self._extract_runtime_summary(data.get("metadata"))
         return {
             "id": data["id"],
             "run_key": data["run_key"],
@@ -78,6 +79,7 @@ class BacktestResultsService:
                 "total_return": data["total_return"],
                 "trade_count": data["trade_count"],
             },
+            "runtime": runtime_summary,
             "created_at": data["created_at"],
             "completed_at": data["completed_at"],
         }
@@ -147,6 +149,20 @@ class BacktestResultsService:
                 }
             )
         return warnings
+
+    def _extract_runtime_summary(self, metadata: Any) -> dict[str, float] | None:
+        if not isinstance(metadata, dict):
+            return None
+        runtime = metadata.get("runtime")
+        if not isinstance(runtime, dict):
+            return None
+
+        summary: dict[str, float] = {}
+        for key in ("total_elapsed_ms", "action_build_elapsed_ms", "engine_elapsed_ms"):
+            value = runtime.get(key)
+            if isinstance(value, (int, float)):
+                summary[key] = float(value)
+        return summary or None
 
     def _serialize_dataclass(self, value: Any) -> Any:
         if hasattr(value, "__dataclass_fields__"):

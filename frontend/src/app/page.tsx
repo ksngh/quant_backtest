@@ -25,6 +25,22 @@ function fmtTime(value: string | null): string {
   return value ?? "-";
 }
 
+function fmtDurationMs(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+  if (value < 1000) return `${value.toFixed(0)} ms`;
+  const seconds = value / 1000;
+  if (seconds < 60) return `${seconds.toFixed(2)} s`;
+  const minutes = Math.floor(seconds / 60);
+  const remSeconds = seconds % 60;
+  return `${minutes}m ${remSeconds.toFixed(1)}s`;
+}
+
+function getRuntimeBreakdown(detail: BacktestRunDetailResponse | null) {
+  const runtime = detail?.run.metadata?.runtime;
+  if (!runtime || typeof runtime !== "object") return null;
+  return runtime;
+}
+
 function JsonPanel({ title, value }: { title: string; value: unknown }) {
   return (
     <section className="card">
@@ -139,6 +155,8 @@ export default function DashboardPage() {
       });
   }, [selectedId]);
 
+  const runtime = useMemo(() => getRuntimeBreakdown(detail), [detail]);
+
   const allEquityZero = useMemo(
     () => Boolean(detail && detail.graph_points.length && detail.graph_points.every((p) => p.equity === 0)),
     [detail],
@@ -183,14 +201,14 @@ export default function DashboardPage() {
           <table>
             <thead>
               <tr>
-                <th>Run ID</th><th>Strategy</th><th>Version</th><th>Symbol</th><th>Interval</th><th>Actual Range</th><th>Candles</th><th>Final Equity</th><th>Total Return</th><th>Trades</th><th>Completed</th>
+                <th>Run ID</th><th>Strategy</th><th>Version</th><th>Symbol</th><th>Interval</th><th>Actual Range</th><th>Candles</th><th>Runtime</th><th>Final Equity</th><th>Total Return</th><th>Trades</th><th>Completed</th>
               </tr>
             </thead>
             <tbody>
               {runs.map((run) => (
                 <tr key={run.id} onClick={() => setSelectedId(run.id)} className={selectedId === run.id ? "selected" : ""}>
                   <td>{run.id}</td><td>{run.strategy.name}</td><td>{run.strategy.version}</td><td>{run.market.symbol}</td><td>{run.market.interval}</td>
-                  <td>{fmtTime(run.market.actual_start_time)} → {fmtTime(run.market.actual_end_time)}</td><td>{run.market.candle_count}</td><td>{fmtNum(run.summary.final_equity)}</td>
+                  <td>{fmtTime(run.market.actual_start_time)} → {fmtTime(run.market.actual_end_time)}</td><td>{run.market.candle_count}</td><td>{fmtDurationMs(run.runtime?.total_elapsed_ms)}</td><td>{fmtNum(run.summary.final_equity)}</td>
                   <td>{fmtPct(run.summary.total_return)}</td><td>{run.summary.trade_count}</td><td>{fmtTime(run.completed_at)}</td>
                 </tr>
               ))}
@@ -213,6 +231,11 @@ export default function DashboardPage() {
             <div><strong>Total Return:</strong> {fmtPct(detail.summary.total_return)}</div>
             <div><strong>Trade Count:</strong> {detail.summary.trade_count}</div>
             <div><strong>Buy/Sell:</strong> {detail.summary.buy_count}/{detail.summary.sell_count}</div>
+            <div><strong>Total Runtime:</strong> {fmtDurationMs(runtime?.total_elapsed_ms)}</div>
+            <div><strong>Load Time:</strong> {fmtDurationMs(runtime?.load_elapsed_ms)}</div>
+            <div><strong>Action Build Time:</strong> {fmtDurationMs(runtime?.action_build_elapsed_ms)}</div>
+            <div><strong>Engine Time:</strong> {fmtDurationMs(runtime?.engine_elapsed_ms)}</div>
+            <div><strong>Persist Time:</strong> {fmtDurationMs(runtime?.persist_elapsed_ms)}</div>
           </div>
         )}
       </section>
@@ -230,6 +253,17 @@ export default function DashboardPage() {
 
       {detail && (
         <>
+          <section className="card">
+            <h3>Runtime Breakdown</h3>
+            <div className="summary-grid">
+              <div><strong>Total:</strong> {fmtDurationMs(runtime?.total_elapsed_ms)}</div>
+              <div><strong>Load:</strong> {fmtDurationMs(runtime?.load_elapsed_ms)}</div>
+              <div><strong>Action Build:</strong> {fmtDurationMs(runtime?.action_build_elapsed_ms)}</div>
+              <div><strong>Engine:</strong> {fmtDurationMs(runtime?.engine_elapsed_ms)}</div>
+              <div><strong>Persist:</strong> {fmtDurationMs(runtime?.persist_elapsed_ms)}</div>
+              <div><strong>JSON:</strong> {fmtDurationMs(runtime?.json_elapsed_ms)}</div>
+            </div>
+          </section>
           <LineChart title="Close Price" points={detail.graph_points} valueKey="close_price" markerTrades={detail.trades} />
           <LineChart title="Equity" points={detail.graph_points} valueKey="equity" />
           {allEquityZero && <p className="error">Equity series is all zero; treat as placeholder-neutral and not real performance.</p>}
