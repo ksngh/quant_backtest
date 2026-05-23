@@ -91,3 +91,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 125 `DASHBOARD_RUNTIME_DISPLAY`; exposed optional runtime summary fields in `/api/backtest-runs` serialization, updated dashboard run list/runtime breakdown UI with human-readable duration formatting and missing-runtime fallbacks, and added backend service runtime-summary unit coverage.
 
 - 2026-05-23: Completed Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE`; added pattern strategy explanation metadata builder for all supported patterns, persisted explanation payload under `strategy_configs.metadata.explanation`, rendered dashboard explanation cards with safe fallback for legacy runs missing metadata, and validated via targeted strategy/persistence/backend tests.
+
+- 2026-05-23: Completed Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS`; added fixture-based 400-candle runtime regression tests across all supported patterns plus optional `@pytest.mark.benchmark` smoke output reporting pattern/candle/runtime/event/action counts.
