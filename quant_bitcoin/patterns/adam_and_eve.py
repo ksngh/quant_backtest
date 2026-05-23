@@ -70,6 +70,8 @@ class AdamAndEveConfig:
     maximum_bottom_difference_rate: float = 0.05
     minimum_pattern_duration: int = 20
     maximum_pattern_duration: int = 200
+    max_recent_pivots: int = 120
+    max_candidates_per_bar: int = 250
     maximum_adam_bottom_duration: int = 5
     adam_left_window: int = 2
     adam_right_window: int = 2
@@ -108,6 +110,10 @@ class AdamAndEveConfig:
                 "maximum_pattern_duration must be greater than or equal to "
                 "minimum_pattern_duration"
             )
+        if self.max_recent_pivots < 3:
+            raise ValueError("max_recent_pivots must be at least 3")
+        if self.max_candidates_per_bar < 1:
+            raise ValueError("max_candidates_per_bar must be at least 1")
         if self.maximum_adam_bottom_duration < 1:
             raise ValueError("maximum_adam_bottom_duration must be at least 1")
         if self.adam_left_window < 0 or self.adam_right_window < 0:
@@ -261,9 +267,11 @@ def detect_adam_and_eve_patterns(
             (pivot_rows["confirmed_index"] <= breakout_index)
             & (pivot_rows["pivot_index"] < breakout_index)
         ]
+        if len(visible_pivots) > ae_config.max_recent_pivots:
+            visible_pivots = visible_pivots.nlargest(ae_config.max_recent_pivots, "pivot_index")
         evaluated = [
             event
-            for candidate in _build_candidates(visible_pivots)
+            for candidate in _build_candidates(visible_pivots, ae_config)
             if (
                 event := _evaluate_candidate(
                     candidate,
@@ -329,7 +337,9 @@ def _validate_external_filters(config: AdamAndEveConfig) -> None:
         raise ValueError("spread_pass must be supplied when require_spread_pass is true")
 
 
-def _build_candidates(visible_pivots: pd.DataFrame) -> list[_AdamAndEveCandidate]:
+def _build_candidates(
+    visible_pivots: pd.DataFrame, config: AdamAndEveConfig
+) -> list[_AdamAndEveCandidate]:
     if len(visible_pivots) < 3:
         return []
     records = list(visible_pivots.sort_values("pivot_index").to_dict("records"))
@@ -344,6 +354,7 @@ def _build_candidates(visible_pivots: pd.DataFrame) -> list[_AdamAndEveCandidate
         if record["pivot_type"] in {PivotType.PIVOT_HIGH.value, PivotType.BOTH.value}
     ]
     candidates: list[_AdamAndEveCandidate] = []
+    candidate_count = 0
     for adam_low in lows:
         adam_index = int(adam_low["pivot_index"])
         for neckline_pivot in highs:
@@ -355,6 +366,9 @@ def _build_candidates(visible_pivots: pd.DataFrame) -> list[_AdamAndEveCandidate
                 if eve_index <= neckline_index:
                     continue
                 candidates.append(_AdamAndEveCandidate(adam_low, neckline_pivot, eve_low))
+                candidate_count += 1
+                if candidate_count >= config.max_candidates_per_bar:
+                    return candidates
     return candidates
 
 

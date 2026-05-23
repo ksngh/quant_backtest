@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 154: Task 121 shared indicator cache + at-index FVG/Order Block detection completed (2026-05-23).
+Phase 155: Task 122 pivot-heavy pattern candidate pruning completed (2026-05-23).
 
 ## Current Step
-Task 121 shared indicator cache reuse extended to Order Block and at-index detection path verified.
+Task 122 added deterministic candidate caps/recent-pivot pruning for Trendline Break, Cup and Handle, Diamond, and Adam and Eve.
 
 ## Current Goal
-Execute Task 122 pivot-heavy candidate pruning, then Tasks 123-124 optimization/persistence, Task 125 dashboard runtime display, Task 126 strategy explanation metadata, then Task 127 performance regression tests.
+Execute Task 123 hot-loop DataFrame/persistence I/O cleanup, then Tasks 124-127 in sequence.
 
 ## Current Active Task
-Task 122 is the current active optimization task; Tasks 123-127 remain defined follow-ups.
+Task 123 is the current active optimization task; Tasks 124-127 remain defined follow-ups.
 
 ## Last Completed Step (Short)
-Task 121 completed with shared cache reuse and at-index FVG/Order Block detection; next step is Task 122, then Tasks 123-127 in sequence.
+Task 122 completed with deterministic pruning/candidate caps for pivot-heavy detectors; next step is Task 123, then Tasks 124-127 in sequence.
 
 ## Recommended Next Step
-Implement Task 121 (shared indicator cache + at-index FVG/Order Block), then Task 122 (pivot-heavy pruning), Task 123 (hot-loop DataFrame/I-O cleanup), Task 124 (persist runtime metadata), Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
+Implement Task 123 (hot-loop DataFrame/I-O cleanup), then Task 124 (persist runtime metadata), Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

@@ -79,6 +79,8 @@ class TrendlineBreakConfig:
     minimum_touch_count: int = 2
     strong_touch_count: int = 3
     maximum_pivot_lookback: int = 50
+    max_recent_pivots: int = 80
+    max_trendline_pairs_per_bar: int = 200
     minimum_trendline_length: int = 10
     maximum_trendline_length: int = 200
     minimum_slope_abs: float = 0.0
@@ -112,6 +114,10 @@ class TrendlineBreakConfig:
             )
         if self.maximum_pivot_lookback < 1:
             raise ValueError("maximum_pivot_lookback must be at least 1")
+        if self.max_recent_pivots < 2:
+            raise ValueError("max_recent_pivots must be at least 2")
+        if self.max_trendline_pairs_per_bar < 1:
+            raise ValueError("max_trendline_pairs_per_bar must be at least 1")
         if self.minimum_trendline_length < 1:
             raise ValueError("minimum_trendline_length must be at least 1")
         if self.maximum_trendline_length < self.minimum_trendline_length:
@@ -238,6 +244,10 @@ def detect_trendline_breaks(
             & (pivot_rows["pivot_index"] < current_index)
             & (current_index - pivot_rows["pivot_index"] <= trendline_config.maximum_pivot_lookback)
         ]
+        if len(visible_pivots) > trendline_config.max_recent_pivots:
+            visible_pivots = visible_pivots.nlargest(
+                trendline_config.max_recent_pivots, "pivot_index", keep="last"
+            )
         if visible_pivots.empty:
             continue
 
@@ -378,7 +388,11 @@ def _build_direction_candidates(
 
     records = list(direction_pivots.sort_values("pivot_index").to_dict("records"))
     candidates: list[_TrendlineCandidate] = []
+    pair_count = 0
     for older, newer in combinations(records, 2):
+        pair_count += 1
+        if pair_count > config.max_trendline_pairs_per_bar:
+            break
         older_index = int(older["pivot_index"])
         newer_index = int(newer["pivot_index"])
         trendline_length = newer_index - older_index

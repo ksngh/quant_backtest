@@ -71,6 +71,8 @@ class DiamondConfig:
 
     minimum_pivot_count: int = 6
     maximum_pivot_count: int = 10
+    max_recent_pivots: int = 120
+    max_candidate_windows_per_bar: int = 250
     minimum_pattern_duration: int = 20
     maximum_pattern_duration: int = 200
     minimum_expansion_range_change_atr: float = 1.0
@@ -102,6 +104,10 @@ class DiamondConfig:
             raise ValueError(
                 "maximum_pivot_count must be greater than or equal to minimum_pivot_count"
             )
+        if self.max_recent_pivots < self.minimum_pivot_count:
+            raise ValueError("max_recent_pivots must be >= minimum_pivot_count")
+        if self.max_candidate_windows_per_bar < 1:
+            raise ValueError("max_candidate_windows_per_bar must be at least 1")
         if self.minimum_pattern_duration < 1:
             raise ValueError("minimum_pattern_duration must be at least 1")
         if self.maximum_pattern_duration < self.minimum_pattern_duration:
@@ -271,6 +277,10 @@ def detect_diamond_patterns(
             (pivot_rows["confirmed_index"] <= breakout_index)
             & (pivot_rows["pivot_index"] < breakout_index)
         ]
+        if len(visible_pivots) > diamond_config.max_recent_pivots:
+            visible_pivots = visible_pivots.nlargest(
+                diamond_config.max_recent_pivots, "pivot_index"
+            )
         candidates = _build_candidates(visible_pivots, enriched, breakout_index, diamond_config)
         evaluated = [
             event
@@ -349,8 +359,12 @@ def _build_candidates(
 
     records = list(visible_pivots.sort_values("pivot_index").to_dict("records"))
     candidates: list[_DiamondCandidate] = []
+    window_count = 0
     for end in range(config.minimum_pivot_count, len(records) + 1):
         for count in range(config.minimum_pivot_count, config.maximum_pivot_count + 1):
+            window_count += 1
+            if window_count > config.max_candidate_windows_per_bar:
+                return candidates
             start = end - count
             if start < 0:
                 continue

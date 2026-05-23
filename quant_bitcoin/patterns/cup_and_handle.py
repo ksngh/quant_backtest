@@ -68,6 +68,8 @@ class CupAndHandleConfig:
     maximum_cup_duration: int = 200
     minimum_handle_duration: int = 3
     maximum_handle_duration: int = 40
+    max_recent_pivots: int = 120
+    max_candidates_per_bar: int = 300
     maximum_rim_difference_rate: float = 0.05
     minimum_cup_depth_rate: float = 0.10
     maximum_cup_depth_rate: float = 0.40
@@ -105,6 +107,10 @@ class CupAndHandleConfig:
             raise ValueError(
                 "maximum_handle_duration must be greater than or equal to minimum_handle_duration"
             )
+        if self.max_recent_pivots < 4:
+            raise ValueError("max_recent_pivots must be at least 4")
+        if self.max_candidates_per_bar < 1:
+            raise ValueError("max_candidates_per_bar must be at least 1")
         if self.maximum_rim_difference_rate < 0:
             raise ValueError("maximum_rim_difference_rate must be non-negative")
         if self.minimum_cup_depth_rate < 0:
@@ -241,9 +247,11 @@ def detect_cup_and_handle_patterns(
             (pivot_rows["confirmed_index"] <= breakout_index)
             & (pivot_rows["pivot_index"] < breakout_index)
         ]
+        if len(visible_pivots) > cup_config.max_recent_pivots:
+            visible_pivots = visible_pivots.nlargest(cup_config.max_recent_pivots, "pivot_index")
         evaluated = [
             event
-            for candidate in _build_candidates(visible_pivots)
+            for candidate in _build_candidates(visible_pivots, cup_config)
             if (
                 event := _evaluate_candidate(
                     candidate,
@@ -324,7 +332,7 @@ def _detect_displacements(
     )
 
 
-def _build_candidates(visible_pivots: pd.DataFrame) -> list[_CupCandidate]:
+def _build_candidates(visible_pivots: pd.DataFrame, config: CupAndHandleConfig) -> list[_CupCandidate]:
     if len(visible_pivots) < 4:
         return []
 
@@ -341,6 +349,7 @@ def _build_candidates(visible_pivots: pd.DataFrame) -> list[_CupCandidate]:
     ]
 
     candidates: list[_CupCandidate] = []
+    candidate_count = 0
     for left_rim in highs:
         left_index = int(left_rim["pivot_index"])
         for cup_bottom in lows:
@@ -356,6 +365,9 @@ def _build_candidates(visible_pivots: pd.DataFrame) -> list[_CupCandidate]:
                     if handle_index <= right_index:
                         continue
                     candidates.append(_CupCandidate(left_rim, cup_bottom, right_rim, handle_low))
+                    candidate_count += 1
+                    if candidate_count >= config.max_candidates_per_bar:
+                        return candidates
     return candidates
 
 

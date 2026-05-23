@@ -50,7 +50,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Active follow-up candidate (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).
 - Active follow-up candidate (2026-05-23): Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA` (persist runtime fields via JSONB metadata after Tasks 120-123).
 - Active follow-up candidate (2026-05-23): Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP` (high-priority hot-loop overhead cleanup after Tasks 120-122).
-- Active follow-up candidate (2026-05-23): Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING` (highest-priority pivot-heavy optimization after Tasks 120-121).
+- Completed (2026-05-23): Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING` (deterministic recent-pivot/candidate-cap pruning for pivot-heavy detectors).
 - Completed (2026-05-23): Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION` (shared cache generalized + at-index Order Block path + duplicate suppression parity tests).
 - Completed (2026-05-23): Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME` (added optional profiling instrumentation and no-persist regression coverage for phase/runtime bottleneck visibility).
 - Completed (2026-05-23): Task 119 `LEDGER_RECHECK_TASKS_111_118` (reconciled root status pointer with latest completed task window and confirmed 111-118 completion chronology across root ledgers).
@@ -77,4 +77,3 @@ All items below are candidate/planning pointers unless marked completed.
 ## Deferred Verification
 - Local Docker runtime verification for previously completed Docker-related tasks (run in Docker-capable environment).
 - Completed (2026-05-22): Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`.
-
