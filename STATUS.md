@@ -1,19 +1,19 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 173: Tasks 140-148 cash/sizing/accounting window completed (2026-05-23).
+Phase 174: Ledger archive range cleanup completed (2026-05-24).
 
 ## Current Step
-Completed the sequential cash/sizing/accounting window from Task 140 through Task 148.
+Reconciled `BACKLOG.md` and `PROJECT_HISTORY.md` with the fixed 50-task archive rule from `AGENTS.md`.
 
 ## Current Goal
-Keep the new backtest sizing, cash/equity, simulated short, CLI/persistence, display, and documentation contracts stable under regression tests.
+Keep root ledgers focused on the current high-signal window while preserving older history in deterministic archive files.
 
 ## Current Active Task
-No active implementation task. Tasks 140-148 are completed; Task 138 remains blocked pending explicit live-order approval.
+No active implementation task. Task 099 ledger segmentation follow-up is complete; Task 138 remains blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Task 148 completed after Tasks 140-147: docs and ledgers now match the new cash-bounded sizing, short buying-power, simulated-margin, account-state, CLI/persistence, display/API, and refactor work.
+Replaced partial ledger archives with fixed `*_task_051_100.md` archives and trimmed root ledgers to the Tasks 101-148 recent window plus active notes.
 
 ## Recommended Next Step
 No new next implementation task is assigned. Task 138 remains blocked unless the owner explicitly approves live order execution.

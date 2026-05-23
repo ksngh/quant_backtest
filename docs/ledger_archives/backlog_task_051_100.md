@@ -1,8 +1,18 @@
-# Backlog Archive: Task Window 051-087
+# Backlog Archive: Task Window 051-100
 
-Archived from root `BACKLOG.md` during Task 099 ledger segmentation.
+Archived from root `BACKLOG.md` during Task 099 ledger segmentation and
+2026-05-24 ledger range cleanup.
+
+This file preserves the prior Task 051-087 archive content and the root backlog
+entries for Tasks 088-100 so archive filenames follow fixed 50-task ranges.
 
 ## Archived Entries
+- Completed (2026-05-21): Task 051 cup-and-handle risk exit plan.
+- Completed (2026-05-21): Task 052 diamond risk exit plan.
+- Completed (2026-05-21): Task 053 Adam and Eve risk exit plan.
+- Completed (2026-05-21): Task 054 pattern exit simulation integration.
+- Completed (2026-05-21): Task 055 pattern strategy backtest.
+- Completed (2026-05-21): Task 056 pattern PostgreSQL backtest CLI.
 - Completed (2026-05-21): Task 058 pattern backtest all-implemented-pattern selection implementation.
 - Completed (2026-05-21): Task 057 pattern CLI help/default naming and `--pattern FAIR_VALUE_GAP` validation.
 - Completed (2026-05-21): Task 060 pattern CLI default persistence and payload mapping.
@@ -28,3 +38,17 @@ Archived from root `BACKLOG.md` during Task 099 ledger segmentation.
 - Completed (2026-05-21): Task 080 compose service split.
 - Completed (2026-05-21): Task 081 starting-cash alignment.
 - Completed (2026-05-21 to 2026-05-22): Tasks 082-087 strategy architecture/risk extraction/strategy engine/CLI/regression suites.
+- Completed (2026-05-22): Task 088 `STRATEGY_ACTION_LONG_SHORT_CONTRACT`.
+- Completed (2026-05-22): Task 089 `STRATEGY_ENGINE_LONG_SHORT_COST_ACCOUNTING`.
+- Completed (2026-05-22): Task 090 `RSI_CANONICAL_ENGINE_MIGRATION`.
+- Completed (2026-05-22): Task 091 `PATTERN_STRATEGY_LONG_SHORT_ENABLEMENT`.
+- Completed (2026-05-22): Task 092 `PATTERN_RISK_EXIT_ACTION_BUILDER`.
+- Completed (2026-05-22): Task 093 `ENTRY_FILL_INTRABAR_INTEGRATION`.
+- Completed (2026-05-22): Task 094 `PATTERN_DETECTION_PERFORMANCE_OPTIMIZATION`.
+- Completed (2026-05-22): Task 095 `CANONICAL_CLI_AND_PERSISTENCE_MIGRATION`.
+- Completed (2026-05-22): Task 096 `LEGACY_DEPRECATED_BACKTEST_CLEANUP`.
+- Completed (2026-05-22): Task 097 `CANONICAL_BACKTEST_REGRESSION_AND_RESEARCH_TEST_SUITE`.
+- Completed (2026-05-22): Task 098 `TASK_STATUS_LEDGER_SYNCHRONIZATION`.
+- Completed (2026-05-22): Task 099 `LEDGER_SEGMENTATION_AND_TEMPLATE_ENFORCEMENT`.
+- Completed (2026-05-22): Task 099 follow-up review fix documented explicit 50-task ledger archiving rule in `AGENTS.md`.
+- Completed (2026-05-22): Task 100 `TASK_LEDGER_COMPLETION_RECONCILIATION_FOLLOWUP`.
