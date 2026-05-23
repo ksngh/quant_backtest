@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 158: Task 125 dashboard runtime display completed (2026-05-23).
+Phase 159: Task 126 strategy explanation metadata completed (2026-05-23).
 
 ## Current Step
-Task 125 exposed runtime summary in dashboard list/detail views with backward-compatible API serialization and safe missing-runtime fallbacks.
+Task 126 added persisted strategy explanation metadata and dashboard explanation sections (algorithm/entry/SL/TP/rationale/limitations) with backward-compatible missing-metadata fallbacks.
 
 ## Current Goal
-Execute Task 126 strategy explanation metadata display, then Task 127 runtime regression guardrail tests.
+Execute Task 127 runtime/performance regression guardrail tests.
 
 ## Current Active Task
-Task 126 is the current active optimization task; Task 127 remains a defined follow-up.
+Task 127 is the current active optimization task.
 
 ## Last Completed Step (Short)
-Task 125 completed with runtime serialization in list responses and runtime breakdown rendering in dashboard summary/detail cards; next step is Task 126, then Task 127.
+Task 126 completed with strategy explanation metadata persisted on strategy configs and rendered in dashboard explanation cards; next step is Task 127.
 
 ## Recommended Next Step
-Implement Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
+Implement Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

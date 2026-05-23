@@ -32,6 +32,7 @@ def build_strategy_engine_persistence_payload(
     strategy_name: str,
     strategy_version: str,
     strategy_parameters: dict[str, Any],
+    strategy_metadata: dict[str, Any] | None = None,
     starting_cash: float,
     trade_quantity: float,
     engine_name: str,
@@ -47,6 +48,7 @@ def build_strategy_engine_persistence_payload(
         version=strategy_version,
         parameters=strategy_parameters,
         parameters_hash=canonical_hash(strategy_parameters),
+        metadata=strategy_metadata,
     )
     run_key = build_backtest_run_key(
         {

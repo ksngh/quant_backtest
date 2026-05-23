@@ -33,6 +33,7 @@ from quant_bitcoin.persistence import (
 )
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+from quant_bitcoin.strategies.pattern_explanations import build_pattern_strategy_explanation
 from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy, PatternEntryFilterConfig, strategy_for_pattern
 
 DEFAULT_DATABASE_URL = "postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
@@ -452,6 +453,7 @@ def run(
             pattern_profile=pattern_profile,
             timings=timings,
         )
+        strategy_explanation = build_pattern_strategy_explanation(strategy.strategy_key)
         payload = build_strategy_engine_persistence_payload(
             result,
             candles,
