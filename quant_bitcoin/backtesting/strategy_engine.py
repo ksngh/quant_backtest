@@ -115,6 +115,15 @@ def run_strategy_backtest_engine(
         net_pnl=sum(e.net_pnl for e in executions if e.net_pnl is not None),
         average_net_r=(sum(net_rs) / len(net_rs)) if net_rs else None,
         metadata={
+            "transaction_cost": {
+                "maker_fee_bps": cfg.transaction_cost_config.maker_fee_bps if cfg.transaction_cost_config else 0.0,
+                "taker_fee_bps": cfg.transaction_cost_config.taker_fee_bps if cfg.transaction_cost_config else 0.0,
+                "spread_bps": cfg.transaction_cost_config.spread_bps if cfg.transaction_cost_config else 0.0,
+                "slippage_bps": cfg.transaction_cost_config.slippage_bps if cfg.transaction_cost_config else 0.0,
+                "minimum_slippage_bps": cfg.transaction_cost_config.minimum_slippage_bps if cfg.transaction_cost_config else 0.0,
+                "volatility_slippage_multiplier": cfg.transaction_cost_config.volatility_slippage_multiplier if cfg.transaction_cost_config else 0.0,
+                "default_liquidity_role": cfg.default_liquidity_role.value,
+            },
             "limitations": [
                 "No borrow fees modeled",
                 "No futures funding modeled",

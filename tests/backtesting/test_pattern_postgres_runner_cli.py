@@ -68,3 +68,34 @@ def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
     _, actions = strategy_postgres_runner_core._build_actions(candles, "STUB")
     assert actions
     assert any(a.action_type.name == "EXIT_LONG" for a in actions)
+
+
+def test_build_transaction_cost_config_from_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(
+        [
+            "--maker-fee-bps",
+            "1.5",
+            "--taker-fee-bps",
+            "7.0",
+            "--spread-bps",
+            "2.0",
+            "--slippage-bps",
+            "3.0",
+            "--minimum-slippage-bps",
+            "0.5",
+            "--volatility-slippage-multiplier",
+            "4.0",
+            "--liquidity-role",
+            "maker",
+            "--no-persist",
+        ]
+    )
+    config, liquidity_role = strategy_postgres_runner_core._build_transaction_cost_config(args)
+    assert config.maker_fee_bps == 1.5
+    assert config.taker_fee_bps == 7.0
+    assert config.spread_bps == 2.0
+    assert config.slippage_bps == 3.0
+    assert config.minimum_slippage_bps == 0.5
+    assert config.volatility_slippage_multiplier == 4.0
+    assert liquidity_role.value == "MAKER"

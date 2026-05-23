@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 131: Task 111 execution-price and entry-fill contract completed (verification reconfirmed on 2026-05-22).
+Phase 132: Task 118 transaction-cost CLI and accounting integration completed (2026-05-23).
 
 ## Current Step
-Task 111 completed: explicit requested execution price support added to canonical engine and pattern action builder; targeted regression tests reconfirmed green.
+Task 118 completed: canonical strategy backtest CLI now exposes transaction-cost configuration and passes it into strategy-engine accounting/persistence metadata.
 
 ## Current Goal
-Execute canonical backtest actions at simulated fill/exit prices when provided, with close-price fallback for backward compatibility.
+Run canonical backtests with configurable fee/spread/slippage/liquidity-role while preserving deterministic zero-cost defaults.
 
 ## Current Active Task
-Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` drafted (ready for implementation assignment).
+None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
 Task 110 completed: added enriched execution/event/diagnostic fields and warnings for no-fills/risk-plan/open-position cases in strategy CLI output.
 
 ## Recommended Next Step
-Execute Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION` or explicitly reprioritize against Tasks 112-117 and existing documentation/fixture candidate work.
+Execute Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS` or reprioritize Tasks 112-116 based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

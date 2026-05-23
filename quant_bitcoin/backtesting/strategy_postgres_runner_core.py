@@ -5,10 +5,12 @@ import json
 import os
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from math import isfinite
 
 import pandas as pd
 
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
@@ -56,6 +58,13 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
     parser.add_argument("--starting-cash", type=float, default=10000.0)
     parser.add_argument("--trade-quantity", type=float, default=1.0)
+    parser.add_argument("--maker-fee-bps", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--taker-fee-bps", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--spread-bps", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--slippage-bps", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--minimum-slippage-bps", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--volatility-slippage-multiplier", type=_non_negative_finite_float, default=0.0)
+    parser.add_argument("--liquidity-role", type=_liquidity_role, default=LiquidityRole.TAKER.value)
     parser.add_argument("--no-persist", action="store_true")
     return parser
 
@@ -64,6 +73,34 @@ def _optional_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _non_negative_finite_float(value: str) -> float:
+    parsed = float(value)
+    if not isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("value must be a non-negative finite float")
+    return parsed
+
+
+def _liquidity_role(value: str) -> str:
+    normalized = value.strip().upper()
+    if normalized not in {LiquidityRole.MAKER.value, LiquidityRole.TAKER.value}:
+        raise argparse.ArgumentTypeError("liquidity-role must be MAKER or TAKER")
+    return normalized
+
+
+def _build_transaction_cost_config(args: argparse.Namespace) -> tuple[TransactionCostConfig, LiquidityRole]:
+    return (
+        TransactionCostConfig(
+            maker_fee_bps=args.maker_fee_bps,
+            taker_fee_bps=args.taker_fee_bps,
+            spread_bps=args.spread_bps,
+            slippage_bps=args.slippage_bps,
+            minimum_slippage_bps=args.minimum_slippage_bps,
+            volatility_slippage_multiplier=args.volatility_slippage_multiplier,
+        ),
+        LiquidityRole(args.liquidity_role),
+    )
 
 
 def _select_strategy_key(args: argparse.Namespace) -> str:
@@ -264,6 +301,7 @@ def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str
             "buy_count": result.summary.buy_count,
             "sell_count": result.summary.sell_count,
             "max_drawdown": result.summary.max_drawdown,
+            "metadata": result.summary.metadata or {},
         },
         "executions": [_serialize_execution(execution) for execution in result.executions],
         "events": events,
@@ -280,6 +318,7 @@ def run(
 ) -> int:
     args = build_parser(prog, include_strategy).parse_args(argv)
     strategy_key = _select_strategy_key(args)
+    transaction_cost_config, default_liquidity_role = _build_transaction_cost_config(args)
 
     provider = PostgresCandleDataProvider.from_database_url(
         args.database_url,
@@ -301,6 +340,8 @@ def run(
         config=StrategyEngineConfig(
             starting_cash=args.starting_cash,
             trade_quantity=args.trade_quantity,
+            transaction_cost_config=transaction_cost_config,
+            default_liquidity_role=default_liquidity_role,
         ),
     )
 
@@ -318,7 +359,18 @@ def run(
             strategy_key=strategy.strategy_key.lower(),
             strategy_name=strategy.strategy_name,
             strategy_version="strategy_engine_v1",
-            strategy_parameters={"pattern": strategy.strategy_key},
+            strategy_parameters={
+                "pattern": strategy.strategy_key,
+                "transaction_cost": {
+                    "maker_fee_bps": transaction_cost_config.maker_fee_bps,
+                    "taker_fee_bps": transaction_cost_config.taker_fee_bps,
+                    "spread_bps": transaction_cost_config.spread_bps,
+                    "slippage_bps": transaction_cost_config.slippage_bps,
+                    "minimum_slippage_bps": transaction_cost_config.minimum_slippage_bps,
+                    "volatility_slippage_multiplier": transaction_cost_config.volatility_slippage_multiplier,
+                    "liquidity_role": default_liquidity_role.value,
+                },
+            },
             starting_cash=args.starting_cash,
             trade_quantity=args.trade_quantity,
             engine_name=BACKTEST_ENGINE_NAME,
