@@ -94,11 +94,18 @@ def run_strategy_backtest_engine(
     final_price = float(frame.iloc[-1]["close"])
     final_equity = cash + (position * final_price)
     net_rs = [e.realized_r_multiple for e in executions if e.realized_r_multiple is not None]
-    sell_execs = [e for e in executions if e.side == "SELL"]
+    filled_execs = [e for e in executions if e.quantity > 0]
+    sell_execs = [e for e in filled_execs if e.side == "SELL"]
     closing_execs = [e for e in executions if e.gross_pnl is not None]
     win_count = len([e for e in closing_execs if (e.net_pnl or 0.0) > 0])
     loss_count = len([e for e in closing_execs if (e.net_pnl or 0.0) < 0])
     short_closing_execs = [e for e in closing_execs if e.position_side == "SHORT"]
+    skipped_action_count = len([a for a in actions if a.action_type == StrategyActionType.SKIP])
+    blocked_action_count = len([e for e in executions if e.quantity == 0 and (e.reason or "").endswith("BLOCKED")])
+    entry_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.ENTER_LONG.value, StrategyActionType.ENTER_SHORT.value)])
+    exit_count = len([e for e in filled_execs if e.gross_pnl is not None])
+    partial_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.PARTIAL_EXIT_LONG.value, StrategyActionType.PARTIAL_EXIT_SHORT.value)])
+    full_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.EXIT_LONG.value, StrategyActionType.EXIT_SHORT.value)])
 
     summary = StrategyBacktestSummary(
         starting_cash=cfg.starting_cash,
@@ -107,8 +114,8 @@ def run_strategy_backtest_engine(
         final_price=final_price,
         final_equity=final_equity,
         total_return=0.0 if cfg.starting_cash == 0 else (final_equity - cfg.starting_cash) / cfg.starting_cash,
-        trade_count=len(executions),
-        buy_count=len([e for e in executions if e.side == "BUY"]),
+        trade_count=len(filled_execs),
+        buy_count=len([e for e in filled_execs if e.side == "BUY"]),
         sell_count=len(sell_execs),
         win_count=win_count,
         loss_count=loss_count,
@@ -135,6 +142,21 @@ def run_strategy_backtest_engine(
                 "short_close_count": len(short_closing_execs),
                 "short_win_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) > 0]),
                 "short_loss_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) < 0]),
+            },
+            "execution_metrics": {
+                "filled_execution_count": len(filled_execs),
+                "skipped_action_count": skipped_action_count,
+                "blocked_action_count": blocked_action_count,
+                "entry_count": entry_count,
+                "exit_count": exit_count,
+                "partial_exit_count": partial_exit_count,
+                "full_exit_count": full_exit_count,
+                "open_ending_position": position,
+                "realized_pnl": realized_pnl,
+                "unrealized_pnl": (final_price - avg_entry) * position,
+                "gross_pnl": sum(e.gross_pnl for e in executions if e.gross_pnl is not None),
+                "net_pnl": sum(e.net_pnl for e in executions if e.net_pnl is not None),
+                "max_drawdown": min([p.drawdown for p in equity_points], default=0.0),
             },
         },
     )
