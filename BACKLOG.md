@@ -45,6 +45,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Added (2026-05-23): Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` (created from owner assignment; pending implementation).
 - Completed (2026-05-23): Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX` (canonical strategy CLI JSON-safe timestamp metadata serialization + exception logging signature fix).
 - Candidate: investigate existing Diamond strategy unit-test failures around default pattern status filtering (`tests/strategies/test_single_pattern_strategies.py`).
 - Completed (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY` (frontend/backend runtime visibility after Task 124 metadata persistence).
