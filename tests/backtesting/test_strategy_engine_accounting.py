@@ -72,3 +72,60 @@ def test_short_drawdown_tracked() -> None:
         StrategyAction(StrategyActionType.EXIT_SHORT, timestamp=4, quantity=1),
     ])
     assert result.summary.max_drawdown < 0
+
+
+def test_profitable_short_realized_pnl_and_win_count() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=2, quantity=1),
+        StrategyAction(StrategyActionType.EXIT_SHORT, timestamp=3, quantity=1),
+    ])
+    close_execution = result.executions[-1]
+    assert close_execution.side == "BUY"
+    assert close_execution.gross_pnl == pytest.approx(20.0)
+    assert close_execution.net_pnl == pytest.approx(20.0)
+    assert result.equity_points[-1].realized_pnl == pytest.approx(20.0)
+    assert result.summary.win_count == 1
+    assert result.summary.loss_count == 0
+
+
+def test_losing_short_realized_pnl_and_loss_count() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, quantity=1),
+        StrategyAction(StrategyActionType.EXIT_SHORT, timestamp=2, quantity=1),
+    ])
+    close_execution = result.executions[-1]
+    assert close_execution.side == "BUY"
+    assert close_execution.gross_pnl == pytest.approx(-10.0)
+    assert close_execution.net_pnl == pytest.approx(-10.0)
+    assert result.equity_points[-1].realized_pnl == pytest.approx(-10.0)
+    assert result.summary.win_count == 0
+    assert result.summary.loss_count == 1
+
+
+def test_allow_short_false_blocks_short_entries_deterministically() -> None:
+    result = run_strategy_backtest_engine(
+        _candles(),
+        [StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, quantity=1)],
+        config=StrategyEngineConfig(allow_short=False),
+    )
+    assert result.summary.trade_count == 0
+    assert result.summary.ending_position == 0
+    assert result.summary.ending_cash == pytest.approx(10000.0)
+
+
+def test_summary_includes_short_model_limitations_and_short_performance_metadata() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=2, quantity=1),
+        StrategyAction(StrategyActionType.EXIT_SHORT, timestamp=3, quantity=1),
+    ])
+    metadata = result.summary.metadata
+    assert metadata["limitations"] == [
+        "No borrow fees modeled",
+        "No futures funding modeled",
+        "No maintenance margin or liquidation model",
+    ]
+    assert metadata["short_performance"] == {
+        "short_close_count": 1,
+        "short_win_count": 1,
+        "short_loss_count": 0,
+    }
