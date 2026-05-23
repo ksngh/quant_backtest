@@ -48,6 +48,10 @@ def test_opposite_entry_skip_deterministic() -> None:
     assert len(result.executions) == 2
     assert result.executions[1].quantity == 0.0
     assert result.executions[1].reason == "OPPOSITE_ENTRY_BLOCKED"
+    metrics = result.summary.metadata["execution_metrics"]
+    assert result.summary.trade_count == 1
+    assert metrics["filled_execution_count"] == 1
+    assert metrics["blocked_action_count"] == 1
 
 
 def test_cost_applied_once_fee_and_not_double_counted() -> None:
@@ -129,3 +133,18 @@ def test_summary_includes_short_model_limitations_and_short_performance_metadata
         "short_win_count": 1,
         "short_loss_count": 0,
     }
+
+
+def test_summary_includes_skip_and_partial_exit_metrics() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.SKIP, timestamp=1, quantity=1),
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=2, quantity=2),
+        StrategyAction(StrategyActionType.PARTIAL_EXIT_LONG, timestamp=3, quantity=1),
+    ])
+    metrics = result.summary.metadata["execution_metrics"]
+    assert metrics["skipped_action_count"] == 1
+    assert metrics["entry_count"] == 1
+    assert metrics["exit_count"] == 1
+    assert metrics["partial_exit_count"] == 1
+    assert metrics["full_exit_count"] == 0
+    assert metrics["open_ending_position"] == pytest.approx(1.0)

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 134: Task 116 pattern entry filtering and sizing controls completed (2026-05-23).
+Phase 135: Task 115 backtest metrics and persistence metadata quality completed (2026-05-23).
 
 ## Current Step
-Task 116 completed: canonical pattern strategies now default-filter non-VALID events, support configurable weak/score/risk-reward gates, and defer position sizing to engine trade quantity unless explicit override is configured.
+Task 115 completed: strategy-engine summary now separates filled/skipped/blocked/entry-exit metrics and persistence metadata now captures lifecycle + cost diagnostics for executions.
 
 ## Current Goal
-Keep canonical pattern entries conservative and configurable while preserving deterministic strategy-engine sizing contracts.
+Keep backtest summary/persistence outputs lifecycle-accurate and deterministic for research/debug flows.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 116 completed: added pattern-entry filters and optional quantity override, wired CLI args/config persistence, and added strategy/CLI regression coverage.
+Task 115 completed: excluded blocked entries from filled trade_count, added execution_metrics metadata, enriched persisted trade metadata, and added regression coverage.
 
 ## Recommended Next Step
-Execute Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY` or reprioritize Tasks 112-114 based on owner direction.
+Execute Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY` or reprioritize Tasks 112-113 based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

@@ -62,3 +62,5 @@ Older history is preserved in segmented archives:
 
 
 - 2026-05-23: Completed Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS`; added default VALID-only pattern filters with optional weak/score/risk-reward gating, removed hardcoded pattern entry quantity in favor of engine trade_quantity, and added CLI/config+regression coverage for optional quantity overrides.
+
+- 2026-05-23: Completed Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY`; separated filled vs skipped/blocked execution metrics in summary metadata, aligned legacy trade_count with filled executions, enriched persistence trade metadata (lifecycle+cost fields), and added targeted accounting/persistence regression coverage.
