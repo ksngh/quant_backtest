@@ -45,6 +45,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
 
 ## Current Candidates / Follow-ups
+- Completed (2026-05-23): Task 119 `LEDGER_RECHECK_TASKS_111_118` (reconciled root status pointer with latest completed task window and confirmed 111-118 completion chronology across root ledgers).
 - Completed (2026-05-23): Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION`.
 - Completed (2026-05-23): Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS`.
 - Completed (2026-05-23): Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS`.
