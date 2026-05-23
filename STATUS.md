@@ -1,10 +1,10 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 131: Task 111 execution-price and entry-fill contract completed.
+Phase 131: Task 111 execution-price and entry-fill contract completed (verification reconfirmed on 2026-05-22).
 
 ## Current Step
-Task 111 completed: explicit requested execution price support added to canonical engine and pattern action builder.
+Task 111 completed: explicit requested execution price support added to canonical engine and pattern action builder; targeted regression tests reconfirmed green.
 
 ## Current Goal
 Execute canonical backtest actions at simulated fill/exit prices when provided, with close-price fallback for backward compatibility.
