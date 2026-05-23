@@ -97,3 +97,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX`; added recursive JSON-safe serialization for canonical strategy CLI stdout payloads, corrected strategy/pattern CLI exception logging calls, and covered timestamp metadata serialization plus logger signature regressions. Targeted CLI tests passed; full pytest surfaced two unrelated Diamond strategy status-filtering expectation failures.
 
 - 2026-05-23: Added Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION` task document from owner assignment; no implementation executed in this step.
+
+- 2026-05-23: Completed Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION`; reproduced failing Diamond bullish/bearish tests, confirmed default VALID-only status-filter behavior, aligned Diamond test fixtures to set explicit `pattern_status="VALID"`, and added regression coverage for missing-status skip behavior with passing targeted Diamond strategy tests.
