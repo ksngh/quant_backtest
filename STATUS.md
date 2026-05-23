@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 144: Task 118 transaction-cost CLI and accounting integration completed (2026-05-23), with Tasks 111-118 ledger recheck completed (2026-05-23).
+Phase 152: Task 127 pattern-performance-regression-tests task definition prepared (2026-05-23).
 
 ## Current Step
-Task 118 completed: canonical CLI transaction-cost configuration and cost-aware accounting are integrated and validated; Tasks 111-118 ledger pointers rechecked for consistency.
+Task 127 task document created from owner-provided optimization requirements; implementation not started.
 
 ## Current Goal
-Keep Tasks 111-118 completion records synchronized across status/backlog/history and preserve deterministic cost-aware backtest semantics.
+Execute Task 120 profiling first, then Tasks 121-124 optimization/persistence, Task 125 dashboard runtime display, Task 126 strategy explanation metadata, then Task 127 performance regression tests.
 
 ## Current Active Task
-None (awaiting owner prioritization for next implementation task).
+Task 120 remains highest-priority execution task; Tasks 121-127 are defined follow-up optimization tasks.
 
 ## Last Completed Step (Short)
-Task 118 completed: validated transaction-cost CLI args, cost config propagation, and deterministic accounting metadata; then rechecked ledger consistency for Tasks 111-118.
+Task 127 definition created from owner requirements; next step remains Task 120 execution, then Tasks 121-127 in sequence.
 
 ## Recommended Next Step
-Await owner prioritization for next implementation task (recommended: Task 111 documentation/fixture follow-up candidate).
+Implement Task 120 profiling path, then execute Task 121 (shared indicator cache + at-index FVG/Order Block), Task 122 (pivot-heavy pruning), Task 123 (hot-loop DataFrame/I-O cleanup), Task 124 (persist runtime metadata), Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

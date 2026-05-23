@@ -71,3 +71,11 @@ Older history is preserved in segmented archives:
 
 
 - 2026-05-23: Completed Task 119 `LEDGER_RECHECK_TASKS_111_118`; audited Tasks 111-118 in STATUS/BACKLOG/PROJECT_HISTORY and updated root status phase/step/goal pointers to align with latest completed task (Task 118).
+- 2026-05-23: Added Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 125 `DASHBOARD_RUNTIME_DISPLAY` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE` task document from owner-provided optimization pack requirements; no implementation executed in this step.
+- 2026-05-23: Added Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS` task document from owner-provided optimization pack requirements; no implementation executed in this step.
