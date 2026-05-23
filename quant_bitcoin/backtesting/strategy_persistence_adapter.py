@@ -36,6 +36,7 @@ def build_strategy_engine_persistence_payload(
     trade_quantity: float,
     engine_name: str,
     engine_version: str,
+    run_metadata: dict[str, Any] | None = None,
 ) -> BacktestPersistencePayload:
     normalized = candles.copy()
     actual_start = _dt(normalized.iloc[0]["timestamp"]) if not normalized.empty else None
@@ -67,6 +68,10 @@ def build_strategy_engine_persistence_payload(
             "trade_quantity": float(trade_quantity),
         }
     )
+    metadata = {"schema_version": BACKTEST_SCHEMA_VERSION}
+    if run_metadata:
+        metadata.update(run_metadata)
+
     return BacktestPersistencePayload(
         strategy_config=strategy_config,
         run=BacktestRunPayload(
@@ -84,7 +89,7 @@ def build_strategy_engine_persistence_payload(
             starting_cash=float(starting_cash),
             trade_quantity=float(trade_quantity),
             status=COMPLETED_BACKTEST_STATUS,
-            metadata={"schema_version": BACKTEST_SCHEMA_VERSION},
+            metadata=metadata,
         ),
         result=BacktestResultPayload(
             starting_cash=float(result.summary.starting_cash),
