@@ -31,6 +31,8 @@ from quant_bitcoin.risk.exit_plan import (
     RiskExitTarget,
 )
 
+INTRABAR_PRECEDENCE_POLICY = "stop_before_target"
+
 
 class PatternExitReason(Enum):
     """Supported simulated exit reasons."""
@@ -122,7 +124,17 @@ def simulate_pattern_exit(
         current_stop = _move_break_even_stop(direction, plan, current_stop, max_favorable_r)
         current_stop = _move_trailing_stop(direction, plan, current_stop, high, low)
 
-        if _stop_hit(direction, current_stop, high, low):
+        stop_hit = _stop_hit(direction, current_stop, high, low)
+        target_hit = any(
+            target.name not in hit_target_names and _target_hit(direction, target, high, low)
+            for target in plan.targets
+        )
+        exit_policy_metadata = {
+            "intrabar_precedence_policy": INTRABAR_PRECEDENCE_POLICY,
+            "ambiguous_stop_target": stop_hit and target_hit,
+        }
+
+        if stop_hit:
             events.append(
                 PatternExitEvent(
                     timestamp=timestamp,
@@ -132,7 +144,7 @@ def simulate_pattern_exit(
                     quantity_ratio=remaining_ratio,
                     remaining_quantity_ratio=0.0,
                     stop_price=current_stop,
-                    metadata={"precedence": "stop_before_target"},
+                    metadata={**exit_policy_metadata, "precedence": INTRABAR_PRECEDENCE_POLICY},
                 )
             )
             remaining_ratio = 0.0

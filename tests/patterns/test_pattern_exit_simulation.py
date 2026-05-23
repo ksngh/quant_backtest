@@ -15,6 +15,7 @@ from quant_bitcoin.patterns import (
     create_risk_exit_plan,
     simulate_pattern_exit,
 )
+from quant_bitcoin.risk.exit_simulation import INTRABAR_PRECEDENCE_POLICY
 
 
 def _candles(rows: list[dict]) -> pd.DataFrame:
@@ -62,6 +63,8 @@ def test_long_hard_stop_hit() -> None:
     assert result.final_reason == PatternExitReason.HARD_STOP
     assert result.final_price == pytest.approx(95.0)
     assert result.remaining_quantity_ratio == pytest.approx(0.0)
+    assert result.events[0].metadata["intrabar_precedence_policy"] == INTRABAR_PRECEDENCE_POLICY
+    assert result.events[0].metadata["ambiguous_stop_target"] is False
 
 
 def test_short_hard_stop_hit() -> None:
@@ -69,6 +72,18 @@ def test_short_hard_stop_hit() -> None:
 
     assert result.final_reason == PatternExitReason.HARD_STOP
     assert result.final_price == pytest.approx(105.0)
+    assert result.events[0].metadata["intrabar_precedence_policy"] == INTRABAR_PRECEDENCE_POLICY
+    assert result.events[0].metadata["ambiguous_stop_target"] is False
+
+
+def test_long_target_only_hit() -> None:
+    result = simulate_pattern_exit(_plan(), _candles([{"high": 106.0, "low": 99.0, "close": 104.0}]))
+    assert result.final_reason == PatternExitReason.TAKE_PROFIT
+
+
+def test_short_target_only_hit() -> None:
+    result = simulate_pattern_exit(_plan("SHORT"), _candles([{"high": 101.0, "low": 94.0, "close": 96.0}]))
+    assert result.final_reason == PatternExitReason.TAKE_PROFIT
 
 
 def test_tp1_tp2_tp3_hit_sequencing() -> None:
@@ -100,7 +115,19 @@ def test_same_candle_stop_takes_precedence_over_target() -> None:
     )
 
     assert result.final_reason == PatternExitReason.HARD_STOP
-    assert result.events[0].metadata == {"precedence": "stop_before_target"}
+    assert result.events[0].metadata["precedence"] == INTRABAR_PRECEDENCE_POLICY
+    assert result.events[0].metadata["intrabar_precedence_policy"] == INTRABAR_PRECEDENCE_POLICY
+    assert result.events[0].metadata["ambiguous_stop_target"] is True
+
+
+def test_short_same_candle_stop_takes_precedence_over_target() -> None:
+    result = simulate_pattern_exit(
+        _plan("SHORT"),
+        _candles([{"high": 106.0, "low": 94.0, "close": 98.0}]),
+    )
+    assert result.final_reason == PatternExitReason.HARD_STOP
+    assert result.events[0].metadata["precedence"] == INTRABAR_PRECEDENCE_POLICY
+    assert result.events[0].metadata["ambiguous_stop_target"] is True
 
 
 def test_time_stop_before_later_target() -> None:
