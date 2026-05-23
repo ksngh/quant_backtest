@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 152: Task 127 pattern-performance-regression-tests task definition prepared (2026-05-23).
+Phase 153: Task 120 profiling runtime instrumentation completed (2026-05-23).
 
 ## Current Step
-Task 127 task document created from owner-provided optimization requirements; implementation not started.
+Task 120 profiling instrumentation implemented and verified with no-persist integration test.
 
 ## Current Goal
-Execute Task 120 profiling first, then Tasks 121-124 optimization/persistence, Task 125 dashboard runtime display, Task 126 strategy explanation metadata, then Task 127 performance regression tests.
+Execute Task 121 shared indicator cache + at-index pattern detection, then Tasks 122-124 optimization/persistence, Task 125 dashboard runtime display, Task 126 strategy explanation metadata, then Task 127 performance regression tests.
 
 ## Current Active Task
-Task 120 remains highest-priority execution task; Tasks 121-127 are defined follow-up optimization tasks.
+Task 121 is the current active optimization task; Tasks 122-127 remain defined follow-ups.
 
 ## Last Completed Step (Short)
-Task 127 definition created from owner requirements; next step remains Task 120 execution, then Tasks 121-127 in sequence.
+Task 120 completed with profiling output phase timings/top functions; next step is Task 121 execution, then Tasks 122-127 in sequence.
 
 ## Recommended Next Step
-Implement Task 120 profiling path, then execute Task 121 (shared indicator cache + at-index FVG/Order Block), Task 122 (pivot-heavy pruning), Task 123 (hot-loop DataFrame/I-O cleanup), Task 124 (persist runtime metadata), Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
+Implement Task 121 (shared indicator cache + at-index FVG/Order Block), then Task 122 (pivot-heavy pruning), Task 123 (hot-loop DataFrame/I-O cleanup), Task 124 (persist runtime metadata), Task 125 (dashboard runtime display), Task 126 (strategy explanation metadata and display), then Task 127 (performance regression tests).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
