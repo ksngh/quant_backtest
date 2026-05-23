@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 159: Task 126 strategy explanation metadata completed (2026-05-23).
+Phase 160: Task 127 performance regression guardrail tests completed (2026-05-23).
 
 ## Current Step
-Task 126 added persisted strategy explanation metadata and dashboard explanation sections (algorithm/entry/SL/TP/rationale/limitations) with backward-compatible missing-metadata fallbacks.
+Task 127 added lightweight 400-candle pattern runtime regression coverage and optional benchmark marker output for canonical evaluate_at paths.
 
 ## Current Goal
-Execute Task 127 runtime/performance regression guardrail tests.
+Maintain and extend canonical pattern runtime regression guardrails as needed.
 
 ## Current Active Task
-Task 127 is the current active optimization task.
+No active implementation task (awaiting owner assignment after Task 127 completion).
 
 ## Last Completed Step (Short)
-Task 126 completed with strategy explanation metadata persisted on strategy configs and rendered in dashboard explanation cards; next step is Task 127.
+Task 127 completed with fixture-based runtime regression tests for all supported pattern keys plus optional benchmark smoke output.
 
 ## Recommended Next Step
-Implement Task 127 (performance regression tests).
+Owner to assign next task (candidate: follow-up runtime guardrails tuning if needed).
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.
