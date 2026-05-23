@@ -1,27 +1,28 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 174: Ledger archive range cleanup completed (2026-05-24).
+Phase 177: Task 150 frontend dashboard analytics upgrade completed (2026-05-24).
 
 ## Current Step
-Reconciled `BACKLOG.md` and `PROJECT_HISTORY.md` with the fixed 50-task archive rule from `AGENTS.md`.
+Completed Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE`.
 
 ## Current Goal
-Keep root ledgers focused on the current high-signal window while preserving older history in deterministic archive files.
+Keep the read-only dashboard usable for backtest analysis while preserving Task 149 cash/equity/signal semantics.
 
 ## Current Active Task
-No active implementation task. Task 099 ledger segmentation follow-up is complete; Task 138 remains blocked pending explicit live-order approval.
+No active implementation task. Task 150 is complete; Task 138 remains blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Replaced partial ledger archives with fixed `*_task_051_100.md` archives and trimmed root ledgers to the Tasks 101-148 recent window plus active notes.
+Implemented Task 150 dashboard analytics upgrade: range-inspectable charts with axes/reference lines, compact paged trade review, curated parameters/metadata, account-state panels, and strategy indicator/economic explanation sections.
 
 ## Recommended Next Step
-No new next implementation task is assigned. Task 138 remains blocked unless the owner explicitly approves live order execution.
+Review the Task 149-150 diff and assign the next explicit task. Task 138 remains blocked unless the owner explicitly approves live order execution.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
 - Backend FastAPI route tests are not runnable in the current Python environment because `fastapi` is not installed; FastAPI-independent backend service tests passed.
+- In-app browser automation could not be used in this session because the required Node REPL browser-control tool was not exposed; local Next server HTML response was verified with `curl`.
 
 ## Current Safety Boundary
 - No live trading.

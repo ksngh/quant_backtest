@@ -3,6 +3,7 @@ from quant_bitcoin.strategies.actions import (
     execution_side_for_action,
     is_entry_action,
     is_exit_action,
+    position_signal_for_action,
     position_side_for_action,
 )
 
@@ -48,3 +49,13 @@ def test_position_and_execution_side_mappings() -> None:
 
     assert position_side_for_action(StrategyActionType.SKIP) is None
     assert execution_side_for_action(StrategyActionType.SKIP) is None
+
+
+def test_position_signal_mapping_long_short_and_partial_actions() -> None:
+    assert position_signal_for_action(StrategyActionType.ENTER_LONG) == "LONG_ENTRY"
+    assert position_signal_for_action(StrategyActionType.EXIT_LONG) == "LONG_EXIT"
+    assert position_signal_for_action(StrategyActionType.PARTIAL_EXIT_LONG) == "LONG_PARTIAL_EXIT"
+    assert position_signal_for_action(StrategyActionType.ENTER_SHORT) == "SHORT_ENTRY"
+    assert position_signal_for_action(StrategyActionType.EXIT_SHORT) == "SHORT_EXIT"
+    assert position_signal_for_action(StrategyActionType.PARTIAL_EXIT_SHORT) == "SHORT_PARTIAL_EXIT"
+    assert position_signal_for_action(StrategyActionType.SKIP) is None

@@ -86,6 +86,8 @@ def test_long_and_short_zero_cost_accounting() -> None:
         StrategyAction(StrategyActionType.EXIT_SHORT, timestamp=4, quantity=1),
     ])
     assert [e.side for e in result.executions] == ["BUY", "SELL", "SELL", "BUY"]
+    assert [e.position_signal for e in result.executions] == ["LONG_ENTRY", "LONG_EXIT", "SHORT_ENTRY", "SHORT_EXIT"]
+    assert [e.execution_side for e in result.executions] == ["BUY", "SELL", "SELL", "BUY"]
     assert result.summary.ending_position == 0
     assert result.summary.net_pnl == pytest.approx(5.0)
 
@@ -98,6 +100,7 @@ def test_partial_long_and_short_exits() -> None:
     ])
     qtys = [e.quantity for e in result.executions if e.gross_pnl is not None]
     assert qtys == [1, 1]
+    assert [e.position_signal for e in result.executions] == ["SHORT_ENTRY", "SHORT_PARTIAL_EXIT", "SHORT_EXIT"]
     assert result.summary.ending_position == 0
 
 
@@ -196,7 +199,30 @@ def test_default_high_price_short_is_cash_bounded() -> None:
     assert execution.position_after == pytest.approx(-0.125)
     assert execution.metadata["resize_reason"] == "INSUFFICIENT_BUYING_POWER_FOR_SHORT"
     assert execution.short_proceeds_locked_after == pytest.approx(10000)
-    assert execution.free_cash_after == pytest.approx(10000)
+    assert execution.short_collateral_locked_after == pytest.approx(10000)
+    assert execution.cash_balance_after == pytest.approx(20000)
+    assert execution.free_cash_after == pytest.approx(0)
+    assert execution.position_signal == "SHORT_ENTRY"
+    assert execution.execution_side == "SELL"
+
+
+def test_cash_bounded_short_entry_does_not_expose_doubled_spendable_cash() -> None:
+    candles = pd.DataFrame([
+        {"timestamp": 1, "open": 10000, "high": 10000, "low": 10000, "close": 10000, "volume": 1},
+    ])
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, quantity=1)],
+        config=StrategyEngineConfig(starting_cash=10000),
+    )
+    execution = result.executions[0]
+    assert execution.cash_after == pytest.approx(20000)
+    assert execution.cash_balance_after == pytest.approx(20000)
+    assert execution.short_proceeds_locked_after == pytest.approx(10000)
+    assert execution.short_collateral_locked_after == pytest.approx(10000)
+    assert execution.free_cash_after == pytest.approx(0)
+    assert execution.available_buying_power_after == pytest.approx(0)
+    assert execution.equity_after == pytest.approx(10000)
 
 
 def test_blocked_high_price_short_does_not_count_as_filled_trade() -> None:

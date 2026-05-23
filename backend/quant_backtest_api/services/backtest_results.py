@@ -32,8 +32,8 @@ class BacktestResultsService:
         run = self._serialize_run(row.run)
         strategy_config = self._serialize_strategy_config(row.strategy_config)
         summary = self._serialize_dataclass(row.summary)
-        trades = [self._serialize_dataclass(trade) for trade in row.trades]
-        graph_points = [self._serialize_dataclass(point) for point in row.graph_points]
+        trades = [self._serialize_trade(trade) for trade in row.trades]
+        graph_points = [self._serialize_graph_point(point) for point in row.graph_points]
         return {
             "run": run,
             "strategy_config": strategy_config,
@@ -120,6 +120,53 @@ class BacktestResultsService:
             "parameters_hash": data["parameters_hash"],
             "metadata": data["metadata"],
         }
+
+    def _serialize_trade(self, trade: Any) -> dict[str, Any]:
+        data = self._serialize_dataclass(trade)
+        metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+        for key in (
+            "position_signal",
+            "side",
+            "execution_side",
+            "position_side",
+            "cash_balance_after",
+            "execution_equity_after",
+            "mark_to_market_equity_after",
+            "free_cash_after",
+            "margin_used_after",
+            "short_proceeds_locked_after",
+            "short_collateral_locked_after",
+            "available_buying_power_after",
+            "cash_after_semantics",
+        ):
+            if key in metadata and key not in data:
+                data[key] = metadata[key]
+        if "position_signal" not in data:
+            data["position_signal"] = metadata.get("position_signal") or data.get("signal")
+        if "cash_balance_after" not in data:
+            data["cash_balance_after"] = metadata.get("cash_balance_after", data.get("cash_after"))
+        return data
+
+    def _serialize_graph_point(self, point: Any) -> dict[str, Any]:
+        data = self._serialize_dataclass(point)
+        metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+        for source_key, target_key in (
+            ("free_cash", "free_cash"),
+            ("margin_used", "margin_used"),
+            ("short_proceeds_locked", "short_proceeds_locked"),
+            ("short_collateral_locked", "short_collateral_locked"),
+            ("available_buying_power", "available_buying_power"),
+            ("cash_semantics", "cash_semantics"),
+            ("equity_semantics", "equity_semantics"),
+        ):
+            if source_key in metadata and target_key not in data:
+                data[target_key] = metadata[source_key]
+        trades = metadata.get("trades")
+        if isinstance(trades, list) and trades:
+            first_trade = trades[0] if isinstance(trades[0], dict) else {}
+            data.setdefault("position_signal", first_trade.get("position_signal") or data.get("signal"))
+            data.setdefault("execution_side", first_trade.get("execution_side"))
+        return data
 
     def _warnings_for(self, model: BacktestRunReadModel) -> list[dict[str, str]]:
         warnings: list[dict[str, str]] = []

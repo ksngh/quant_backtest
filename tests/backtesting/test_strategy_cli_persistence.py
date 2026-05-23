@@ -31,7 +31,7 @@ def _candles() -> pd.DataFrame:
     )
 
 
-def test_strategy_cli_outputs_buy_sell_not_entry(monkeypatch, capsys) -> None:
+def test_strategy_cli_outputs_position_signal_and_execution_side(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         strategy_postgres_runner_cli.PostgresCandleDataProvider,
         "from_database_url",
@@ -57,6 +57,8 @@ def test_strategy_cli_outputs_buy_sell_not_entry(monkeypatch, capsys) -> None:
     assert strategy_postgres_runner_cli.main(["--no-persist"]) == 0
     output = json.loads(capsys.readouterr().out)
     assert [row["side"] for row in output["executions"]] == ["BUY", "SELL"]
+    assert [row["position_signal"] for row in output["executions"]] == ["LONG_ENTRY", "LONG_EXIT"]
+    assert [row["execution_side"] for row in output["executions"]] == ["BUY", "SELL"]
     assert output["summary"]["buy_count"] == 1
     assert output["summary"]["sell_count"] == 1
     assert output["summary"]["metadata"]["performance_metrics"]["interval"] == "1m"
@@ -103,6 +105,7 @@ def test_strategy_cli_enriched_execution_and_events(monkeypatch, capsys) -> None
     output = json.loads(capsys.readouterr().out)
     assert "diagnostics" in output
     assert "execution_side" in output["executions"][0]
+    assert "position_signal" in output["executions"][0]
     assert output["diagnostics"]["execution_count"] == 2
 
 

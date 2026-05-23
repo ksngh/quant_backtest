@@ -6,7 +6,7 @@ Older history is preserved in fixed 50-task segmented archives:
 - `docs/ledger_archives/project_history_task_001_050.md`
 - `docs/ledger_archives/project_history_task_051_100.md`
 
-## Recent Completion Window (Tasks 101-148)
+## Recent Completion Window (Tasks 101-150)
 - 2026-05-22: Completed Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`; switched Docker Compose backtest profile to canonical strategy runner CLI and aligned websocket-ingestion compose assertion to env-interpolated `DATABASE_URL` semantics.
 - 2026-05-22: Completed Task 102 `CANONICAL_PATTERN_ACTION_BUILDER_CLI_INTEGRATION`; integrated canonical pattern action builder into strategy PostgreSQL CLI action assembly and added regression test coverage.
 - 2026-05-22: Completed Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`; made graph-point marker metadata multi-fill safe for same-timestamp executions while keeping scalar marker compatibility.
@@ -63,6 +63,10 @@ Older history is preserved in fixed 50-task segmented archives:
 - 2026-05-23: Completed Task 148 `BACKTEST_ACCOUNTING_DOCUMENTATION_CONSISTENCY`; reconciled README, architecture/API/dashboard docs, task checklists, and ledgers after Tasks 140-147.
 
 ## Active Historical Notes
+- 2026-05-24: Created Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE` from owner request for a more backtest-like dashboard with chart zoom/range, compact trade history, curated metadata/parameters, strategy indicator usage, pattern algorithm explanation, and economic interpretation; no implementation executed in this creation step.
+- 2026-05-24: Completed Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE`; redesigned the read-only dashboard around range-inspectable charts with axes/baseline/crosshair readouts, compact paged trade review, free-cash-first account presentation, curated parameter/runtime panels, and strategy indicator/economic explanation sections. Verified with frontend build, full `pytest`, targeted service/backtesting tests, `git diff --check`, and local Next HTML response.
+- 2026-05-24: Created and activated Task 149 `BACKTEST_POSITION_SIGNAL_AND_ACCOUNT_STATE_SEMANTICS` from owner-reported backtest signal/cash/equity ambiguity; implementation scope is limited to backtest semantics, persistence/API/frontend display, docs, and tests.
+- 2026-05-24: Completed Task 149 `BACKTEST_POSITION_SIGNAL_AND_ACCOUNT_STATE_SEMANTICS`; added semantic `position_signal` values, preserved raw `execution_side`, made cash-bounded short collateral reduce free cash, separated execution-time and candle-close mark-to-market equity fields, updated persistence/API/frontend display semantics, and passed full `pytest` plus frontend build.
 - Live trading approval/credential policy/endpoint allowlist/kill-switch design remains unresolved and blocks Task 138.
 - Docker runtime verification remains environment-dependent where Docker is unavailable.
 - Backend FastAPI route tests require a Python environment with `fastapi` installed.

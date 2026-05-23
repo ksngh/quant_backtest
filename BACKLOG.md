@@ -8,7 +8,9 @@ Older items are preserved in fixed 50-task segmented archives:
 
 All items below are candidate/planning pointers unless marked completed.
 
-## Recent Task Window (Tasks 101-148)
+## Recent Task Window (Tasks 101-150)
+- Completed (2026-05-24): Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE` (chart zoom/range, compact trade review, curated metadata/parameters, strategy indicators, pattern algorithm/economic explanation).
+- Completed (2026-05-24): Task 149 `BACKTEST_POSITION_SIGNAL_AND_ACCOUNT_STATE_SEMANTICS` (semantic long/short signal, execution-side separation, cash/free-cash/equity display semantics).
 - Completed (2026-05-23): Task 148 `BACKTEST_ACCOUNTING_DOCUMENTATION_CONSISTENCY`.
 - Completed (2026-05-23): Task 147 `BACKTEST_ACCOUNTING_REFACTOR_AFTER_CASH_AND_MARGIN`.
 - Completed (2026-05-23): Task 146 `BACKTEST_CASH_EQUITY_DISPLAY_AND_API_SEMANTICS`.
@@ -59,6 +61,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-22): Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`.
 
 ## Current Candidates / Follow-ups
+- Follow-up candidate: add visual regression/UI tests for dashboard marker/table rendering once a frontend test harness is assigned.
 - Candidate: `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION` (document enriched stdout schema and broaden deterministic fixtures for short-side/no-fill cases).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema if owner requires richer financial outputs.
 - Follow-up candidate: align pattern persistence graph-point cash/position/equity to candle-timed fills for richer dashboard trace fidelity.
@@ -67,6 +70,7 @@ All items below are candidate/planning pointers unless marked completed.
 - Bid-Ask spread indicator implementation.
 
 ## Backend/Frontend Candidates
+- Follow-up candidate: add a dedicated frontend unit/component test harness for dashboard helper/rendering behavior if future UI work continues.
 - API contract evolution for any future backend/frontend coordination beyond the current read-only dashboard.
 - Backend API extensions only when assigned by a future backend task.
 - Frontend dashboard extensions only when assigned by a future frontend task.
