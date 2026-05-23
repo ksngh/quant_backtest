@@ -58,7 +58,7 @@ def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
                 )
             ]
 
-    monkeypatch.setattr(strategy_postgres_runner_core, "strategy_for_pattern", lambda *_: StubStrategy())
+    monkeypatch.setattr(strategy_postgres_runner_core, "strategy_for_pattern", lambda *args, **kwargs: StubStrategy())
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "build_pattern_trade_actions",
@@ -143,3 +143,13 @@ def test_strategy_cli_output_includes_short_model_limitations(monkeypatch, capsy
     assert "No borrow fees modeled" in limitations
     assert "No futures funding modeled" in limitations
     assert "No maintenance margin or liquidation model" in limitations
+
+
+def test_build_pattern_entry_filter_config_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--allow-weak-pattern-events", "--min-pattern-score", "0.8", "--min-risk-reward", "1.5", "--pattern-quantity-override", "3", "--no-persist"])
+    cfg = strategy_postgres_runner_core._build_pattern_entry_filter_config(args)
+    assert "VALID" in cfg.allowed_statuses and "WEAK" in cfg.allowed_statuses
+    assert cfg.minimum_pattern_score == 0.8
+    assert cfg.minimum_risk_reward == 1.5
+    assert cfg.quantity_override == 3

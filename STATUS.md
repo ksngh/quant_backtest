@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 133: Task 117 short-accounting consistency and limitations completed (2026-05-23).
+Phase 134: Task 116 pattern entry filtering and sizing controls completed (2026-05-23).
 
 ## Current Step
-Task 117 completed: short win/loss counting now uses closing executions (including BUY short exits), short PnL behavior is regression-tested, and short-model limitations remain explicit in summary metadata/CLI output.
+Task 116 completed: canonical pattern strategies now default-filter non-VALID events, support configurable weak/score/risk-reward gates, and defer position sizing to engine trade quantity unless explicit override is configured.
 
 ## Current Goal
-Keep canonical long/short accounting internally consistent while making unsupported short-economics limitations explicit in outputs.
+Keep canonical pattern entries conservative and configurable while preserving deterministic strategy-engine sizing contracts.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 117 completed: corrected short-close win/loss accounting, added short accounting regression coverage, and preserved explicit short-model limitations metadata.
+Task 116 completed: added pattern-entry filters and optional quantity override, wired CLI args/config persistence, and added strategy/CLI regression coverage.
 
 ## Recommended Next Step
-Execute Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS` or reprioritize Tasks 112-115 based on owner direction.
+Execute Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY` or reprioritize Tasks 112-114 based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

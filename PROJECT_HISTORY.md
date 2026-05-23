@@ -60,3 +60,5 @@ Older history is preserved in segmented archives:
 - 2026-05-23: Completed Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION`; added canonical CLI transaction-cost args/validation/liquidity-role parsing, wired cost config into strategy engine, and surfaced transaction-cost metadata in summary/persistence-backed strategy parameters with passing targeted regression tests.
 - 2026-05-23: Completed Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS`; corrected short-close win/loss counting to use all closing executions, added deterministic short realized-PnL/allow_short=False regression tests, and validated summary/CLI metadata limitations for unsupported margin economics.
 
+
+- 2026-05-23: Completed Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS`; added default VALID-only pattern filters with optional weak/score/risk-reward gating, removed hardcoded pattern entry quantity in favor of engine trade_quantity, and added CLI/config+regression coverage for optional quantity overrides.
