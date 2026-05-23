@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 135: Task 115 backtest metrics and persistence metadata quality completed (2026-05-23).
+Phase 136: Task 114 intrabar stop/target ambiguity policy completed (2026-05-23).
 
 ## Current Step
-Task 115 completed: strategy-engine summary now separates filled/skipped/blocked/entry-exit metrics and persistence metadata now captures lifecycle + cost diagnostics for executions.
+Task 114 completed: exit simulation now records explicit intrabar stop-first precedence metadata and deterministic ambiguous stop/target handling for long/short same-candle touches.
 
 ## Current Goal
-Keep backtest summary/persistence outputs lifecycle-accurate and deterministic for research/debug flows.
+Keep backtest exit sequencing deterministic and explicitly documented in simulation/action metadata for ambiguous intrabar candles.
 
 ## Current Active Task
 None (awaiting owner prioritization for next implementation task).
 
 ## Last Completed Step (Short)
-Task 115 completed: excluded blocked entries from filled trade_count, added execution_metrics metadata, enriched persisted trade metadata, and added regression coverage.
+Task 114 completed: added intrabar precedence metadata (`stop_before_target`) for stop exits and regression tests for long/short ambiguous same-candle stop/target touches.
 
 ## Recommended Next Step
-Execute Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY` or reprioritize Tasks 112-113 based on owner direction.
+Execute Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION` or Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT` based on owner direction.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval, credential policy, allowed endpoint policy, and kill-switch design.

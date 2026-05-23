@@ -123,3 +123,17 @@ def test_actions_include_requested_prices_for_entry_and_exit() -> None:
     actions = build_pattern_trade_actions(_Event(), _plan("LONG"), _candles([{"high": 106.0, "low": 100.0}]), entry_action_timestamp=123, position_side="LONG")
     assert actions[0].requested_price == pytest.approx(actions[0].metadata["fill_price"])
     assert actions[1].requested_price == pytest.approx(actions[1].metadata["exit_price"])
+
+
+def test_ambiguous_same_candle_exit_metadata_contains_precedence_policy() -> None:
+    actions = build_pattern_trade_actions(
+        _Event(),
+        _plan("LONG"),
+        _candles([{"high": 106.0, "low": 94.0, "close": 101.0}]),
+        entry_action_timestamp=123,
+        position_side="LONG",
+    )
+    exit_metadata = actions[-1].metadata["exit_metadata"]
+    assert exit_metadata["precedence"] == "stop_before_target"
+    assert exit_metadata["intrabar_precedence_policy"] == "stop_before_target"
+    assert exit_metadata["ambiguous_stop_target"] is True
