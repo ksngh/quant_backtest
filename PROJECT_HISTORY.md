@@ -65,3 +65,5 @@ Older history is preserved in segmented archives:
 
 - 2026-05-23: Completed Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY`; separated filled vs skipped/blocked execution metrics in summary metadata, aligned legacy trade_count with filled executions, enriched persistence trade metadata (lifecycle+cost fields), and added targeted accounting/persistence regression coverage.
 - 2026-05-23: Completed Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY`; made stop exits emit explicit intrabar precedence metadata, preserved conservative stop-first resolution for ambiguous same-candle stop/target touches, and added long/short + action-builder regression coverage.
+
+- 2026-05-23: Completed Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION`; corrected optimized FVG cache path to evaluate with current-index candle prefixes only and added regression coverage proving future fill/break candles cannot change historical event output.

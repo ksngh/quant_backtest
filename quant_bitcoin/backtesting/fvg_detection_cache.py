@@ -86,12 +86,17 @@ def detect_fair_value_gap_at_index(
     candle_1 = enriched.iloc[candle_1_index]
     candle_3 = enriched.iloc[candle_3_index]
 
+    visible_enriched = enriched.iloc[: candle_3_index + 1].reset_index(drop=True)
+    visible_displacement_rows = (
+        context.indicator_cache.displacement_rows.iloc[: candle_3_index + 1].reset_index(drop=True)
+    )
+
     events: list[PatternEvent] = []
     if float(candle_1["high"]) < float(candle_3["low"]):
         event = _evaluate_fair_value_gap(
             PatternDirection.BULLISH,
-            enriched,
-            context.indicator_cache.displacement_rows,
+            visible_enriched,
+            visible_displacement_rows,
             candle_1_index,
             candle_2_index,
             candle_3_index,
@@ -104,8 +109,8 @@ def detect_fair_value_gap_at_index(
     if float(candle_1["low"]) > float(candle_3["high"]):
         event = _evaluate_fair_value_gap(
             PatternDirection.BEARISH,
-            enriched,
-            context.indicator_cache.displacement_rows,
+            visible_enriched,
+            visible_displacement_rows,
             candle_1_index,
             candle_2_index,
             candle_3_index,
