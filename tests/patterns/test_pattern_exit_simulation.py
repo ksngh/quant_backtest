@@ -4,6 +4,7 @@ import ast
 import pandas as pd
 import pytest
 
+from quant_bitcoin.backtesting.intrabar_policy import IntrabarPolicyConfig, IntrabarSequencingMode
 from quant_bitcoin.patterns import (
     BreakEvenSettings,
     PartialExitSettings,
@@ -118,6 +119,32 @@ def test_same_candle_stop_takes_precedence_over_target() -> None:
     assert result.events[0].metadata["precedence"] == INTRABAR_PRECEDENCE_POLICY
     assert result.events[0].metadata["intrabar_precedence_policy"] == INTRABAR_PRECEDENCE_POLICY
     assert result.events[0].metadata["ambiguous_stop_target"] is True
+    assert result.events[0].metadata["intrabar_policy"] == "CONSERVATIVE"
+    assert result.events[0].metadata["decision_outcome"] == "STOP"
+
+
+def test_same_candle_target_first_policy_exits_at_target() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 106.0, "low": 94.0, "close": 102.0}]),
+        intrabar_policy_config=IntrabarPolicyConfig(mode=IntrabarSequencingMode.TARGET_FIRST),
+    )
+
+    assert result.final_reason == PatternExitReason.TAKE_PROFIT
+    assert result.final_price == pytest.approx(105.0)
+    assert result.events[0].metadata["intrabar_policy"] == "TARGET_FIRST"
+    assert result.events[0].metadata["decision_outcome"] == "TARGET"
+
+
+def test_same_candle_skip_ambiguous_policy_creates_no_exit() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 106.0, "low": 94.0, "close": 102.0}]),
+        intrabar_policy_config=IntrabarPolicyConfig(mode=IntrabarSequencingMode.SKIP_AMBIGUOUS),
+    )
+
+    assert result.events == ()
+    assert result.final_reason == PatternExitReason.NO_EXIT
 
 
 def test_short_same_candle_stop_takes_precedence_over_target() -> None:
@@ -162,6 +189,7 @@ def test_break_even_stop_movement() -> None:
 
     assert result.final_reason == PatternExitReason.HARD_STOP
     assert result.final_price == pytest.approx(100.0)
+    assert result.events[0].metadata["be_trailing_sequence"] == "favorable-extreme updates are applied before stop/target checks"
 
 
 def test_trailing_stop_movement() -> None:

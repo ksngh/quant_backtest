@@ -138,6 +138,10 @@ def test_detects_bullish_trendline_break_event() -> None:
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.displacement_confirmed is True
     assert event.pattern_score >= 0.7
+    assert event.score_components["trendline_quality"]["weighted_score"] > 0
+    assert event.score_components["structure_alignment"]["is_placeholder"] is True
+    assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_calibration["is_calibrated_probability"] is False
     assert event.risk_reward == pytest.approx(2.0)
     assert event.reason
 

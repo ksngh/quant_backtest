@@ -5,6 +5,7 @@ from typing import Any
 
 import pandas as pd
 
+from quant_bitcoin.backtesting.json_metadata import json_ready, json_ready_dict
 from quant_bitcoin.persistence import (
     BACKTEST_SCHEMA_VERSION,
     COMPLETED_BACKTEST_STATUS,
@@ -72,7 +73,7 @@ def build_strategy_engine_persistence_payload(
     )
     metadata = {"schema_version": BACKTEST_SCHEMA_VERSION}
     if run_metadata:
-        metadata.update(run_metadata)
+        metadata.update(_json_ready_dict(run_metadata))
 
     return BacktestPersistencePayload(
         strategy_config=strategy_config,
@@ -103,7 +104,7 @@ def build_strategy_engine_persistence_payload(
             trade_count=int(result.summary.trade_count),
             buy_count=int(result.summary.buy_count),
             sell_count=int(result.summary.sell_count),
-            metadata=dict(result.summary.metadata or {}),
+            metadata=_json_ready_dict(result.summary.metadata),
         ),
         trades=tuple(
             BacktestTradePayload(
@@ -114,36 +115,46 @@ def build_strategy_engine_persistence_payload(
                 quantity=float(e.quantity),
                 cash_after=float(e.cash_after),
                 position_after=float(e.position_after),
-                metadata={
-                    "action_type": e.action_type,
-                    "position_signal": e.position_signal,
-                    "side": e.side,
-                    "execution_side": e.execution_side,
-                    "position_side": e.position_side,
-                    "cash_balance_after": e.cash_balance_after,
-                    "execution_equity_after": e.execution_equity_after,
-                    "mark_to_market_equity_after": e.mark_to_market_equity_after,
-                    "pattern_event_id": e.pattern_event_id,
-                    "pattern_type": (e.metadata or {}).get("pattern_type"),
-                    "entry_mode": (e.metadata or {}).get("entry_mode"),
-                    "exit_reason": e.exit_reason,
-                    "target_name": (e.metadata or {}).get("target_name"),
-                    "quantity_ratio": (e.metadata or {}).get("quantity_ratio"),
-                    "remaining_quantity_ratio": (e.metadata or {}).get("remaining_quantity_ratio"),
-                    "gross_pnl": e.gross_pnl,
-                    "net_pnl": e.net_pnl,
-                    "realized_r_multiple": e.realized_r_multiple,
-                    "fee_cost": e.fee_cost,
-                    "spread_cost": e.spread_cost,
-                    "slippage_cost": e.slippage_cost,
-                    "total_cost": e.total_cost,
-                    "free_cash_after": e.free_cash_after,
-                    "margin_used_after": e.margin_used_after,
-                    "short_proceeds_locked_after": e.short_proceeds_locked_after,
-                    "short_collateral_locked_after": e.short_collateral_locked_after,
-                    "available_buying_power_after": e.available_buying_power_after,
-                    "cash_after_semantics": e.cash_after_semantics,
-                },
+                metadata=_json_ready_dict(
+                    _execution_metadata(e)
+                    | {
+                        "action_type": e.action_type,
+                        "position_signal": e.position_signal,
+                        "side": e.side,
+                        "execution_side": e.execution_side,
+                        "position_side": e.position_side,
+                        "cash_balance_after": e.cash_balance_after,
+                        "execution_equity_after": e.execution_equity_after,
+                        "mark_to_market_equity_after": e.mark_to_market_equity_after,
+                        "pattern_event_id": e.pattern_event_id,
+                        "pattern_type": (e.metadata or {}).get("pattern_type"),
+                        "entry_mode": (e.metadata or {}).get("entry_mode"),
+                        "exit_reason": e.exit_reason,
+                        "target_name": (e.metadata or {}).get("target_name"),
+                        "quantity_ratio": (e.metadata or {}).get("quantity_ratio"),
+                        "quantity_mode": (e.metadata or {}).get("quantity_mode"),
+                        "requested_quantity": (e.metadata or {}).get("requested_quantity"),
+                        "resolved_quantity": (e.metadata or {}).get("resolved_quantity"),
+                        "remaining_quantity_ratio": (e.metadata or {}).get("remaining_quantity_ratio"),
+                        "gross_pnl": e.gross_pnl,
+                        "net_pnl": e.net_pnl,
+                        "realized_r_multiple": e.realized_r_multiple,
+                        "score_components": (e.metadata or {}).get("score_components"),
+                        "score_component_sources": (e.metadata or {}).get("score_component_sources"),
+                        "score_limitations": (e.metadata or {}).get("score_limitations"),
+                        "score_calibration": (e.metadata or {}).get("score_calibration"),
+                        "fee_cost": e.fee_cost,
+                        "spread_cost": e.spread_cost,
+                        "slippage_cost": e.slippage_cost,
+                        "total_cost": e.total_cost,
+                        "free_cash_after": e.free_cash_after,
+                        "margin_used_after": e.margin_used_after,
+                        "short_proceeds_locked_after": e.short_proceeds_locked_after,
+                        "short_collateral_locked_after": e.short_collateral_locked_after,
+                        "available_buying_power_after": e.available_buying_power_after,
+                        "cash_after_semantics": e.cash_after_semantics,
+                    }
+                ),
             )
             for i, e in enumerate(result.executions, start=1)
         ),
@@ -160,23 +171,29 @@ def _build_graph_points(result):
     for sequence, execution in enumerate(result.executions, start=1):
         timestamp = _dt(execution.timestamp)
         exec_map.setdefault(timestamp, []).append(
-            {
-                "trade_sequence": sequence,
-                "signal": execution.position_signal or execution.side,
-                "action_type": execution.action_type,
-                "position_signal": execution.position_signal,
-                "position_side": execution.position_side,
-                "side": execution.side,
-                "execution_side": execution.execution_side,
-                "cash_balance_after": execution.cash_balance_after,
-                "execution_equity_after": execution.execution_equity_after,
-                "mark_to_market_equity_after": execution.mark_to_market_equity_after,
-                "free_cash_after": execution.free_cash_after,
-                "margin_used_after": execution.margin_used_after,
-                "short_proceeds_locked_after": execution.short_proceeds_locked_after,
-                "short_collateral_locked_after": execution.short_collateral_locked_after,
-                "available_buying_power_after": execution.available_buying_power_after,
-            }
+            _json_ready_dict(
+                _execution_metadata(execution)
+                | {
+                    "trade_sequence": sequence,
+                    "signal": execution.position_signal or execution.side,
+                    "action_type": execution.action_type,
+                    "position_signal": execution.position_signal,
+                    "position_side": execution.position_side,
+                    "side": execution.side,
+                    "execution_side": execution.execution_side,
+                    "cash_balance_after": execution.cash_balance_after,
+                    "execution_equity_after": execution.execution_equity_after,
+                    "mark_to_market_equity_after": execution.mark_to_market_equity_after,
+                    "free_cash_after": execution.free_cash_after,
+                    "margin_used_after": execution.margin_used_after,
+                    "short_proceeds_locked_after": execution.short_proceeds_locked_after,
+                    "short_collateral_locked_after": execution.short_collateral_locked_after,
+                    "available_buying_power_after": execution.available_buying_power_after,
+                    "quantity_mode": (execution.metadata or {}).get("quantity_mode"),
+                    "quantity_ratio": (execution.metadata or {}).get("quantity_ratio"),
+                    "resolved_quantity": (execution.metadata or {}).get("resolved_quantity"),
+                }
+            )
         )
 
     points = []
@@ -203,8 +220,21 @@ def _build_graph_points(result):
                     "available_buying_power": equity_point.available_buying_power,
                     "cash_semantics": equity_point.cash_semantics,
                     "equity_semantics": equity_point.equity_semantics,
+                    "equity_valuation_price": equity_point.equity_valuation_price,
                     "trades": trades,
                 },
             )
         )
     return tuple(points)
+
+
+def _execution_metadata(execution) -> dict[str, Any]:
+    return _json_ready_dict(execution.metadata)
+
+
+def _json_ready_dict(value: Any) -> dict[str, Any]:
+    return json_ready_dict(value)
+
+
+def _json_ready(value: Any) -> Any:
+    return json_ready(value)

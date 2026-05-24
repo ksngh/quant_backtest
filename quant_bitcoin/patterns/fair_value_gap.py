@@ -16,7 +16,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
@@ -31,6 +31,7 @@ from quant_bitcoin.indicators.displacement_candle import (
     detect_displacement_candles,
 )
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_PATTERN_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -99,6 +100,7 @@ class FairValueGapConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    retrospective_lifecycle: bool = False
 
     def __post_init__(self) -> None:
         if self.minimum_gap_size_atr_multiplier < 0:
@@ -162,6 +164,10 @@ class PatternEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 def detect_patterns(
@@ -210,7 +216,13 @@ def detect_fair_value_gaps(
     timeframe: str | None = None,
     config: FairValueGapConfig | None = None,
 ) -> list[PatternEvent]:
-    """Return Fair Value Gap pattern events from completed candle data."""
+    """Return Fair Value Gap events using signal-time no-lookahead semantics.
+
+    By default lifecycle fields are evaluated only through the confirmation
+    candle. Set ``FairValueGapConfig.retrospective_lifecycle=True`` only for
+    event-study analysis that intentionally reclassifies events with later
+    candles.
+    """
 
     fvg_config = config or FairValueGapConfig()
     candle_frame = _normalize_candles(candles, symbol)
@@ -275,6 +287,30 @@ def detect_fair_value_gaps(
                 events.append(event)
 
     return events
+
+
+def detect_fair_value_gaps_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: FairValueGapConfig | None = None,
+) -> list[PatternEvent]:
+    """Return only events confirmed at ``current_index`` using visible candles."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_fair_value_gaps(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def filter_new_events(
@@ -401,9 +437,10 @@ def _evaluate_fair_value_gap(
     if volume_ratio is None:
         return None
 
+    lifecycle_candles = candles if config.retrospective_lifecycle else candles.iloc[: candle_3_index + 1]
     fvg_state, fill_ratio = _classify_fvg_state(
         direction,
-        candles,
+        lifecycle_candles,
         candle_3_index,
         zone_low,
         zone_high,
@@ -414,13 +451,14 @@ def _evaluate_fair_value_gap(
     if fvg_state in (FairValueGapState.FILLED, FairValueGapState.BROKEN):
         return None
 
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         gap_size_atr=gap_size_atr,
         displacement_confirmed=displacement_confirmed,
         volume_ratio=volume_ratio,
         fvg_state=fvg_state,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     pattern_status = _classify_pattern_status(
         gap_size_atr=gap_size_atr,
         volume_ratio=volume_ratio,
@@ -489,6 +527,10 @@ def _evaluate_fair_value_gap(
             f"{direction.value.title()} Fair Value Gap detected with "
             "three-candle imbalance, displacement evaluation, and volume confirmation."
         ),
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -532,6 +574,25 @@ def _calculate_pattern_score(
     fvg_state: FairValueGapState,
     config: FairValueGapConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            gap_size_atr=gap_size_atr,
+            displacement_confirmed=displacement_confirmed,
+            volume_ratio=volume_ratio,
+            fvg_state=fvg_state,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    gap_size_atr: float,
+    displacement_confirmed: bool,
+    volume_ratio: float,
+    fvg_state: FairValueGapState,
+    config: FairValueGapConfig,
+) -> dict[str, Any]:
     if 0.2 <= gap_size_atr <= 1.0:
         gap_quality_score = 1.0
     elif 0.1 <= gap_size_atr < 0.2:
@@ -565,16 +626,63 @@ def _calculate_pattern_score(
     else:
         freshness_score = 0.0
 
-    score = (
-        gap_quality_score * 0.20
-        + displacement_score * 0.25
-        + volume_confirmation_score * 0.15
-        + structure_alignment_score * 0.15
-        + support_resistance_context_score * 0.10
-        + liquidity_score * 0.10
-        + freshness_score * 0.05
+    return build_score_metadata(
+        PatternType.FAIR_VALUE_GAP.value,
+        [
+            {
+                "name": "gap_quality",
+                "raw_score": gap_quality_score,
+                "weight": 0.20,
+                "source": "observed_gap_size_atr",
+                "description": "Gap size normalized by ATR against configured mechanical bounds.",
+            },
+            {
+                "name": "displacement",
+                "raw_score": displacement_score,
+                "weight": 0.25,
+                "source": "observed_displacement_candle",
+                "description": "Whether displacement candle confirmation was observed.",
+            },
+            {
+                "name": "volume_confirmation",
+                "raw_score": volume_confirmation_score,
+                "weight": 0.15,
+                "source": "observed_volume_ratio",
+                "description": "Relative volume confirmation at the pattern candle.",
+            },
+            {
+                "name": "structure_alignment",
+                "raw_score": structure_alignment_score,
+                "weight": 0.15,
+                "source": "placeholder_constant",
+                "is_placeholder": True,
+                "description": "Reserved structure-alignment prior; no swing/regime feature is wired into this score yet.",
+            },
+            {
+                "name": "support_resistance_context",
+                "raw_score": support_resistance_context_score,
+                "weight": 0.10,
+                "source": "placeholder_constant",
+                "is_placeholder": True,
+                "description": "Reserved support/resistance prior; not a measured zone interaction in this score.",
+            },
+            {
+                "name": "liquidity",
+                "raw_score": liquidity_score,
+                "weight": 0.10,
+                "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag",
+                "is_placeholder": not config.require_liquidity_pass,
+                "description": "Liquidity is a policy prior unless a caller explicitly requires an external liquidity pass flag.",
+            },
+            {
+                "name": "freshness",
+                "raw_score": freshness_score,
+                "weight": 0.05,
+                "source": "observed_lifecycle_state",
+                "description": "Fresh or partially filled lifecycle state at signal time.",
+            },
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _classify_pattern_status(

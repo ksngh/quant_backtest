@@ -21,7 +21,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
@@ -37,6 +37,7 @@ from quant_bitcoin.indicators.displacement_candle import (
 )
 from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_DIAMOND_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -188,6 +189,10 @@ class DiamondEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -302,6 +307,30 @@ def detect_diamond_patterns(
             events.append(_select_best_event(evaluated))
 
     return events
+
+
+def detect_diamond_patterns_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: DiamondConfig | None = None,
+) -> list[DiamondEvent]:
+    """Return only diamond events confirmed at ``current_index``."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_diamond_patterns(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def _normalize_candles(
@@ -545,13 +574,14 @@ def _evaluate_candidate(
     if config.require_displacement_breakout and not displacement_confirmed:
         return None
 
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         candidate=candidate,
         breakout_distance_atr=breakout_distance_atr,
         volume_ratio=volume_ratio,
         displacement_confirmed=displacement_confirmed,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     if pattern_status == DiamondStatus.VALID and pattern_score < config.minimum_pattern_score:
         pattern_status = DiamondStatus.WEAK
 
@@ -620,6 +650,10 @@ def _evaluate_candidate(
         target_reference=target_reference,
         risk_reward=risk_reward,
         reason=f"{direction.value.title()} Diamond Pattern breakout confirmed.",
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -647,6 +681,25 @@ def _calculate_pattern_score(
     displacement_confirmed: bool,
     config: DiamondConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            candidate=candidate,
+            breakout_distance_atr=breakout_distance_atr,
+            volume_ratio=volume_ratio,
+            displacement_confirmed=displacement_confirmed,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    candidate: _DiamondCandidate,
+    breakout_distance_atr: float,
+    volume_ratio: float,
+    displacement_confirmed: bool,
+    config: DiamondConfig,
+) -> dict[str, Any]:
     expansion_score = min(
         1.0,
         candidate.expansion_range_change_atr
@@ -665,16 +718,18 @@ def _calculate_pattern_score(
     displacement_score = 1.0 if displacement_confirmed else 0.0
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
 
-    score = (
-        expansion_score * 0.20
-        + contraction_score * 0.20
-        + height_score * 0.15
-        + breakout_score * 0.20
-        + volume_score * 0.15
-        + liquidity_score * 0.05
-        + displacement_score * 0.05
+    return build_score_metadata(
+        "DIAMOND_PATTERN",
+        [
+            {"name": "expansion", "raw_score": expansion_score, "weight": 0.20, "source": "observed_expansion_range_change_atr", "description": "Expansion phase range change normalized by ATR."},
+            {"name": "contraction", "raw_score": contraction_score, "weight": 0.20, "source": "observed_contraction_range_change_rate", "description": "Contraction phase range compression rate."},
+            {"name": "height_quality", "raw_score": height_score, "weight": 0.15, "source": "observed_pattern_height_atr", "description": "Diamond height within configured ATR-normalized bounds."},
+            {"name": "breakout_strength", "raw_score": breakout_score, "weight": 0.20, "source": "observed_breakout_distance_atr", "description": "ATR-normalized boundary breakout distance."},
+            {"name": "volume_confirmation", "raw_score": volume_score, "weight": 0.15, "source": "observed_volume_ratio", "description": "Breakout candle relative volume."},
+            {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.05, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
+            {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation at breakout."},
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _risk_reward(

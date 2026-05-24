@@ -141,6 +141,44 @@ def test_postgres_provider_rejects_invalid_numeric_values():
         PostgresCandleDataProvider(repository).load()
 
 
+def test_postgres_provider_rejects_duplicate_timestamps():
+    repository = FakeRepository(
+        [
+            standard_row(datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc), "100"),
+            standard_row(datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc), "101"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="duplicate timestamp"):
+        PostgresCandleDataProvider(repository).load()
+
+
+def test_postgres_provider_detects_missing_gap_when_continuity_is_enforced():
+    repository = FakeRepository(
+        [
+            standard_row(datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc), "100"),
+            standard_row(datetime(2024, 1, 1, 0, 2, tzinfo=timezone.utc), "102"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="interval gap for 1m"):
+        PostgresCandleDataProvider(repository, enforce_continuity=True).load()
+
+
+def test_postgres_provider_normalizes_naive_timestamps_to_utc():
+    repository = FakeRepository(
+        [
+            standard_row(datetime(2024, 1, 1, 0, 0), "100"),
+        ]
+    )
+
+    candles = PostgresCandleDataProvider(repository).load()
+
+    assert candles["timestamp"].tolist() == [
+        pd.Timestamp("2024-01-01 00:00:00+00:00"),
+    ]
+
+
 def test_postgres_provider_does_not_open_network_connections(monkeypatch):
     repository = FakeRepository(
         [standard_row(datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc), "100")]

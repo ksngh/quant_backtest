@@ -141,6 +141,9 @@ def test_detects_bullish_adam_and_eve_event() -> None:
     assert event.breakout_distance_atr > 0.2
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.pattern_score >= 0.7
+    assert event.score_components["adam_sharpness"]["source"] == "observed_adam_local_range_atr"
+    assert event.score_components["eve_roundness"]["weighted_score"] > 0
+    assert event.score_calibration["score_type"] == "heuristic_quality_score"
     assert event.entry_reference == pytest.approx(104.0)
     assert event.stop_reference == pytest.approx(80.0)
     assert event.target_reference == pytest.approx(124.0)

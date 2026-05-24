@@ -5,62 +5,42 @@ Older items are preserved in fixed 50-task segmented archives:
 
 - `docs/ledger_archives/backlog_task_001_050.md`
 - `docs/ledger_archives/backlog_task_051_100.md`
+- `docs/ledger_archives/backlog_task_101_150.md`
 
 All items below are candidate/planning pointers unless marked completed.
 
-## Recent Task Window (Tasks 101-150)
-- Completed (2026-05-24): Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE` (chart zoom/range, compact trade review, curated metadata/parameters, strategy indicators, pattern algorithm/economic explanation).
-- Completed (2026-05-24): Task 149 `BACKTEST_POSITION_SIGNAL_AND_ACCOUNT_STATE_SEMANTICS` (semantic long/short signal, execution-side separation, cash/free-cash/equity display semantics).
-- Completed (2026-05-23): Task 148 `BACKTEST_ACCOUNTING_DOCUMENTATION_CONSISTENCY`.
-- Completed (2026-05-23): Task 147 `BACKTEST_ACCOUNTING_REFACTOR_AFTER_CASH_AND_MARGIN`.
-- Completed (2026-05-23): Task 146 `BACKTEST_CASH_EQUITY_DISPLAY_AND_API_SEMANTICS`.
-- Completed (2026-05-23): Task 145 `CANONICAL_CLI_PERSISTENCE_WIRING_FOR_SIZING_MARGIN`.
-- Completed (2026-05-23): Task 144 `ACCOUNT_STATE_VISIBILITY_FIELDS`.
-- Completed (2026-05-23): Task 143 `SIMULATED_MARGIN_INITIAL_MARGIN_GUARD`.
-- Completed (2026-05-23): Task 142 `SHORT_BUYING_POWER_POLICY`.
-- Completed (2026-05-23): Task 141 `LONG_CASH_BOUNDED_ENTRY_EXECUTION`.
-- Completed (2026-05-23): Task 140 `POSITION_SIZING_POLICY_CONTRACT`.
-- Completed (2026-05-23): Task 139 `GITIGNORE_ARTIFACT_CLEANUP_AND_PR_RESCOPE` (clean PR branch scope and ignore local/generated artifacts).
-- Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` pending explicit owner approval for live order execution.
-- Completed (2026-05-23): Task 137 `EXECUTION_FILL_RECONCILIATION_AND_ACTUAL_COST_METRICS`.
-- Completed (2026-05-23): Task 136 `BINANCE_SPOT_TESTNET_EXECUTION_CLIENT_SAFETY_AND_POLICY`.
-- Completed (2026-05-23): Task 135 `PRODUCT_SPECIFIC_SHORT_POLICY_AND_EXECUTION_BOUNDARIES`.
-- Completed (2026-05-23): Task 134 `REALTIME_CANDLE_CLOSE_STRATEGY_TRIGGER_AND_PAPER_EXECUTION`.
-- Completed (2026-05-23): Task 133 `ORDER_INTENT_AND_PAPER_EXECUTION_CONTRACT`.
-- Completed (2026-05-23): Task 132 `BACKTEST_PERFORMANCE_METRICS_FROM_EQUITY_CURVE`.
-- Completed (2026-05-23): Task 131 `MULTI_INTERVAL_BINANCE_CANDLE_ORCHESTRATION`.
-- Completed (2026-05-23): Task 130 `STATE_RECONCILIATION_AND_EXECUTION_TASK_BUNDLE`.
-- Completed (2026-05-23): Task 129 `DIAMOND_STATUS_FILTERING_INVESTIGATION`.
-- Completed (2026-05-23): Task 128 `STRATEGY_CLI_JSON_TIMESTAMP_SERIALIZATION_FIX`.
-- Completed (2026-05-23): Task 127 `PATTERN_BACKTEST_PERFORMANCE_REGRESSION_TESTS`.
-- Completed (2026-05-23): Task 126 `STRATEGY_EXPLANATION_METADATA_ALGORITHM_AND_SL_TP_RATIONALE`.
-- Completed (2026-05-23): Task 125 `DASHBOARD_RUNTIME_DISPLAY`.
-- Completed (2026-05-23): Task 124 `PERSIST_BACKTEST_RUNTIME_METADATA`.
-- Completed (2026-05-23): Task 123 `HOT_LOOP_DATAFRAME_AND_PERSISTENCE_IO_CLEANUP`.
-- Completed (2026-05-23): Task 122 `PIVOT_HEAVY_PATTERN_CANDIDATE_PRUNING`.
-- Completed (2026-05-23): Task 121 `SHARED_INDICATOR_CACHE_AND_AT_INDEX_PATTERN_DETECTION`.
-- Completed (2026-05-23): Task 120 `PROFILE_CANONICAL_PATTERN_BACKTEST_RUNTIME`.
-- Completed (2026-05-23): Task 119 `LEDGER_RECHECK_TASKS_111_118`.
-- Completed (2026-05-23): Task 118 `TRANSACTION_COST_CLI_AND_ACCOUNTING_INTEGRATION`.
-- Completed (2026-05-23): Task 117 `SHORT_ACCOUNTING_CONSISTENCY_AND_LIMITATIONS`.
-- Completed (2026-05-23): Task 116 `PATTERN_ENTRY_FILTERING_AND_SIZING_CONTROLS`.
-- Completed (2026-05-23): Task 115 `BACKTEST_METRICS_AND_PERSISTENCE_METADATA_QUALITY`.
-- Completed (2026-05-23): Task 114 `INTRABAR_STOP_TARGET_AMBIGUITY_POLICY`.
-- Completed (2026-05-23): Task 113 `FVG_NO_LOOKAHEAD_CACHE_CORRECTION`.
-- Completed (2026-05-23): Task 112 `EXECUTION_PRICE_AND_ENTRY_FILL_CONTRACT`.
-- Completed (2026-05-22): Task 111 `CANONICAL_PATTERN_LIFECYCLE_BACKTEST_INTEGRATION`.
-- Completed (2026-05-22): Task 110 `PATTERN_STRATEGY_OUTPUT_SCHEMA_ENRICHMENT`.
-- Completed (2026-05-22): Task 109 `FVG_CACHE_NAMING_OR_PATTERN_CACHE_REGISTRY`.
-- Completed (2026-05-22): Task 108 `PATTERNS_PUBLIC_EXPORT_BOUNDARY_CLEANUP`.
-- Completed (2026-05-22): Task 107 `STRATEGY_EXECUTION_MAPPING_RETIREMENT`.
-- Completed (2026-05-22): Task 106 `LEGACY_PUBLIC_API_PRUNING`.
-- Completed (2026-05-22): Task 105 `README_AND_API_CONTRACT_CANONICAL_BACKTEST_REFRESH`.
-- Completed (2026-05-22): Task 104 `STRATEGY_POSTGRES_RUNNER_CLI_REFACTOR`.
-- Completed (2026-05-22): Task 103 `STRATEGY_PERSISTENCE_MULTIFILL_GRAPH_MARKERS`.
-- Completed (2026-05-22): Task 102 `CANONICAL_PATTERN_ACTION_BUILDER_CLI_INTEGRATION`.
-- Completed (2026-05-22): Task 101 `DOCKER_COMPOSE_BACKTEST_PROFILE_CANONICALIZATION`.
+## Recent Task Window (Tasks 151-171)
+- Completed (2026-05-24): Task 171 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION` (final remediation cleanup, docs, and ledgers).
+- Completed (2026-05-24): Task 170 `EXECUTION_READINESS_SAFETY_BOUNDARY_AUDIT` (audit execution readiness and live-trading blockers).
+- Completed (2026-05-24): Task 169 `BACKTEST_REPRODUCIBILITY_RUN_METADATA` (record reproducibility metadata for saved runs).
+- Completed (2026-05-24): Task 168 `RESEARCH_DIAGNOSTICS_PERSISTENCE_AND_API_REPORTING` (persist and expose research diagnostics).
+- Completed (2026-05-24): Task 167 `RSI_AND_MEAN_REVERSION_SIGNAL_CONTRACT_REVIEW` (review RSI/mean-reversion signal semantics).
+- Completed (2026-05-24): Task 166 `WALK_FORWARD_OOS_MONTE_CARLO_VALIDATION` (add walk-forward/OOS/Monte Carlo validation utilities).
+- Completed (2026-05-24): Task 165 `PATTERN_SCORE_FEATURE_AUDIT_AND_CALIBRATION` (audit pattern scoring features and calibration metadata).
+- Completed (2026-05-24): Task 164 `MARKET_REGIME_AND_INDICATOR_EXPANSION` (add market-regime and richer indicator research inputs).
+- Completed (2026-05-24): Task 163 `PERFORMANCE_ATTRIBUTION_METRICS_CUBE` (add richer performance attribution metrics).
+- Completed (2026-05-24): Task 162 `SHORT_ECONOMICS_MARGIN_FUNDING_LIMITATIONS` (make short economics limitations explicit).
+- Completed (2026-05-24): Task 161 `RISK_PER_TRADE_SIZING_AND_GUARDRAILS` (add risk-per-trade sizing controls and guardrails).
+- Completed (2026-05-24): Task 160 `TRANSACTION_COST_AND_SLIPPAGE_REALISM` (improve cost/slippage realism without live execution behavior).
+- Completed (2026-05-24): Task 159 `NO_LOOKAHEAD_PATTERN_DETECTION_CONTRACT` (audit pattern detection boundaries for no-lookahead behavior).
+- Completed (2026-05-24): Task 158 `CANDLE_DATA_INTEGRITY_AND_GAP_VALIDATION` (validate candle continuity/gaps before research/backtest assumptions).
+- Completed (2026-05-24): Task 157 `INTRABAR_SEQUENCING_POLICY_INTEGRATION` (use reusable intrabar sequencing policy for ambiguous stop/target exits).
+- Completed (2026-05-24): Task 156 `CANONICAL_SOFT_INVALIDATION_INTEGRATION` (wire supported close-based soft invalidation into canonical pattern action expansion).
+- Completed (2026-05-24): Task 155 `RISK_PLAN_INVALID_ACTION_SAFETY` (invalid/skipped risk plans must emit non-executable SKIP diagnostics only).
+- Completed (2026-05-24): Task 154 `ENTRY_FILL_PRICE_MODEL_SEPARATION` (use actual confirmation candle for market fills and keep reference/limit fills explicit).
+- Completed (2026-05-24): Task 153 `PARTIAL_EXIT_QUANTITY_RATIO_CONTRACT` (interpret pattern partial-exit quantities as position ratios, not absolute BTC units).
+- Completed (2026-05-24): Task 152 `PATTERN_SIZING_PROPAGATION_CONTRACT` (propagate pattern quantity override while preserving engine-owned sizing by default).
+- Completed (2026-05-24): Task 151 `ENTRY_FILL_EQUITY_AND_CONSERVATIVE_SIZING_SEMANTICS` (prevent same-candle favorable entry equity jumps from fill/close mismatch and make entry sizing conservative).
+
+## Important Blocked Work
+- Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` remains blocked pending explicit owner approval for live order execution and the live-readiness prerequisites documented in `docs/25_EXECUTION_READINESS_SAFETY_AUDIT.md`.
 
 ## Current Candidates / Follow-ups
+- Follow-up candidate: `LIVE_EXECUTION_KILL_SWITCH_AND_MAX_NOTIONAL_GUARDS` (prerequisite before any future live execution task).
+- Follow-up candidate: `LIVE_EXECUTION_SYMBOL_FILTER_AND_STALE_DATA_PRECHECKS` (exchange filter, stale candle, and clock-skew checks before live intent submission).
+- Follow-up candidate: `LIVE_EXECUTION_IDEMPOTENCY_AND_RESTART_RECONCILIATION` (durable duplicate-order prevention and restart recovery).
+- Follow-up candidate: `LIVE_EXECUTION_CANCEL_REPLACE_AND_PARTIAL_FILL_POLICY` (cancel/replace, timeout, orphan-order, and partial-fill handling).
+- Follow-up candidate: `LIVE_EXECUTION_MONITORING_ALERTING_AND_SECRET_POLICY` (alerts, credential storage/rotation, redaction, and operational readiness).
 - Follow-up candidate: add visual regression/UI tests for dashboard marker/table rendering once a frontend test harness is assigned.
 - Candidate: `PATTERN_STRATEGY_OUTPUT_CONTRACT_DOCUMENTATION_AND_FIXTURE_EXPANSION` (document enriched stdout schema and broaden deterministic fixtures for short-side/no-fill cases).
 - Follow-up candidate: refine pattern-backtest financial summary semantics in shared persistence schema if owner requires richer financial outputs.
@@ -81,3 +61,4 @@ All items below are candidate/planning pointers unless marked completed.
 
 ## Ledger Maintenance
 - Completed (2026-05-24): Reconciled root backlog archive pointers to fixed 50-task ranges and moved Tasks 088-100 entries into `docs/ledger_archives/backlog_task_051_100.md`.
+- Completed (2026-05-24): Task 171 created `docs/ledger_archives/backlog_task_101_150.md` and reduced root backlog to the Tasks 151-171 recent window.

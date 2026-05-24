@@ -7,7 +7,7 @@ import pytest
 
 from quant_bitcoin.backtesting.basic import BasicBacktester, BacktestResult, BacktestSummary
 from quant_bitcoin.market_data import CsvCandleDataProvider
-from quant_bitcoin.strategies import Signal
+from quant_bitcoin.strategies import RsiStrategy, Signal
 
 
 class SequenceStrategy:
@@ -189,6 +189,21 @@ def test_backtest_runs_with_local_csv_provider_fixture(tmp_path):
 
     assert result.final_equity == 1_020
     assert len(result.trades) == 2
+
+
+def test_backtest_runs_with_rsi_strategy_default_contract():
+    candles = make_candles([100, 99, 98, 99, 100, 101])
+    strategy = RsiStrategy(window=2, buy_threshold=30, sell_threshold=70)
+
+    result = BasicBacktester(starting_cash=1_000, trade_quantity=1).run(
+        candles, strategy
+    )
+
+    assert [(trade.signal, trade.price) for trade in result.trades] == [
+        (Signal.BUY, 98),
+        (Signal.SELL, 100),
+    ]
+    assert result.final_equity == 1_002
 
 
 def test_backtest_rejects_missing_standard_candle_columns():

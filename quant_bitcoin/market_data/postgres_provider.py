@@ -11,6 +11,10 @@ from __future__ import annotations
 from datetime import datetime
 import pandas as pd
 
+from quant_bitcoin.market_data.candle_validation import (
+    CandleValidationConfig,
+    validate_standard_candles,
+)
 from quant_bitcoin.persistence import PostgresCandleRepository, SOURCE_BINANCE_SPOT
 
 STANDARD_CANDLE_COLUMNS: tuple[str, ...] = (
@@ -43,6 +47,7 @@ class PostgresCandleDataProvider:
         interval: str = "1m",
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        enforce_continuity: bool = False,
     ) -> None:
         self.repository = repository
         self.source = source
@@ -50,6 +55,7 @@ class PostgresCandleDataProvider:
         self.interval = interval
         self.start_time = start_time
         self.end_time = end_time
+        self.enforce_continuity = enforce_continuity
 
     @classmethod
     def from_database_url(
@@ -61,6 +67,7 @@ class PostgresCandleDataProvider:
         interval: str = "1m",
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        enforce_continuity: bool = False,
     ) -> "PostgresCandleDataProvider":
         """Build a provider from a PostgreSQL connection URL."""
 
@@ -71,6 +78,7 @@ class PostgresCandleDataProvider:
             interval=interval,
             start_time=start_time,
             end_time=end_time,
+            enforce_continuity=enforce_continuity,
         )
 
     def load(self) -> pd.DataFrame:
@@ -92,14 +100,24 @@ class PostgresCandleDataProvider:
         for column in NUMERIC_CANDLE_COLUMNS:
             normalized[column] = self._parse_numeric(normalized[column], column)
 
-        return normalized.sort_values("timestamp", kind="mergesort").reset_index(
+        normalized = normalized.sort_values("timestamp", kind="mergesort").reset_index(
             drop=True
         )
+        validate_standard_candles(
+            normalized,
+            CandleValidationConfig(
+                interval=self.interval,
+                enforce_continuity=self.enforce_continuity,
+                allow_empty=True,
+                context="PostgreSQL candle data",
+            ),
+        )
+        return normalized
 
     @staticmethod
     def _parse_timestamps(timestamp: pd.Series) -> pd.Series:
         try:
-            return pd.to_datetime(timestamp, errors="raise")
+            return pd.to_datetime(timestamp, errors="raise", utc=True)
         except (TypeError, ValueError) as error:
             raise ValueError(
                 "PostgreSQL candle data contains invalid timestamp values"

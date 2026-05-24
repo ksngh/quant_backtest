@@ -8,8 +8,8 @@ This document reviews the implemented indicator modules in `quant_bitcoin.indica
 
 - Input candle data is already available to the caller; indicator modules do not fetch market data.
 - Indicator modules are pure calculation/detection helpers. They do not read secrets, call exchange APIs, place orders, persist data, schedule jobs, or make final trading decisions.
-- The implemented indicator package currently covers ATR, Volume Ratio, Pivot High / Pivot Low, Swing Structure, Support / Resistance Zones, and Displacement Candles.
-- Liquidity and bid-ask spread are referenced by pattern requirements as future or external filters, but reusable indicator modules for those filters are not currently implemented in `quant_bitcoin.indicators`.
+- The implemented indicator package currently covers ATR, Volume Ratio, Pivot High / Pivot Low, Swing Structure, Support / Resistance Zones, Displacement Candles, and OHLCV-derived Market Regime tagging.
+- Liquidity and spread context are currently available as OHLCV proxy fields inside `market_regime.py`; real order-book liquidity and true bid/ask spread remain future external-data scope.
 
 # Package Structure
 
@@ -23,6 +23,7 @@ Implemented modules:
 - `swing_structure.py` — higher-high, lower-high, higher-low, lower-low labels and market structure status from pivot data.
 - `support_resistance_zone.py` — mechanical support/resistance zone construction from pivot events.
 - `displacement_candle.py` — directional displacement candle detection from candle body/range, ATR, and volume-ratio data.
+- `market_regime.py` — realized-volatility, trading-value liquidity, high-low spread proxy, trend-strength, mean-reversion z-score, and combined market-regime labels from supplied OHLCV candles.
 
 The package design keeps indicator logic inside the indicator modules and exposes only explicit public objects through `__all__`. This supports direct imports from either a concrete module, such as `quant_bitcoin.indicators.atr`, or the package namespace, such as `quant_bitcoin.indicators.calculate_atr`.
 
@@ -62,6 +63,7 @@ Each implemented indicator has a frozen configuration dataclass:
 - `SwingStructureConfig`
 - `SupportResistanceZoneConfig`
 - `DisplacementCandleConfig`
+- `MarketRegimeConfig`
 
 These objects hold mechanical parameters and defaults. They are optional at the public entry point; when omitted, the module creates its default config.
 
@@ -75,6 +77,7 @@ Enums are used for explicit status and classification values:
 - Swing Structure: `SwingLabel`, `MarketStructureStatus`.
 - Support / Resistance Zones: `ZoneType`, `ZoneStatus`.
 - Displacement Candles: `DisplacementDirection`, `DisplacementStatus`.
+- Market Regime: `RegimeVolatility`, `LiquidityRegime`, `SpreadRegime`, `TrendRegime`, `MeanReversionRegime`.
 
 Outputs generally store enum values as strings rather than enum instances, which makes the result frames easier to serialize and compare in tests.
 
@@ -85,6 +88,7 @@ ATR, Volume Ratio, and Displacement Candle modules include latest-row snapshot h
 - `calculate_atr_snapshot(candles, config=None)`
 - `calculate_volume_ratio_snapshot(candles, config=None)`
 - `calculate_displacement_candle_snapshot(candles, config=None)`
+- `calculate_market_regime_snapshot(candles, config=None)`
 
 These helpers run the batch calculation/detection path and return the latest output row as a dictionary. If there are no rows, the helper returns a dictionary with the expected output fields set to `None`.
 
@@ -206,6 +210,24 @@ Visible limitations:
 
 - This module does not calculate ATR or Volume Ratio internally. Pattern detectors that need displacement confirmation enrich candles with ATR and Volume Ratio first.
 - It does not infer a higher-level pattern by itself; it only labels candles.
+
+## Market Regime (`market_regime.py`)
+
+Primary public entry points:
+
+- `calculate_market_regime(candles, config=None) -> pd.DataFrame`
+- `calculate_market_regime_snapshot(candles, config=None) -> dict`
+- classifier helpers for volatility, liquidity, spread, trend, mean-reversion, and combined market-regime labels.
+
+`calculate_market_regime` returns one row per candle with realized volatility, trading value, average trading value, liquidity regime, high-low spread proxy, spread regime, trend strength, trend regime, mean-reversion z-score, mean-reversion regime, combined market regime, validity, and reason fields.
+
+Output schema columns are defined by `MARKET_REGIME_OUTPUT_COLUMNS`. Required input columns are `symbol`, `timestamp`, `open`, `high`, `low`, `close`, and `volume`; optional `quote_volume` is used as trading value when present and enabled. Warm-up rows are emitted with `is_valid=false`, `market_regime=UNKNOWN`, and `reason=warmup`.
+
+Visible limitations:
+
+- Liquidity is a trading-value proxy from OHLCV, not an exchange order-book depth model.
+- Spread is a high-low candle range proxy, not true bid/ask spread.
+- The module supplies context labels only. It does not tune strategies, alter pattern entry behavior, place orders, or call exchange APIs.
 
 # Relationship To Normalized Candle Data
 

@@ -55,6 +55,7 @@ class StrategyEquityPoint:
     unrealized_pnl: float
     realized_pnl: float
     drawdown: float
+    equity_valuation_price: float | None = None
     free_cash: float | None = None
     margin_used: float | None = None
     short_proceeds_locked: float | None = None

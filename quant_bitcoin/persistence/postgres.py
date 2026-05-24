@@ -297,6 +297,7 @@ class BacktestRunListItem:
     final_equity: float
     total_return: float
     trade_count: int
+    metadata: dict[str, Any] | None
     created_at: datetime
     completed_at: datetime | None
 
@@ -798,6 +799,7 @@ SELECT
     r.final_equity,
     r.total_return,
     r.trade_count,
+    br.metadata,
     br.created_at,
     br.completed_at
 FROM backtest_runs br
@@ -1144,6 +1146,7 @@ def _map_backtest_run_list_item(row: dict[str, Any]) -> BacktestRunListItem:
         final_equity=_as_float(row["final_equity"]),
         total_return=_as_float(row["total_return"]),
         trade_count=int(row["trade_count"]),
+        metadata=row["metadata"],
         created_at=_as_utc(row["created_at"]),
         completed_at=_optional_utc(row["completed_at"]),
     )

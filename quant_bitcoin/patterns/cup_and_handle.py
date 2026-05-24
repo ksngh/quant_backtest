@@ -17,7 +17,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
@@ -33,6 +33,7 @@ from quant_bitcoin.indicators.displacement_candle import (
 )
 from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_CUP_AND_HANDLE_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -183,6 +184,10 @@ class CupAndHandleEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -269,6 +274,30 @@ def detect_cup_and_handle_patterns(
             events.append(_select_best_event(evaluated))
 
     return events
+
+
+def detect_cup_and_handle_patterns_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: CupAndHandleConfig | None = None,
+) -> list[CupAndHandleEvent]:
+    """Return only cup-and-handle events confirmed at ``current_index``."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_cup_and_handle_patterns(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def _normalize_candles(
@@ -470,7 +499,7 @@ def _evaluate_candidate(
     if config.require_displacement_breakout and not displacement_confirmed:
         return None
 
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         rim_difference_rate=rim_difference_rate,
         cup_depth_rate=cup_depth_rate,
         bottom_zone_duration=bottom_zone_duration,
@@ -481,6 +510,7 @@ def _evaluate_candidate(
         displacement_confirmed=displacement_confirmed,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     if pattern_status == CupAndHandleStatus.VALID and pattern_score < config.minimum_pattern_score:
         pattern_status = CupAndHandleStatus.WEAK
 
@@ -548,6 +578,10 @@ def _evaluate_candidate(
         target_reference=target_reference,
         risk_reward=risk_reward,
         reason="Bullish Cup and Handle detected with ATR-buffered neckline breakout.",
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -605,6 +639,33 @@ def _calculate_pattern_score(
     displacement_confirmed: bool,
     config: CupAndHandleConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            rim_difference_rate=rim_difference_rate,
+            cup_depth_rate=cup_depth_rate,
+            bottom_zone_duration=bottom_zone_duration,
+            duration_ratio=duration_ratio,
+            handle_depth_ratio=handle_depth_ratio,
+            breakout_distance_atr=breakout_distance_atr,
+            volume_ratio=volume_ratio,
+            displacement_confirmed=displacement_confirmed,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    rim_difference_rate: float,
+    cup_depth_rate: float,
+    bottom_zone_duration: int,
+    duration_ratio: float,
+    handle_depth_ratio: float,
+    breakout_distance_atr: float,
+    volume_ratio: float,
+    displacement_confirmed: bool,
+    config: CupAndHandleConfig,
+) -> dict[str, Any]:
     rim_score = max(0.0, 1.0 - rim_difference_rate / max(config.maximum_rim_difference_rate, 1e-9))
     depth_midpoint = (config.minimum_cup_depth_rate + config.maximum_cup_depth_rate) / 2
     depth_range = max(config.maximum_cup_depth_rate - config.minimum_cup_depth_rate, 1e-9)
@@ -615,16 +676,18 @@ def _calculate_pattern_score(
     volume_score = 1.0 if volume_ratio >= config.minimum_breakout_volume_ratio else 0.6
     displacement_score = 1.0 if displacement_confirmed else 0.0
 
-    score = (
-        rim_score * 0.15
-        + depth_score * 0.15
-        + roundness_score * 0.20
-        + handle_score * 0.15
-        + breakout_score * 0.15
-        + volume_score * 0.15
-        + displacement_score * 0.05
+    return build_score_metadata(
+        "CUP_AND_HANDLE",
+        [
+            {"name": "rim_symmetry", "raw_score": rim_score, "weight": 0.15, "source": "observed_rim_difference_rate", "description": "Similarity between left and right rim prices."},
+            {"name": "cup_depth", "raw_score": depth_score, "weight": 0.15, "source": "observed_cup_depth_rate", "description": "Cup depth within configured minimum/maximum depth range."},
+            {"name": "roundness", "raw_score": roundness_score, "weight": 0.20, "source": "observed_bottom_duration", "description": "Bottom-zone duration and cup duration balance."},
+            {"name": "handle_quality", "raw_score": handle_score, "weight": 0.15, "source": "observed_handle_depth_ratio", "description": "Handle pullback depth relative to configured maximum."},
+            {"name": "breakout_strength", "raw_score": breakout_score, "weight": 0.15, "source": "observed_breakout_distance_atr", "description": "ATR-normalized neckline breakout distance."},
+            {"name": "volume_confirmation", "raw_score": volume_score, "weight": 0.15, "source": "observed_volume_ratio", "description": "Breakout candle relative volume."},
+            {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation at breakout."},
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _select_best_event(events: list[CupAndHandleEvent]) -> CupAndHandleEvent:

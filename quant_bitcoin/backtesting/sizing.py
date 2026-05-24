@@ -11,6 +11,7 @@ class PositionSizingMode(Enum):
     FIXED_QUANTITY = "FIXED_QUANTITY"
     CASH_FRACTION = "CASH_FRACTION"
     TARGET_NOTIONAL = "TARGET_NOTIONAL"
+    EQUITY_RISK_FRACTION = "EQUITY_RISK_FRACTION"
 
 
 class InsufficientFundsPolicy(Enum):
@@ -44,10 +45,10 @@ class PositionSizingConfig:
             return
         if self.value is None:
             raise ValueError(f"{mode.value} sizing requires value")
-        if mode is PositionSizingMode.CASH_FRACTION:
-            _validate_positive_finite(self.value, "cash fraction")
+        if mode in (PositionSizingMode.CASH_FRACTION, PositionSizingMode.EQUITY_RISK_FRACTION):
+            _validate_positive_finite(self.value, mode.value.lower())
             if float(self.value) > 1.0:
-                raise ValueError("cash fraction must be <= 1.0")
+                raise ValueError(f"{mode.value} value must be <= 1.0")
             return
         if mode is PositionSizingMode.TARGET_NOTIONAL:
             _validate_positive_finite(self.value, "target notional")
@@ -58,6 +59,34 @@ class PositionSizingConfig:
             "value": self.value,
             "insufficient_funds_policy": self.insufficient_funds_policy.value,
             "action_quantity_precedence": "action.quantity overrides engine sizing when provided",
+        }
+
+
+@dataclass(frozen=True)
+class BacktestGuardrailConfig:
+    """Backtest-only portfolio guardrails checked before new entries."""
+
+    max_account_drawdown: float | None = None
+    max_consecutive_losses: int | None = None
+    max_daily_loss: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.max_account_drawdown is not None:
+            _validate_positive_finite(self.max_account_drawdown, "max_account_drawdown")
+            if float(self.max_account_drawdown) > 1.0:
+                raise ValueError("max_account_drawdown must be <= 1.0")
+        if self.max_consecutive_losses is not None:
+            if not isinstance(self.max_consecutive_losses, int) or self.max_consecutive_losses < 1:
+                raise ValueError("max_consecutive_losses must be a positive integer")
+        if self.max_daily_loss is not None:
+            _validate_positive_finite(self.max_daily_loss, "max_daily_loss")
+
+    def to_metadata(self) -> dict[str, object]:
+        return {
+            "scope": "backtest_only",
+            "max_account_drawdown": self.max_account_drawdown,
+            "max_consecutive_losses": self.max_consecutive_losses,
+            "max_daily_loss": self.max_daily_loss,
         }
 
 

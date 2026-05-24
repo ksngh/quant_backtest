@@ -19,6 +19,7 @@ def test_supported_patterns_have_required_keys_and_are_serializable():
             "take_profit_rules","partial_exit_rules","soft_invalidation_rules","time_stop_rules","design_rationale","known_limitations",
         ):
             assert key in payload
+        assert any("heuristic quality filter" in item for item in payload["known_limitations"])
 
 
 def test_unsupported_pattern_raises_clear_error():

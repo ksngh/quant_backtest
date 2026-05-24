@@ -5,14 +5,15 @@ This module evaluates already-provided completed candles against a planned
 read secrets, call exchange APIs, place paper or real orders, persist records,
 or mutate caller data.
 
-Same-candle precedence is intentionally conservative and deterministic:
+Same-candle sequencing is intentionally deterministic and policy-driven:
 1. update break-even/trailing stop levels from the candle's favorable extreme;
-2. hard stop check;
-3. take-profit checks in target order;
+2. resolve same-candle stop/target ambiguity with ``IntrabarPolicyConfig``;
+3. hard stop and take-profit checks in target order;
 4. soft invalidation check on close;
 5. time-stop check on close.
 
-When a stop and target are both reachable in the same candle, the stop wins.
+When a stop and target are both reachable in the same candle, the default
+policy remains conservative and resolves to stop.
 """
 
 from __future__ import annotations
@@ -23,6 +24,12 @@ from typing import Any, Iterable
 
 import pandas as pd
 
+from quant_bitcoin.backtesting.intrabar_policy import (
+    IntrabarPolicyConfig,
+    IntrabarSequencingMode,
+    detect_intrabar_touches,
+    resolve_intrabar_decision,
+)
 from quant_bitcoin.risk.exit_plan import (
     PartialExitSettings,
     RiskExitDirection,
@@ -83,6 +90,7 @@ def simulate_pattern_exit(
     candles: pd.DataFrame | Iterable[dict[str, Any]],
     *,
     soft_invalidation: SoftInvalidationRule | None = None,
+    intrabar_policy_config: IntrabarPolicyConfig | None = None,
 ) -> PatternExitSimulationResult:
     """Simulate completed candles against a risk/exit plan.
 
@@ -125,14 +133,67 @@ def simulate_pattern_exit(
         current_stop = _move_trailing_stop(direction, plan, current_stop, high, low)
 
         stop_hit = _stop_hit(direction, current_stop, high, low)
-        target_hit = any(
-            target.name not in hit_target_names and _target_hit(direction, target, high, low)
-            for target in plan.targets
+        hit_target = next(
+            (
+                target
+                for target in plan.targets
+                if target.name not in hit_target_names and _target_hit(direction, target, high, low)
+            ),
+            None,
         )
+        target_hit = hit_target is not None
         exit_policy_metadata = {
             "intrabar_precedence_policy": INTRABAR_PRECEDENCE_POLICY,
             "ambiguous_stop_target": stop_hit and target_hit,
+            "intrabar_policy": (intrabar_policy_config.mode.value if intrabar_policy_config else IntrabarSequencingMode.CONSERVATIVE.value),
+            "be_trailing_sequence": "favorable-extreme updates are applied before stop/target checks",
         }
+
+        if stop_hit and target_hit and hit_target is not None:
+            touches = detect_intrabar_touches(
+                high=high,
+                low=low,
+                entry_price=plan.entry_price,
+                stop_price=current_stop,
+                target_price=hit_target.price,
+            )
+            decision = resolve_intrabar_decision(
+                direction=direction.value,
+                touches=touches,
+                config=intrabar_policy_config,
+            )
+            exit_policy_metadata.update(
+                {
+                    "is_ambiguous": decision.is_ambiguous,
+                    "decision_reason": decision.reason,
+                    "decision_outcome": decision.outcome,
+                }
+            )
+            if decision.skipped:
+                continue
+            if decision.outcome == "TARGET":
+                exit_ratio = min(
+                    remaining_ratio,
+                    _partial_exit_ratio(plan.partial_exits, hit_target) or remaining_ratio,
+                )
+                remaining_ratio = round(max(0.0, remaining_ratio - exit_ratio), 12)
+                hit_target_names.add(hit_target.name)
+                events.append(
+                    PatternExitEvent(
+                        timestamp=timestamp,
+                        candle_index=int(candle_index),
+                        reason=PatternExitReason.TAKE_PROFIT,
+                        price=hit_target.price,
+                        quantity_ratio=exit_ratio,
+                        remaining_quantity_ratio=remaining_ratio,
+                        target_name=hit_target.name,
+                        stop_price=current_stop,
+                        metadata={**exit_policy_metadata, "target_source": str(hit_target.source.value if hasattr(hit_target.source, "value") else hit_target.source)},
+                    )
+                )
+                if remaining_ratio <= 0:
+                    break
+                continue
 
         if stop_hit:
             events.append(
@@ -171,7 +232,7 @@ def simulate_pattern_exit(
                     remaining_quantity_ratio=remaining_ratio,
                     target_name=target.name,
                     stop_price=current_stop,
-                    metadata={"target_source": str(target.source.value if hasattr(target.source, "value") else target.source)},
+                    metadata={**exit_policy_metadata, "target_source": str(target.source.value if hasattr(target.source, "value") else target.source)},
                 )
             )
             if remaining_ratio <= 0:

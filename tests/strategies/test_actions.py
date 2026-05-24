@@ -1,4 +1,6 @@
 from quant_bitcoin.strategies.actions import (
+    StrategyAction,
+    StrategyQuantityMode,
     StrategyActionType,
     execution_side_for_action,
     is_entry_action,
@@ -59,3 +61,9 @@ def test_position_signal_mapping_long_short_and_partial_actions() -> None:
     assert position_signal_for_action(StrategyActionType.EXIT_SHORT) == "SHORT_EXIT"
     assert position_signal_for_action(StrategyActionType.PARTIAL_EXIT_SHORT) == "SHORT_PARTIAL_EXIT"
     assert position_signal_for_action(StrategyActionType.SKIP) is None
+
+
+def test_strategy_action_quantity_mode_defaults_to_absolute() -> None:
+    action = StrategyAction(StrategyActionType.PARTIAL_EXIT_LONG, timestamp=1, quantity=0.25)
+
+    assert action.quantity_mode is StrategyQuantityMode.ABSOLUTE

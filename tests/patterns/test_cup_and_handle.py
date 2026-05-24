@@ -136,6 +136,9 @@ def test_detects_bullish_cup_and_handle_event() -> None:
     assert event.breakout_distance_atr > 0.2
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.pattern_score >= 0.7
+    assert event.score_components["roundness"]["source"] == "observed_bottom_duration"
+    assert event.score_components["breakout_strength"]["weighted_score"] > 0
+    assert event.score_calibration["score_bucket"] in {"MEDIUM", "HIGH"}
     assert event.entry_reference == pytest.approx(103.0)
     assert event.stop_reference == pytest.approx(94.0)
     assert event.target_reference == pytest.approx(123.0)

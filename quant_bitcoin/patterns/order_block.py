@@ -18,7 +18,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
@@ -33,6 +33,7 @@ from quant_bitcoin.indicators.displacement_candle import (
     detect_displacement_candles,
 )
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_ORDER_BLOCK_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -115,6 +116,7 @@ class OrderBlockConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    retrospective_lifecycle: bool = False
 
     def __post_init__(self) -> None:
         if self.source_search_lookback < 1:
@@ -201,6 +203,10 @@ class OrderBlockEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 def detect_order_blocks(
@@ -210,7 +216,13 @@ def detect_order_blocks(
     timeframe: str | None = None,
     config: OrderBlockConfig | None = None,
 ) -> list[OrderBlockEvent]:
-    """Return deterministic Order Block events from completed candles."""
+    """Return Order Block events using signal-time no-lookahead semantics.
+
+    By default mitigation/broken lifecycle fields are evaluated only through
+    the displacement candle. Set ``OrderBlockConfig.retrospective_lifecycle=True``
+    only for event-study analysis that intentionally reclassifies events with
+    later candles.
+    """
 
     order_block_config = config or OrderBlockConfig()
     candle_frame = _normalize_candles(candles, symbol)
@@ -269,6 +281,30 @@ def detect_order_blocks(
             events.append(event)
 
     return events
+
+
+def detect_order_blocks_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: OrderBlockConfig | None = None,
+) -> list[OrderBlockEvent]:
+    """Return only events confirmed at ``current_index`` using visible candles."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_order_blocks(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def _normalize_candles(
@@ -393,9 +429,10 @@ def _evaluate_order_block(
     if zone_size_atr > config.maximum_zone_size_atr_multiplier:
         return None
 
+    lifecycle_candles = candles if config.retrospective_lifecycle else candles.iloc[: displacement_index + 1]
     state, mitigation_depth = _classify_state(
         direction,
-        candles,
+        lifecycle_candles,
         displacement_index,
         zone_low,
         zone_high,
@@ -406,7 +443,7 @@ def _evaluate_order_block(
     if state == OrderBlockState.BROKEN:
         return None
 
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         displacement_range_atr=displacement_range_atr,
         body_ratio=body_ratio,
         volume_ratio=volume_ratio,
@@ -414,6 +451,7 @@ def _evaluate_order_block(
         order_block_state=state,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     if volume_ratio < config.minimum_volume_ratio:
         pattern_status = OrderBlockStatus.WEAK
     elif pattern_score >= config.minimum_pattern_score:
@@ -487,6 +525,10 @@ def _evaluate_order_block(
             f"{direction.value.title()} Order Block detected from nearest opposing "
             "source candle before valid displacement."
         ),
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -563,6 +605,27 @@ def _calculate_pattern_score(
     order_block_state: OrderBlockState,
     config: OrderBlockConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            displacement_range_atr=displacement_range_atr,
+            body_ratio=body_ratio,
+            volume_ratio=volume_ratio,
+            zone_size_atr=zone_size_atr,
+            order_block_state=order_block_state,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    displacement_range_atr: float,
+    body_ratio: float,
+    volume_ratio: float,
+    zone_size_atr: float,
+    order_block_state: OrderBlockState,
+    config: OrderBlockConfig,
+) -> dict[str, Any]:
     if displacement_range_atr >= 2.0 and body_ratio >= 0.7:
         displacement_score = 1.0
     elif (
@@ -601,16 +664,18 @@ def _calculate_pattern_score(
     else:
         freshness_score = 0.0
 
-    score = (
-        displacement_score * 0.25
-        + volume_confirmation_score * 0.15
-        + structure_confirmation_score * 0.15
-        + zone_quality_score * 0.15
-        + liquidity_score * 0.10
-        + support_resistance_context_score * 0.10
-        + freshness_score * 0.10
+    return build_score_metadata(
+        "ORDER_BLOCK",
+        [
+            {"name": "displacement", "raw_score": displacement_score, "weight": 0.25, "source": "observed_displacement_candle", "description": "Displacement range/body ratio confirmation."},
+            {"name": "volume_confirmation", "raw_score": volume_confirmation_score, "weight": 0.15, "source": "observed_volume_ratio", "description": "Relative volume on displacement candle."},
+            {"name": "structure_confirmation", "raw_score": structure_confirmation_score, "weight": 0.15, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved structure confirmation prior; no structure event is wired yet."},
+            {"name": "zone_quality", "raw_score": zone_quality_score, "weight": 0.15, "source": "observed_zone_size_atr", "description": "Order block zone size normalized by ATR."},
+            {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.10, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
+            {"name": "support_resistance_context", "raw_score": support_resistance_context_score, "weight": 0.10, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved support/resistance context prior."},
+            {"name": "freshness", "raw_score": freshness_score, "weight": 0.10, "source": "observed_lifecycle_state", "description": "Fresh/touched/mitigated order-block lifecycle state."},
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _entry_reference(

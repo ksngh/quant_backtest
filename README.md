@@ -211,6 +211,14 @@ deterministic backtest replaces the prior saved rows for the same `run_key`.
 Use `--no-persist` only when you want to inspect stdout JSON without saving
 simulated result rows.
 
+Canonical strategy runs also emit and persist `reproducibility` metadata. This
+includes dataset identity, requested and actual candle ranges, candle count,
+candle quality summary, candle-content hash, strategy/config hashes, engine
+version, sizing/cost assumptions, and explicit `null` seed slots for validation
+workflows that do not provide a seed. Volatile runtime timings stay outside the
+deterministic `run_key`, and database URLs or other sensitive values are redacted
+before they can appear in JSON output or persisted run metadata.
+
 If PostgreSQL is empty, populate it first with the accepted Task 014 backfill
 workflow:
 
@@ -309,10 +317,13 @@ starting cash can support, the default behavior is to resize the fill; set
 `80_000` BTC price.
 
 Short simulation is not spot execution. The default `cash_bounded` mode limits
-short exposure by cash/buying power. Explicit `simulated_margin` mode is
-backtest-only and requires `--simulated-margin-leverage`; it checks initial
-margin as `notional / leverage`. Borrow fees, futures funding, maintenance
-margin, and liquidation are still not modeled.
+short exposure by cash/buying power and must not be read as a real spot short
+order capability. Explicit `simulated_margin` mode is backtest-only and
+requires `--simulated-margin-leverage`; it checks initial margin as
+`notional / leverage`. Borrow fees, futures funding, maintenance margin, and
+liquidation are still not modeled. JSON output records this under
+`short_economics` and adds a `short_economics_simulation_only` warning when
+short results are present.
 
 Result fields distinguish cash balance from free cash:
 
@@ -473,13 +484,34 @@ The PostgreSQL provider maps `candles.open_time` to `timestamp`, returns only
 ### Generate an RSI signal
 
 ```python
-from quant_bitcoin.strategies import RsiStrategy
+from quant_bitcoin.strategies import RsiSignalMode, RsiSmoothingMethod, RsiStrategy
 
 strategy = RsiStrategy(window=14, buy_threshold=30.0, sell_threshold=70.0)
 signal = strategy.generate_signal(candles)
+
+crossing_strategy = RsiStrategy(
+    window=14,
+    buy_threshold=30.0,
+    sell_threshold=70.0,
+    smoothing_method=RsiSmoothingMethod.WILDER,
+    signal_mode=RsiSignalMode.CROSSING,
+)
 ```
 
-The RSI strategy consumes standard candle data only. It does not fetch data, decide quantity, or place orders.
+The default RSI contract remains the original simple rolling RSI with latest-level
+thresholds: RSI at or below the buy threshold returns `BUY`, RSI at or above the
+sell threshold returns `SELL`, and repeated level signals are expected until a
+caller or backtest engine de-duplicates by position state. `RsiSignalMode.CROSSING`
+is opt-in and emits only when RSI newly crosses a threshold, which helps avoid
+repeated oversold/overbought setup artifacts for callers that do not hold
+position state. `RsiSmoothingMethod.WILDER` is also opt-in; the default remains
+the simple rolling method for backward compatibility.
+
+RSI is a mean-reversion indicator, not a validated standalone alpha model. It
+does not include trend/regime filters by default and should be evaluated with
+out-of-sample validation before being treated as economically meaningful. The
+RSI strategy consumes standard candle data only. It does not fetch data, decide
+quantity, or place orders.
 
 ### Run a basic backtest
 
@@ -563,6 +595,7 @@ This repository is designed to keep strategy research and paper workflows separa
 - Paper trading records fake trades only; it must not call real exchange order APIs.
 - Binance downloading, backfill, and WebSocket ingestion are limited to public candle data.
 - Live trading remains blocked until a future human-approved task documents credential handling, sandbox/testnet policy, endpoint allowlist, kill switch behavior, and safety tests.
+- `docs/25_EXECUTION_READINESS_SAFETY_AUDIT.md` records the current execution-readiness gaps and the checklist required before Task 138 can be unblocked.
 
 ## Documentation
 
@@ -573,6 +606,7 @@ Important project documents:
 - `docs/04_DATA_CONTRACT.md` — standard candle data contract.
 - `docs/03_ARCHITECTURE_RULES.md` — role ownership and architecture boundaries.
 - `docs/09_DECISIONS.md` — accepted architecture decisions.
+- `docs/25_EXECUTION_READINESS_SAFETY_AUDIT.md` — live-execution readiness audit and blockers.
 - `tasks/012_LIVE_TRADING_IMPLEMENTATION_BLOCKER.md` — current live-trading blocker.
 
 ## Development notes

@@ -24,6 +24,13 @@ class StrategyActionType(Enum):
     SKIP = "SKIP"
 
 
+class StrategyQuantityMode(Enum):
+    """How ``StrategyAction.quantity`` should be interpreted."""
+
+    ABSOLUTE = "ABSOLUTE"
+    POSITION_RATIO = "POSITION_RATIO"
+
+
 def is_entry_action(action_type: StrategyActionType) -> bool:
     return action_type in (StrategyActionType.ENTER_LONG, StrategyActionType.ENTER_SHORT)
 
@@ -87,3 +94,4 @@ class StrategyAction:
     reason: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     requested_price: float | None = None
+    quantity_mode: StrategyQuantityMode = StrategyQuantityMode.ABSOLUTE

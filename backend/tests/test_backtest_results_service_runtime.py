@@ -106,7 +106,10 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
             trade_count=1,
             buy_count=0,
             sell_count=1,
-            metadata={},
+            metadata={
+                "performance_metrics": {"total_return": 0.0},
+                "trade_attribution": {"trade_metrics": {"completed_trade_count": 1}},
+            },
             created_at=now,
         ),
         trades=(
@@ -157,3 +160,61 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
     assert detail["trades"][0]["cash_balance_after"] == 20000.0
     assert detail["graph_points"][0]["position_signal"] == "SHORT_ENTRY"
     assert detail["graph_points"][0]["short_collateral_locked"] == 10000.0
+    assert detail["diagnostics"]["summary"]["performance_metrics"] == {
+        "total_return": 0.0
+    }
+    assert "trades.metadata" in detail["diagnostics"]["available_sections"]
+
+
+def test_detail_serialization_keeps_legacy_missing_diagnostics_as_none():
+    now = datetime(2026, 5, 24, tzinfo=timezone.utc)
+    model = BacktestRunReadModel(
+        run=BacktestRunMetadataReadModel(
+            id=1,
+            run_key="rk",
+            engine_name="strategy_engine",
+            engine_version="v1",
+            candle_source="csv",
+            symbol="BTCUSDT",
+            interval="1m",
+            requested_start_time=None,
+            requested_end_time=None,
+            actual_start_time=None,
+            actual_end_time=None,
+            candle_count=1,
+            starting_cash=10000.0,
+            trade_quantity=1.0,
+            status="completed",
+            metadata=None,
+            created_at=now,
+            completed_at=now,
+        ),
+        strategy_config=BacktestStrategyConfigReadModel(
+            id=1,
+            strategy_key="stub",
+            strategy_name="STUB",
+            version="v1",
+            parameters={},
+            parameters_hash="h",
+            metadata=None,
+        ),
+        summary=BacktestSummaryReadModel(
+            starting_cash=10000.0,
+            ending_cash=10000.0,
+            ending_position=0.0,
+            final_price=10000.0,
+            final_equity=10000.0,
+            total_return=0.0,
+            trade_count=0,
+            buy_count=0,
+            sell_count=0,
+            metadata=None,
+            created_at=now,
+        ),
+        trades=(),
+        graph_points=(),
+    )
+
+    detail = BacktestResultsService(_Repo([model])).load_run_for_graphs(1)
+
+    assert detail["diagnostics"] is None

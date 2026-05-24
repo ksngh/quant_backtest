@@ -140,6 +140,10 @@ Notes:
         "total_return": 0.005025,
         "trade_count": 12
       },
+      "runtime": {
+        "total_elapsed_ms": 1500.0,
+        "engine_elapsed_ms": 500.0
+      },
       "created_at": "2026-05-21T00:00:00Z",
       "completed_at": "2026-05-21T00:00:01Z"
     }
@@ -153,6 +157,7 @@ Field mapping notes:
 - `strategy.*` maps from list item strategy config fields.
 - `market.source` maps from persisted `candle_source`.
 - `summary.*` maps from persisted `backtest_results` summary row.
+- `runtime` is optional and maps from `backtest_runs.metadata.runtime` when numeric timing fields are present. Legacy runs may return `null`.
 
 ## 5.3 `GET /api/backtest-runs/{backtest_run_id}` (200)
 
@@ -207,6 +212,22 @@ Field mapping notes:
         "short_collateral_locked_after": 0.0,
         "available_buying_power_after": 9500.0,
         "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
+      },
+      "trade_attribution": {
+        "schema_version": "trade_attribution_metrics_v1",
+        "trade_metrics": {
+          "completed_trade_count": 1,
+          "hit_ratio": 1.0,
+          "payoff_ratio": null,
+          "expectancy": 500.0,
+          "profit_factor": null,
+          "profit_factor_is_infinite": true
+        },
+        "attribution": {
+          "by_pattern_type": {},
+          "by_position_side": {},
+          "by_exit_reason": {}
+        }
       }
     },
     "created_at": "2026-05-21T00:00:01Z"
@@ -259,10 +280,33 @@ Field mapping notes:
         "short_collateral_locked": 0.0,
         "available_buying_power": 10000.0,
         "cash_semantics": "cash_after equals free_cash_after when flat",
-        "equity_semantics": "candle-close mark-to-market equity after applying actions at this timestamp"
+        "equity_semantics": "candle-close mark-to-market equity after applying actions at this timestamp",
+        "equity_valuation_price": 50000.0
       }
     }
   ],
+  "diagnostics": {
+    "schema_version": "research_diagnostics_api_v1",
+    "available_sections": [
+      "run.runtime",
+      "summary.performance_metrics",
+      "summary.trade_attribution",
+      "trades.metadata",
+      "graph_points.metadata"
+    ],
+    "run": {
+      "runtime": {
+        "total_elapsed_ms": 1500.0,
+        "engine_elapsed_ms": 500.0
+      }
+    },
+    "summary": {
+      "performance_metrics": {},
+      "trade_attribution": {}
+    },
+    "trade_metadata_keys": ["fill_price_source", "position_sizing_source"],
+    "graph_metadata_keys": ["drawdown", "trades"]
+  },
   "warnings": [
     {
       "code": "PATTERN_PLACEHOLDER_EQUITY",
@@ -284,11 +328,22 @@ Cash/equity semantics:
 - Legacy persisted runs may still have `signal=BUY` or `signal=SELL`; clients should prefer `position_signal` when present and fall back to `signal` for older runs.
 - `ending_cash`, `cash_after`, and graph `cash` are cash-balance fields, not always spendable free cash.
 - `cash_balance_after` is the explicit alias for the same cash-balance accounting value retained for compatibility.
-- `final_equity`, `equity_after`, and graph `equity` are the net account value fields when positions are open.
-- `execution_equity_after` is fill-price equity immediately after execution. `mark_to_market_equity_after` and graph `equity` are candle-close mark-to-market values after all actions on the candle.
+- `final_equity` and graph `equity` are the primary net account value fields when positions are open.
+- Trade `equity_after` is retained for compatibility as the execution row's mark-to-market audit value; clients should prefer `execution_equity_after` for entry-row equity display and `mark_to_market_equity_after` when explicitly showing candle-close audit valuation.
+- `execution_equity_after` is fill-price equity immediately after execution. `mark_to_market_equity_after` is the audit value after the fill marked to candle close.
+- Graph `equity` is the primary equity series. When a new entry remains open on its entry candle, graph `equity` uses execution-price valuation for that entry candle to avoid same-candle fill/close PnL; later candles use candle-close mark-to-market.
+- Graph `close_price` remains the candle close for market reference. Graph metadata may include `equity_valuation_price`, the price actually used for the primary equity value when it differs from `close_price`.
+- `final_equity` is the last value of the primary equity series, so a backtest ending on an entry candle follows the same entry-candle execution-price policy.
 - New account-state fields are additive and optional for legacy runs. When present, `free_cash_after`/`free_cash`, `margin_used_after`/`margin_used`, and `short_proceeds_locked_after`/`short_proceeds_locked` should be preferred for buying-power display.
 - For cash-bounded short simulations, `cash_after` may include short-sale proceeds. Those proceeds and the matching cash-bounded short collateral must not be displayed as unrestricted free cash; use `free_cash_after`/`available_buying_power_after`.
 - Simulated margin metadata is backtest-only and must not be represented as real exchange margin/futures account state.
+- `summary.metadata.trade_attribution` is additive for newer strategy-engine runs. It is computed from saved executions/equity points and contains lifecycle-based trade metrics plus grouped attribution by pattern, side, exit reason, and optional regime/session/timeframe tags.
+- Trade attribution uses an entry-to-final-exit lifecycle as the completed trade unit, so partial exits contribute realized PnL to the lifecycle without inflating `completed_trade_count`.
+- Missing attribution group keys are represented as `UNKNOWN`. Profit factor is `null` with `profit_factor_is_infinite=true` when there is positive gross profit and zero gross loss, avoiding non-JSON finite values.
+- `diagnostics` is optional. When present, it is an index over saved run/summary/trade/graph metadata sections; it must not be generated by rerunning a strategy.
+- Trade and graph `metadata` preserve JSON-safe unknown diagnostic fields from the simulated execution path, including sizing source, fill model, intrabar policy, score components, regime tags, and cost assumptions when available.
+- For legacy runs with no diagnostic metadata, `diagnostics` may be `null`; clients must not infer missing diagnostics as zero or false values.
+- New canonical strategy runs may include `run.metadata.reproducibility`. It is additive and may contain dataset identity, requested/actual candle ranges, candle-content hash, candle quality summary, strategy/config hashes, engine version, random seed slots, and redacted environment inputs. Clients must treat it as audit metadata, not executable instructions.
 
 ## 5.4 Optional `GET /api/backtest-runs/{backtest_run_id}/chart` (200)
 

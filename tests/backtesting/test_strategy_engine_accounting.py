@@ -12,7 +12,7 @@ from quant_bitcoin.backtesting.sizing import (
     SimulatedMarginConfig,
 )
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
-from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType, StrategyQuantityMode
 
 
 def _candles() -> pd.DataFrame:
@@ -104,6 +104,78 @@ def test_partial_long_and_short_exits() -> None:
     assert result.summary.ending_position == 0
 
 
+def test_ratio_based_partial_exit_resolves_against_current_long_position() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=2),
+        StrategyAction(
+            StrategyActionType.PARTIAL_EXIT_LONG,
+            timestamp=2,
+            quantity=0.33,
+            quantity_mode=StrategyQuantityMode.POSITION_RATIO,
+        ),
+        StrategyAction(
+            StrategyActionType.EXIT_LONG,
+            timestamp=3,
+            quantity=1.0,
+            quantity_mode=StrategyQuantityMode.POSITION_RATIO,
+        ),
+    ])
+    partial = result.executions[1]
+    final = result.executions[2]
+    assert partial.quantity == pytest.approx(0.66)
+    assert partial.position_after == pytest.approx(1.34)
+    assert partial.metadata["quantity_mode"] == "POSITION_RATIO"
+    assert partial.metadata["quantity_ratio"] == pytest.approx(0.33)
+    assert partial.metadata["resolved_quantity"] == pytest.approx(0.66)
+    assert final.quantity == pytest.approx(1.34)
+    assert final.position_after == pytest.approx(0.0)
+
+
+def test_ratio_based_partial_exit_resolves_against_current_short_position() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, quantity=2),
+        StrategyAction(
+            StrategyActionType.PARTIAL_EXIT_SHORT,
+            timestamp=2,
+            quantity=0.25,
+            quantity_mode=StrategyQuantityMode.POSITION_RATIO,
+        ),
+        StrategyAction(
+            StrategyActionType.EXIT_SHORT,
+            timestamp=3,
+            quantity=1.0,
+            quantity_mode=StrategyQuantityMode.POSITION_RATIO,
+        ),
+    ])
+    partial = result.executions[1]
+    final = result.executions[2]
+    assert partial.quantity == pytest.approx(0.5)
+    assert partial.position_after == pytest.approx(-1.5)
+    assert partial.metadata["quantity_mode"] == "POSITION_RATIO"
+    assert partial.metadata["resolved_quantity"] == pytest.approx(0.5)
+    assert final.quantity == pytest.approx(1.5)
+    assert final.position_after == pytest.approx(0.0)
+
+
+def test_invalid_ratio_based_exit_is_blocked_with_metadata() -> None:
+    result = run_strategy_backtest_engine(_candles(), [
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1),
+        StrategyAction(
+            StrategyActionType.PARTIAL_EXIT_LONG,
+            timestamp=2,
+            quantity=1.25,
+            quantity_mode=StrategyQuantityMode.POSITION_RATIO,
+        ),
+    ])
+    blocked = result.executions[1]
+    assert blocked.quantity == 0.0
+    assert blocked.reason == "INVALID_EXIT_QUANTITY_RATIO"
+    assert blocked.position_after == pytest.approx(1.0)
+    assert blocked.metadata["quantity_mode"] == "POSITION_RATIO"
+    assert blocked.metadata["quantity_ratio"] == pytest.approx(1.25)
+    assert result.summary.metadata["execution_metrics"]["blocked_action_count"] == 1
+
+
 def test_opposite_entry_skip_deterministic() -> None:
     result = run_strategy_backtest_engine(_candles(), [
         StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1),
@@ -176,6 +248,29 @@ def test_cash_fraction_long_sizing(fraction: float, expected_quantity: float) ->
     assert result.executions[0].quantity == pytest.approx(expected_quantity)
 
 
+def test_cash_fraction_long_sizing_uses_conservative_entry_valuation_price() -> None:
+    candles = pd.DataFrame([
+        {"timestamp": 1, "open": 100, "high": 100, "low": 99, "close": 100, "volume": 1},
+    ])
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, requested_price=99)],
+        config=StrategyEngineConfig(
+            starting_cash=10000,
+            position_sizing=PositionSizingConfig(PositionSizingMode.CASH_FRACTION, value=1.0),
+        ),
+    )
+    execution = result.executions[0]
+    assert execution.quantity == pytest.approx(100.0)
+    assert execution.cash_after == pytest.approx(100.0)
+    assert execution.execution_equity_after == pytest.approx(10000.0)
+    assert execution.mark_to_market_equity_after == pytest.approx(10100.0)
+    assert result.equity_points[0].equity == pytest.approx(10000.0)
+    assert result.summary.final_equity == pytest.approx(10000.0)
+    assert execution.metadata["entry_sizing_price_policy"] == "CONSERVATIVE_MAX_EXECUTION_OR_CLOSE"
+    assert execution.metadata["entry_sizing_valuation_price"] == pytest.approx(100.0)
+
+
 def test_target_notional_long_sizing_respects_cash() -> None:
     result = run_strategy_backtest_engine(
         _candles(),
@@ -186,6 +281,66 @@ def test_target_notional_long_sizing_respects_cash() -> None:
         ),
     )
     assert result.executions[0].quantity == pytest.approx(25.0)
+
+
+def test_target_notional_sizing_uses_conservative_entry_valuation_price() -> None:
+    candles = pd.DataFrame([
+        {"timestamp": 1, "open": 100, "high": 100, "low": 99, "close": 100, "volume": 1},
+    ])
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, requested_price=99)],
+        config=StrategyEngineConfig(
+            starting_cash=10000,
+            position_sizing=PositionSizingConfig(PositionSizingMode.TARGET_NOTIONAL, value=5000),
+        ),
+    )
+    execution = result.executions[0]
+    assert execution.quantity == pytest.approx(50.0)
+    assert execution.notional == pytest.approx(4950.0)
+    assert execution.metadata["entry_sizing_valuation_price"] == pytest.approx(100.0)
+
+
+def test_short_entry_candle_equity_uses_execution_price_for_favorable_fill() -> None:
+    candles = pd.DataFrame([
+        {"timestamp": 1, "open": 100, "high": 101, "low": 100, "close": 100, "volume": 1},
+        {"timestamp": 2, "open": 95, "high": 95, "low": 95, "close": 95, "volume": 1},
+    ])
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, requested_price=101)],
+        config=StrategyEngineConfig(
+            starting_cash=10000,
+            position_sizing=PositionSizingConfig(PositionSizingMode.CASH_FRACTION, value=1.0),
+        ),
+    )
+    execution = result.executions[0]
+    assert execution.quantity == pytest.approx(10000 / 101)
+    assert execution.execution_equity_after == pytest.approx(10000.0)
+    assert execution.mark_to_market_equity_after == pytest.approx(10099.009900990099)
+    assert result.equity_points[0].equity == pytest.approx(10000.0)
+    assert result.equity_points[0].equity_valuation_price == pytest.approx(101.0)
+    assert result.equity_points[1].equity == pytest.approx(10594.059405940594)
+
+
+def test_cash_fraction_short_sizing_uses_conservative_close_when_execution_price_is_lower() -> None:
+    candles = pd.DataFrame([
+        {"timestamp": 1, "open": 100, "high": 100, "low": 99, "close": 100, "volume": 1},
+    ])
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_SHORT, timestamp=1, requested_price=99)],
+        config=StrategyEngineConfig(
+            starting_cash=10000,
+            position_sizing=PositionSizingConfig(PositionSizingMode.CASH_FRACTION, value=1.0),
+        ),
+    )
+    execution = result.executions[0]
+    assert execution.quantity == pytest.approx(100.0)
+    assert execution.notional == pytest.approx(9900.0)
+    assert result.equity_points[0].equity == pytest.approx(10000.0)
+    assert execution.metadata["entry_sizing_valuation_price"] == pytest.approx(100.0)
+    assert execution.metadata["conservative_entry_sizing_applied"] is True
 
 
 def test_default_high_price_short_is_cash_bounded() -> None:
@@ -343,6 +498,12 @@ def test_summary_includes_short_model_limitations_and_short_performance_metadata
         "short_win_count": 1,
         "short_loss_count": 0,
     }
+    assert metadata["short_economics"]["real_spot_short_execution"] is False
+    assert metadata["short_economics"]["borrow_fees_modeled"] is False
+    assert metadata["short_economics"]["futures_funding_modeled"] is False
+    assert metadata["short_economics"]["liquidation_modeled"] is False
+    assert metadata["short_exposure_policy"]["scope"] == "backtest_only"
+    assert metadata["short_exposure_policy"]["modeled_economics"]["liquidation"] is False
 
 
 def test_summary_includes_skip_and_partial_exit_metrics() -> None:
