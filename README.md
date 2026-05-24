@@ -296,6 +296,31 @@ invoked. Output is deterministic JSON with strategy metadata such as
 `FAIR_VALUE_GAP_PATTERN_STRATEGY`, `ORDER_BLOCK_PATTERN_STRATEGY`, and the
 selected pattern list.
 
+FVG entry-mode experiments are explicit CLI options. The default remains
+`market_on_confirmation_close`, which models momentum continuation after the
+confirmation candle. Retest modes such as `limit_at_entry_reference`,
+`limit_at_pattern_midpoint`, and `limit_at_pattern_boundary` model imbalance
+rebalancing entries and can miss trades when price does not revisit the selected
+level. Use `--fvg-entry-max-wait-bars` and `--fvg-entry-expire-status` to bound
+limit-entry waiting, and `--compare-fvg-entry-modes` to include a read-only JSON
+comparison of fill rate, trade count, hit rate, average R, expectancy,
+MFE/MAE, average bars waited, and missed-trade count. These options are
+backtest research controls only and do not place orders.
+
+Canonical strategy runs also expose opt-in workflow controls:
+`--enforce-candle-continuity` rejects interval gaps during candle loading,
+`--enable-market-regime` tags executions for regime attribution, and
+`--max-account-drawdown`, `--max-consecutive-losses`, and `--max-daily-loss`
+enable deterministic backtest-only entry guardrails. These settings are recorded
+in strategy parameters and summary metadata. They are not live risk controls.
+
+Transaction-cost profiles can be selected with `--cost-profile`. Supported
+static presets are `zero`, `binance_spot_taker_baseline`,
+`conservative_crypto_1m`, and `high_slippage_stress`. Manual bps flags still
+work when no profile is selected; combining a profile with manual bps requires
+`--allow-cost-profile-overrides`. Profiles are offline assumptions only and do
+not query exchange fee tiers or account endpoints.
+
 This is a historical simulation over stored standard candles only. It does not
 place orders, does not call exchange order or account endpoints, does not sign
 requests, and does not require API keys or `.env` files.
@@ -375,6 +400,13 @@ methods are intentionally read-only: they issue SELECT queries against saved
 Task 021/022 tables and do
 not call Binance, exchange account APIs, order endpoints, `RsiStrategy`, or
 `BasicBacktester`.
+
+Saved-run detail responses may also include read-only research metadata for the
+dashboard: performance diagnostics, timing diagnostics, risk/exit audit, score
+calibration, tradability proxy attribution, and a compact
+`backtest_research_report_v1` JSON/markdown note. These artifacts summarize
+already persisted rows only. They do not rerun strategies, mutate parameters,
+place orders, call account endpoints, or expose API keys/database credentials.
 
 ### Ingest public Binance WebSocket closed candles
 

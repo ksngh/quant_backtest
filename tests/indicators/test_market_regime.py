@@ -14,6 +14,8 @@ from quant_bitcoin.indicators import (
     classify_liquidity_regime,
     classify_regime_volatility,
     classify_trend_regime,
+    classify_utc_session,
+    classify_weekday_tag,
 )
 
 
@@ -56,9 +58,15 @@ def test_calculates_market_regime_schema_and_tags() -> None:
     assert list(rows.columns) == list(MARKET_REGIME_OUTPUT_COLUMNS)
     assert latest["is_valid"] == True
     assert latest["liquidity_regime"] == LiquidityRegime.HIGH.value
+    assert latest["trading_value_percentile"] == pytest.approx(1.0)
+    assert latest["liquidity_zscore"] == pytest.approx(1.0)
     assert latest["trend_regime"] == TrendRegime.UPTREND.value
     assert latest["volatility_regime"] == RegimeVolatility.LOW.value
     assert latest["spread_regime"] == "NORMAL"
+    assert latest["range_spread_proxy_percentile"] == pytest.approx(1.0)
+    assert latest["wick_dominance_proxy"] == pytest.approx(1.0)
+    assert latest["session_tag"] == "ASIA"
+    assert latest["weekday_tag"] == "WEEKEND"
     assert latest["mean_reversion_regime"] == "OVERBOUGHT"
     assert latest["market_regime"] == "LOW_VOL_UPTREND"
 
@@ -122,3 +130,13 @@ def test_snapshot_and_classifiers_are_stable() -> None:
     assert classify_regime_volatility(None, _config()) == RegimeVolatility.UNKNOWN.value
     assert classify_liquidity_regime(0.0, _config()) == LiquidityRegime.UNTRADABLE.value
     assert classify_trend_regime(-0.02, _config()) == TrendRegime.DOWNTREND.value
+
+
+def test_utc_session_and_weekday_tags_are_deterministic() -> None:
+    assert classify_utc_session("2026-05-22T01:00:00Z") == "ASIA"
+    assert classify_utc_session("2026-05-22T09:00:00Z") == "EU"
+    assert classify_utc_session("2026-05-22T13:00:00Z") == "EU_US_OVERLAP"
+    assert classify_utc_session("2026-05-22T18:00:00Z") == "US"
+    assert classify_utc_session("2026-05-22T22:00:00Z") == "OFF_HOURS"
+    assert classify_weekday_tag("2026-05-22T18:00:00Z") == "WEEKDAY"
+    assert classify_weekday_tag("2026-05-24T18:00:00Z") == "WEEKEND"

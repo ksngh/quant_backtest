@@ -9,6 +9,7 @@ from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig
 from quant_bitcoin.backtesting.walk_forward import (
     WalkForwardConfig,
     aggregate_fold_metrics,
+    build_pattern_action_builder,
     generate_walk_forward_folds,
     monte_carlo_trade_return_bootstrap,
     run_walk_forward_validation,
@@ -28,6 +29,41 @@ def _candles(periods: int = 8) -> pd.DataFrame:
             "volume": [10.0] * periods,
         }
     )
+
+
+def _pattern_fixture(pattern: str) -> pd.DataFrame:
+    rows = [
+        {
+            "timestamp": pd.Timestamp("2026-01-01T00:00:00Z") + pd.Timedelta(minutes=index),
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0,
+            "volume": 100.0,
+        }
+        for index in range(20)
+    ]
+    if pattern == "FAIR_VALUE_GAP":
+        rows.extend(
+            [
+                {"timestamp": pd.Timestamp("2026-01-01T00:20:00Z"), "open": 98.0, "high": 100.0, "low": 96.0, "close": 99.0, "volume": 100.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:21:00Z"), "open": 95.0, "high": 108.0, "low": 94.0, "close": 107.0, "volume": 500.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:22:00Z"), "open": 103.0, "high": 104.0, "low": 102.0, "close": 103.0, "volume": 100.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:23:00Z"), "open": 103.0, "high": 106.0, "low": 102.0, "close": 105.0, "volume": 100.0},
+            ]
+        )
+    elif pattern == "ORDER_BLOCK":
+        rows.extend(
+            [
+                {"timestamp": pd.Timestamp("2026-01-01T00:20:00Z"), "open": 100.0, "high": 100.0, "low": 99.0, "close": 99.2, "volume": 100.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:21:00Z"), "open": 99.2, "high": 110.0, "low": 98.0, "close": 109.5, "volume": 500.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:22:00Z"), "open": 109.5, "high": 111.0, "low": 109.0, "close": 110.0, "volume": 100.0},
+                {"timestamp": pd.Timestamp("2026-01-01T00:23:00Z"), "open": 110.0, "high": 111.0, "low": 109.5, "close": 110.5, "volume": 100.0},
+            ]
+        )
+    else:
+        raise ValueError(pattern)
+    return pd.DataFrame(rows)
 
 
 def test_generate_walk_forward_folds_uses_deterministic_utc_boundaries() -> None:
@@ -106,6 +142,72 @@ def test_run_walk_forward_validation_reports_no_fill_folds() -> None:
 
     assert payload["folds"][0]["status"] == "NO_FILLS"
     assert payload["aggregate"]["no_fill_fold_count"] == 2
+
+
+def test_pattern_action_builder_uses_train_plus_current_test_prefix() -> None:
+    candles = _pattern_fixture("FAIR_VALUE_GAP")
+    train = candles.iloc[:20]
+    fold = generate_walk_forward_folds(
+        start=candles.iloc[0]["timestamp"],
+        end=candles.iloc[-1]["timestamp"] + pd.Timedelta(minutes=1),
+        config=WalkForwardConfig("20min", "4min", "4min"),
+    )[0]
+    builder = build_pattern_action_builder(pattern="FAIR_VALUE_GAP")
+
+    assert builder(train, candles.iloc[20:22], fold) == []
+    actions = builder(train, candles.iloc[20:24], fold)
+
+    assert actions
+    assert actions[0].metadata["pattern_type"] == "FAIR_VALUE_GAP"
+    assert actions[0].timestamp == candles.iloc[22]["timestamp"]
+
+
+def test_walk_forward_validation_runs_pattern_fixture_without_no_fills() -> None:
+    payload = run_walk_forward_validation(
+        _pattern_fixture("FAIR_VALUE_GAP"),
+        config=WalkForwardConfig("20min", "4min", "4min"),
+        action_builder=build_pattern_action_builder(pattern="FAIR_VALUE_GAP"),
+        engine_config=StrategyEngineConfig(starting_cash=10000.0),
+        strategy_parameters={"strategy": "pattern", "pattern": "FAIR_VALUE_GAP"},
+    )
+
+    assert payload["folds"][0]["status"] == "OK"
+    assert payload["folds"][0]["action_count"] >= 1
+    assert "trade_attribution" in payload["folds"][0]["diagnostics"]
+    assert payload["aggregate"]["expectancy"]["count"] == 0
+
+
+def test_walk_forward_cli_outputs_pattern_json_for_fvg_and_order_block(tmp_path, capsys) -> None:
+    for pattern in ("FAIR_VALUE_GAP", "ORDER_BLOCK"):
+        path = tmp_path / f"{pattern}.csv"
+        _pattern_fixture(pattern).to_csv(path, index=False)
+
+        exit_code = walk_forward_cli.main(
+            [
+                "--csv",
+                str(path),
+                "--train-window",
+                "20min",
+                "--test-window",
+                "4min",
+                "--step-size",
+                "4min",
+                "--strategy",
+                "pattern",
+                "--pattern",
+                pattern,
+                "--min-pattern-score",
+                "0",
+                "--monte-carlo-iterations",
+                "2",
+            ]
+        )
+        payload = json.loads(capsys.readouterr().out)
+
+        assert exit_code == 0
+        assert payload["folds"][0]["strategy_parameters"]["strategy"] == "pattern"
+        assert payload["folds"][0]["strategy_parameters"]["pattern"] == pattern
+        assert payload["folds"][0]["status"] == "OK"
 
 
 def test_walk_forward_cli_outputs_deterministic_json(tmp_path, capsys) -> None:

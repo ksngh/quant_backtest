@@ -22,10 +22,14 @@ from quant_bitcoin.backtesting.multiple_testing import (
     count_strategy_variants,
 )
 from quant_bitcoin.backtesting.performance_metrics import calculate_trade_attribution_metrics
+from quant_bitcoin.backtesting.performance_diagnostics import calculate_backtest_performance_diagnostics
+from quant_bitcoin.backtesting.timing_diagnostics import calculate_trade_timing_diagnostics
+from quant_bitcoin.backtesting.risk_exit_audit import calculate_risk_exit_audit
 from quant_bitcoin.backtesting.walk_forward import (
     WalkForwardConfig,
     WalkForwardFold,
     aggregate_fold_metrics,
+    build_pattern_action_builder,
     build_rsi_action_builder,
     generate_walk_forward_folds,
     monte_carlo_trade_return_bootstrap,
@@ -80,9 +84,13 @@ __all__ = [
     "calculate_transaction_cost",
     "effective_execution_price",
     "calculate_trade_attribution_metrics",
+    "calculate_backtest_performance_diagnostics",
+    "calculate_trade_timing_diagnostics",
+    "calculate_risk_exit_audit",
     "WalkForwardConfig",
     "WalkForwardFold",
     "aggregate_fold_metrics",
+    "build_pattern_action_builder",
     "build_rsi_action_builder",
     "generate_walk_forward_folds",
     "monte_carlo_trade_return_bootstrap",

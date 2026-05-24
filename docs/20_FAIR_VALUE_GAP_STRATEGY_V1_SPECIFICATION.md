@@ -47,14 +47,29 @@ Use existing deterministic FVG detection contract:
 - Event eligibility for strategy logic: event must be newly confirmed on current candle in rolling-prefix evaluation (`end_index == current_index`).
 
 ## 9) Entry Rule (Frozen V1)
-Primary entry mode:
-- **Limit-at-reference entry**, using either:
-  1. event `entry_reference`, or
-  2. FVG midpoint (`zone_mid`) when explicitly configured as midpoint mode.
+Implemented baseline entry mode:
+- `MARKET_ON_CONFIRMATION_CLOSE` remains the default for backward-compatible
+  canonical strategy-engine runs. Economically, this is a momentum-continuation
+  interpretation after the confirmation candle.
+
+Explicit research variants:
+- `MARKET_ON_NEXT_OPEN`
+- `LIMIT_AT_ENTRY_REFERENCE`
+- `LIMIT_AT_PATTERN_MIDPOINT`
+- `LIMIT_AT_PATTERN_BOUNDARY`
+- `LIMIT_AT_CUSTOM_PRICE`
+
+Retest/limit variants model imbalance rebalancing into the FVG reference,
+midpoint, boundary, or declared custom price. They can emit `ENTRY_NOT_FILLED`
+SKIP diagnostics when the selected level is not touched before expiry.
 
 Implementation alignment:
 - Entry simulation contract: `quant_bitcoin.patterns.entry_simulation`.
-- Preferred modes: `LIMIT_AT_ENTRY_REFERENCE` (default), optional `LIMIT_AT_PATTERN_MIDPOINT` in controlled variants.
+- CLI controls: `--fvg-entry-mode`, `--fvg-entry-max-wait-bars`,
+  `--fvg-entry-expire-status`, optional `--fvg-entry-custom-price`, and
+  `--compare-fvg-entry-modes`.
+- JSON output records selected entry mode, fill source, bars waited, fill rate,
+  missed-trade count, and comparative mode diagnostics when requested.
 
 ## 10) No-Fill Rule
 - Default max wait: **5 bars** after confirmation.

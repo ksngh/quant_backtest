@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 216: Task 172 FVG actual-fill risk-plan alignment completed (2026-05-24).
+Phase 232: Backtest analytics/reporting batch completed (2026-05-24).
 
 ## Current Step
-Task 172 `FVG_ACTUAL_FILL_RISK_PLAN_ALIGNMENT` is complete; no new implementation task is active.
+Tasks 181-187 are completed. No active implementation task is currently assigned.
 
 ## Current Goal
-Await the next explicitly assigned task while keeping live trading blocked.
+Keep the completed backtest analytics/reporting batch stable, with live trading still blocked unless a future explicit task and owner approval unblock it.
 
 ## Current Active Task
-None. Task 138 remains blocked pending explicit live-order approval.
+No active task.
 
 ## Last Completed Step (Short)
-Completed Task 172: pattern action building now aligns risk/target simulation to actual entry fill price before exit simulation, preserving original entry reference metadata separately from fill-adjusted risk metadata. Verified with targeted suites, full `pytest`, and `git diff --check`.
+Completed Task 187: reconciled docs/status/backlog/history after Tasks 173-186, extracted shared frontend value helpers, confirmed no 151-200 archive is needed yet, and verified the full suite.
 
 ## Recommended Next Step
-Assign or create the next non-live task explicitly before implementation. Keep Task 138 blocked until live-order approval and readiness prerequisites are resolved.
+Next task is undecided. Recommended candidate: add visual regression/UI tests for the read-only dashboard when a frontend component test harness is assigned.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.

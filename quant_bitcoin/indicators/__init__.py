@@ -78,6 +78,8 @@ from quant_bitcoin.indicators.market_regime import (
     classify_regime_volatility,
     classify_spread_regime,
     classify_trend_regime,
+    classify_utc_session,
+    classify_weekday_tag,
     combine_market_regime,
 )
 
@@ -142,5 +144,7 @@ __all__ = [
     "classify_regime_volatility",
     "classify_spread_regime",
     "classify_trend_regime",
+    "classify_utc_session",
+    "classify_weekday_tag",
     "combine_market_regime",
 ]

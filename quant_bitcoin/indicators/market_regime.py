@@ -33,9 +33,15 @@ MARKET_REGIME_OUTPUT_COLUMNS: tuple[str, ...] = (
     "volatility_regime",
     "trading_value",
     "average_trading_value",
+    "trading_value_percentile",
+    "liquidity_zscore",
     "liquidity_regime",
     "spread_proxy",
+    "range_spread_proxy_percentile",
     "spread_regime",
+    "wick_dominance_proxy",
+    "session_tag",
+    "weekday_tag",
     "trend_strength",
     "trend_regime",
     "mean_reversion_zscore",
@@ -176,6 +182,13 @@ def calculate_market_regime(
         trading_value = trading_values[position]
         average_trading_value = _rolling_mean(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
         spread_proxy = ((high or 0.0) - (low or 0.0)) / close if close and close > 0 else None
+        spread_values = _spread_proxy_values(high_values, low_values, close_values)
+        trading_value_percentile = _rolling_percentile_rank(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
+        liquidity_zscore = _rolling_zscore(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
+        range_spread_proxy_percentile = _rolling_percentile_rank(spread_values, position, regime_config.liquidity_window, regime_config.require_full_window)
+        wick_dominance_proxy = _wick_dominance_proxy(open_price, high, low, close)
+        session_tag = classify_utc_session(candle["timestamp"])
+        weekday_tag = classify_weekday_tag(candle["timestamp"])
         trend_strength = _trend_strength(close_values, position, regime_config)
         zscore = _mean_reversion_zscore(close_values, position, regime_config)
         values_ready = all(
@@ -204,9 +217,15 @@ def calculate_market_regime(
                 "volatility_regime": volatility_regime,
                 "trading_value": trading_value,
                 "average_trading_value": average_trading_value,
+                "trading_value_percentile": trading_value_percentile,
+                "liquidity_zscore": liquidity_zscore,
                 "liquidity_regime": liquidity_regime,
                 "spread_proxy": spread_proxy,
+                "range_spread_proxy_percentile": range_spread_proxy_percentile,
                 "spread_regime": spread_regime,
+                "wick_dominance_proxy": wick_dominance_proxy,
+                "session_tag": session_tag,
+                "weekday_tag": weekday_tag,
                 "trend_strength": trend_strength,
                 "trend_regime": trend_regime,
                 "mean_reversion_zscore": zscore,
@@ -324,6 +343,33 @@ def combine_market_regime(
     return TrendRegime.RANGE.value
 
 
+def classify_utc_session(timestamp: Any) -> str:
+    ts = pd.Timestamp(timestamp)
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+    hour = ts.hour
+    if 12 <= hour < 16:
+        return "EU_US_OVERLAP"
+    if 0 <= hour < 8:
+        return "ASIA"
+    if 8 <= hour < 12:
+        return "EU"
+    if 16 <= hour < 21:
+        return "US"
+    return "OFF_HOURS"
+
+
+def classify_weekday_tag(timestamp: Any) -> str:
+    ts = pd.Timestamp(timestamp)
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+    return "WEEKEND" if ts.weekday() >= 5 else "WEEKDAY"
+
+
 def _validate_candles(candles: pd.DataFrame) -> None:
     missing_columns = [
         column for column in REQUIRED_MARKET_REGIME_COLUMNS if column not in candles.columns
@@ -386,6 +432,60 @@ def _rolling_mean(
     if window_values is None:
         return None
     return mean(window_values)
+
+
+def _rolling_percentile_rank(
+    values: list[float | None],
+    position: int,
+    window: int,
+    require_full_window: bool,
+) -> float | None:
+    window_values = _window(values, position, window, require_full_window)
+    current = values[position]
+    if window_values is None or current is None:
+        return None
+    less_or_equal = len([value for value in window_values if value <= float(current)])
+    return less_or_equal / len(window_values)
+
+
+def _rolling_zscore(
+    values: list[float | None],
+    position: int,
+    window: int,
+    require_full_window: bool,
+) -> float | None:
+    window_values = _window(values, position, window, require_full_window)
+    current = values[position]
+    if window_values is None or current is None:
+        return None
+    baseline = mean(window_values)
+    deviation = pstdev(window_values)
+    if deviation == 0:
+        return 0.0
+    return (float(current) - baseline) / deviation
+
+
+def _spread_proxy_values(high_values: pd.Series, low_values: pd.Series, close_values: pd.Series) -> list[float | None]:
+    values: list[float | None] = []
+    for position in range(len(close_values)):
+        high = _optional_float(high_values.iloc[position])
+        low = _optional_float(low_values.iloc[position])
+        close = _optional_float(close_values.iloc[position])
+        values.append(((high or 0.0) - (low or 0.0)) / close if high is not None and low is not None and close and close > 0 else None)
+    return values
+
+
+def _wick_dominance_proxy(open_price: float | None, high: float | None, low: float | None, close: float | None) -> float | None:
+    if None in (open_price, high, low, close):
+        return None
+    assert open_price is not None and high is not None and low is not None and close is not None
+    candle_range = high - low
+    if candle_range <= 0:
+        return 0.0
+    body_high = max(open_price, close)
+    body_low = min(open_price, close)
+    wick_total = max(0.0, high - body_high) + max(0.0, body_low - low)
+    return wick_total / candle_range
 
 
 def _trend_strength(
@@ -462,9 +562,15 @@ def _invalid_row(base: dict[str, Any], trading_value: float | None, reason: str)
         "volatility_regime": RegimeVolatility.UNKNOWN.value,
         "trading_value": trading_value,
         "average_trading_value": None,
+        "trading_value_percentile": None,
+        "liquidity_zscore": None,
         "liquidity_regime": LiquidityRegime.UNKNOWN.value,
         "spread_proxy": None,
+        "range_spread_proxy_percentile": None,
         "spread_regime": SpreadRegime.UNKNOWN.value,
+        "wick_dominance_proxy": None,
+        "session_tag": classify_utc_session(base["timestamp"]),
+        "weekday_tag": classify_weekday_tag(base["timestamp"]),
         "trend_strength": None,
         "trend_regime": TrendRegime.UNKNOWN.value,
         "mean_reversion_zscore": None,

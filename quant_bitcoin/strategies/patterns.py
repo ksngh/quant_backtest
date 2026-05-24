@@ -48,7 +48,7 @@ def _event_to_actions(strategy: "PatternStrategyBase", event: Any, timestamp: An
     pattern_score = getattr(event, "pattern_score", None)
     risk_reward = getattr(event, "risk_reward", None)
     planned = strategy._risk_plan(event, frame)
-    metadata = {"pattern_event_id": getattr(event, "event_id", None), "event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction, "position_side": position_side, "pattern_status": pattern_status, "pattern_score": pattern_score, "risk_reward": risk_reward, "entry_reference": getattr(event, "entry_reference", None), "stop_reference": getattr(event, "stop_reference", None), "target_reference": getattr(event, "target_reference", None), "zone_mid": getattr(event, "zone_mid", None), "trendline_value": getattr(event, "trendline_value", None), "neckline": getattr(event, "neckline", None), "upper_boundary_value": getattr(event, "upper_boundary_value", None), "lower_boundary_value": getattr(event, "lower_boundary_value", None), "risk_plan": planned, **_score_metadata_from_event(event)}
+    metadata = {"pattern_event_id": getattr(event, "event_id", None), "event_id": getattr(event, "event_id", None), "pattern_type": getattr(event, "pattern_type", None), "pattern_direction": direction, "position_side": position_side, "pattern_status": pattern_status, "pattern_score": pattern_score, "risk_reward": risk_reward, "entry_reference": getattr(event, "entry_reference", None), "stop_reference": getattr(event, "stop_reference", None), "target_reference": getattr(event, "target_reference", None), "zone_mid": getattr(event, "zone_mid", None), "zone_low": getattr(event, "zone_low", None), "zone_high": getattr(event, "zone_high", None), "trendline_value": getattr(event, "trendline_value", None), "neckline": getattr(event, "neckline", None), "upper_boundary_value": getattr(event, "upper_boundary_value", None), "lower_boundary_value": getattr(event, "lower_boundary_value", None), "risk_plan": planned, **_score_metadata_from_event(event)}
     if planned is None or planned.status != RiskExitPlanStatus.VALID:
         return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
     if pattern_status not in strategy.entry_filter_config.allowed_statuses:
@@ -102,6 +102,8 @@ class PatternStrategyBase:
             "stop_reference": getattr(event, 'stop_reference', None),
             "target_reference": getattr(event, 'target_reference', None),
             "zone_mid": getattr(event, 'zone_mid', None),
+            "zone_low": getattr(event, 'zone_low', None),
+            "zone_high": getattr(event, 'zone_high', None),
             "trendline_value": getattr(event, 'trendline_value', None),
             "neckline": getattr(event, 'neckline', None),
             "upper_boundary_value": getattr(event, 'upper_boundary_value', None),

@@ -4,7 +4,7 @@
 Frontend dashboard integration with read-only backtest API verified in Task 078.
 
 ## Active Task
-No active frontend task. Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE` completed.
+No active frontend task. Task 186 `SAVED_RUN_RESEARCH_REPORT_ARTIFACT` completed.
 
 ## Stack Decision Boundary
 - Selected stack: Next.js App Router + React + TypeScript.
@@ -13,3 +13,11 @@ No active frontend task. Task 150 `BACKTEST_DASHBOARD_VISUAL_ANALYTICS_UPGRADE` 
 - Backtest cash display distinguishes cash balance from free cash when account-state metadata is available.
 - Dashboard implementation should show semantic position signals first, keep raw execution side as audit context, and render parameters/metadata as curated UI rather than raw JSON by default.
 - The dashboard now includes range-inspectable charts, compact paged trade review, curated parameter/runtime panels, and strategy indicator/economic explanation sections.
+- The dashboard now includes read-only Performance Diagnostics cards for saved-run risk-adjusted returns, trade lifecycle quality, exposure, turnover, and cost assumptions, with safe legacy fallbacks.
+- The dashboard now includes a read-only Run Diagnosis panel for deterministic poor-performance forensic flags exposed by the backend diagnostics payload.
+- The dashboard now includes a read-only Entry/Exit Timing panel for MFE/MAE, timing flags, and completed trade lifecycle path metrics exposed by diagnostics metadata.
+- The Strategy Logic panel now displays saved pattern execution policy metadata, selected entry mode, rationale, and research hypothesis when available.
+- The dashboard now includes a read-only Risk Management panel showing risk design metrics, realized exit-reason distribution, dominance ratios, and partial-exit PnL contribution.
+- The Strategy Explanation panel now uses actual selected-run metadata and diagnostics for strategy overview, economic hypothesis, indicators, risk design, realized risk behavior, entry timing, exit timing, limitations, and bad-performance clues, with explicit fallback text for legacy rows.
+- The dashboard now includes a read-only Run Conclusion panel that maps saved diagnostics into top likely failure reasons, confidence, evidence rows, and recommended next analyses without exposing execution controls.
+- The dashboard now includes a read-only Research Report preview for saved-run `backtest_research_report_v1` JSON/markdown artifacts.

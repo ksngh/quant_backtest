@@ -4,10 +4,15 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+from quant_bitcoin.backtesting.performance_diagnostics import calculate_backtest_performance_diagnostics
+from quant_bitcoin.backtesting.timing_diagnostics import calculate_trade_timing_diagnostics
+from quant_bitcoin.backtesting.risk_exit_audit import calculate_risk_exit_audit
+from quant_bitcoin.backtesting.score_calibration import calculate_score_calibration_diagnostics
 from quant_bitcoin.persistence.postgres import (
     BacktestRunReadModel,
     PostgresBacktestResultRepository,
 )
+from backend.quant_backtest_api.services.research_report import build_backtest_research_report
 
 
 class BacktestResultsService:
@@ -40,7 +45,7 @@ class BacktestResultsService:
             trades=trades,
             graph_points=graph_points,
         )
-        return {
+        response = {
             "run": run,
             "strategy_config": strategy_config,
             "summary": summary,
@@ -49,6 +54,16 @@ class BacktestResultsService:
             "diagnostics": diagnostics,
             "warnings": warnings,
         }
+        response["research_report"] = build_backtest_research_report(
+            run=run,
+            strategy_config=strategy_config,
+            summary=summary,
+            trades=trades,
+            graph_points=graph_points,
+            diagnostics=diagnostics,
+            warnings=warnings,
+        )
+        return response
 
     def db_reachable(self) -> bool:
         if self.repository is None:
@@ -245,14 +260,40 @@ class BacktestResultsService:
             (
                 "account_state",
                 "cost_summary",
+                "performance_diagnostics",
                 "performance_metrics",
+                "pattern_execution_policy",
                 "position_sizing",
+                "risk_exit_audit",
+                "score_calibration",
                 "short_economics",
                 "short_exposure_policy",
+                "timing_diagnostics",
                 "trade_attribution",
                 "transaction_cost",
             ),
         )
+        if "timing_diagnostics" not in summary_sections:
+            summary_sections["timing_diagnostics"] = calculate_trade_timing_diagnostics(
+                trades,
+                graph_points,
+            )
+        if "risk_exit_audit" not in summary_sections:
+            summary_sections["risk_exit_audit"] = calculate_risk_exit_audit(
+                trades,
+                summary_metadata,
+            )
+        if "score_calibration" not in summary_sections:
+            summary_sections["score_calibration"] = calculate_score_calibration_diagnostics(
+                trades,
+                summary_metadata,
+            )
+        if "performance_diagnostics" not in summary_sections:
+            summary_sections["performance_diagnostics"] = calculate_backtest_performance_diagnostics(
+                summary_metadata,
+                trades,
+                graph_points,
+            )
         if summary_sections:
             diagnostics["summary"] = summary_sections
             available_sections.extend(f"summary.{key}" for key in summary_sections)

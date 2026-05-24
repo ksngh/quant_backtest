@@ -230,8 +230,14 @@ def _required_numeric_field(event: Any, name: str) -> float:
 
 
 def _boundary_price(event: Any, direction: str) -> float:
-    zone_low = _required_numeric_field(event, "zone_low")
-    zone_high = _required_numeric_field(event, "zone_high")
+    zone_low = _event_field(event, "zone_low")
+    if zone_low is None:
+        zone_low = _event_field(event, "lower_boundary_value")
+    zone_high = _event_field(event, "zone_high")
+    if zone_high is None:
+        zone_high = _event_field(event, "upper_boundary_value")
+    zone_low = _positive_float(zone_low, "zone_low")
+    zone_high = _positive_float(zone_high, "zone_high")
     if direction == "LONG":
         return zone_low
     return zone_high
