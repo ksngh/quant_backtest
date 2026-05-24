@@ -5,6 +5,7 @@ import pytest
 
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
 from quant_bitcoin.backtesting.intrabar_policy import IntrabarPolicyConfig, IntrabarSequencingMode
+from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
 from quant_bitcoin.patterns import (
     BreakEvenSettings,
     PartialExitSettings,
@@ -95,10 +96,115 @@ def test_market_confirmation_fill_uses_actual_confirmation_close() -> None:
     assert actions[0].metadata["fill_assumption"] == "MARKET"
 
 
+def test_long_market_fill_rebuilds_targets_from_actual_fill_price() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"timestamp": 2, "high": 106.0, "low": 100.0, "close": 104.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0},
+        position_side="LONG",
+    )
+
+    assert [action.action_type for action in actions] == [StrategyActionType.ENTER_LONG]
+    assert actions[0].requested_price == pytest.approx(110.0)
+    assert actions[0].metadata["entry_reference"] == pytest.approx(100.0)
+    assert actions[0].metadata["entry_price"] == pytest.approx(110.0)
+    assert actions[0].metadata["risk_per_unit"] == pytest.approx(15.0)
+    assert actions[0].metadata["risk_plan_aligned_to_fill"] is True
+
+
+def test_short_market_fill_rebuilds_targets_from_actual_fill_price() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BEARISH"),
+        _plan("SHORT"),
+        _candles([{"timestamp": 2, "high": 100.0, "low": 94.0, "close": 96.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 99.0, "high": 101.0, "low": 89.0, "close": 90.0},
+        position_side="SHORT",
+    )
+
+    assert [action.action_type for action in actions] == [StrategyActionType.ENTER_SHORT]
+    assert actions[0].requested_price == pytest.approx(90.0)
+    assert actions[0].metadata["entry_reference"] == pytest.approx(100.0)
+    assert actions[0].metadata["entry_price"] == pytest.approx(90.0)
+    assert actions[0].metadata["risk_per_unit"] == pytest.approx(15.0)
+    assert actions[0].metadata["risk_plan_aligned_to_fill"] is True
+
+
+def test_fill_adjusted_targets_are_directionally_sorted() -> None:
+    long_actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"timestamp": 2, "high": 160.0, "low": 109.0, "close": 150.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0},
+        position_side="LONG",
+    )
+    short_actions = build_pattern_trade_actions(
+        _Event("BEARISH"),
+        _plan("SHORT"),
+        _candles([{"timestamp": 2, "high": 91.0, "low": 40.0, "close": 50.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 99.0, "high": 101.0, "low": 89.0, "close": 90.0},
+        position_side="SHORT",
+    )
+
+    long_exit_prices = [action.requested_price for action in long_actions[1:]]
+    short_exit_prices = [action.requested_price for action in short_actions[1:]]
+    assert long_exit_prices == sorted(long_exit_prices)
+    assert short_exit_prices == sorted(short_exit_prices, reverse=True)
+    assert all(price > 110.0 for price in long_exit_prices)
+    assert all(price < 90.0 for price in short_exit_prices)
+
+
+def test_fill_adjusted_take_profit_is_profitable_when_replayed_by_engine() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"timestamp": 2, "high": 126.0, "low": 109.0, "close": 124.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0},
+        position_side="LONG",
+    )
+    candles = pd.DataFrame(
+        [
+            {"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0, "volume": 1.0},
+            {"timestamp": 2, "open": 110.0, "high": 126.0, "low": 109.0, "close": 124.0, "volume": 1.0},
+        ]
+    )
+
+    result = run_strategy_backtest_engine(
+        candles,
+        actions,
+        config=StrategyEngineConfig(starting_cash=10000.0, trade_quantity=1.0),
+    )
+
+    take_profit = next(execution for execution in result.executions if execution.exit_reason == "TAKE_PROFIT")
+    entry = result.executions[0]
+    assert entry.price == pytest.approx(110.0)
+    assert take_profit.raw_price > entry.price
+    assert take_profit.gross_pnl is not None
+    assert take_profit.gross_pnl >= 0
+    assert take_profit.realized_r_multiple is not None
+    assert take_profit.realized_r_multiple >= 0
+
+
 def test_limit_entry_reference_fill_uses_reference_only_when_touched() -> None:
+    risk_plan = create_risk_exit_plan(
+        direction="LONG",
+        entry_price=95.0,
+        structural_stop=90.0,
+        atr=10.0,
+        config=RiskExitConfig(
+            atr_buffer_multiplier=0.0,
+            break_even=BreakEvenSettings(enabled=False),
+            trailing_stop=TrailingStopSettings(enabled=False),
+        ),
+    )
     actions = build_pattern_trade_actions(
         _Event("BULLISH", entry_reference=95.0),
-        _plan("LONG"),
+        risk_plan,
         _candles([{"high": 96.0, "low": 94.0, "close": 95.5}]),
         entry_action_timestamp=0,
         confirmation_candle={"timestamp": 0, "open": 100.0, "high": 103.0, "low": 99.0, "close": 102.0},
