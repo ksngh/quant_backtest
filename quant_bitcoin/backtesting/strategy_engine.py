@@ -17,6 +17,10 @@ from quant_bitcoin.backtesting.performance_metrics import (
     calculate_performance_metrics,
     calculate_trade_attribution_metrics,
 )
+from quant_bitcoin.backtesting.performance_diagnostics import calculate_backtest_performance_diagnostics
+from quant_bitcoin.backtesting.timing_diagnostics import calculate_trade_timing_diagnostics
+from quant_bitcoin.backtesting.risk_exit_audit import calculate_risk_exit_audit
+from quant_bitcoin.backtesting.score_calibration import calculate_score_calibration_diagnostics
 from quant_bitcoin.backtesting.sizing import (
     BacktestGuardrailConfig,
     InsufficientFundsPolicy,
@@ -207,6 +211,129 @@ def run_strategy_backtest_engine(
     partial_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.PARTIAL_EXIT_LONG.value, StrategyActionType.PARTIAL_EXIT_SHORT.value)])
     full_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.EXIT_LONG.value, StrategyActionType.EXIT_SHORT.value)])
 
+    summary_metadata = {
+        "transaction_cost": {
+            "maker_fee_bps": cfg.transaction_cost_config.maker_fee_bps if cfg.transaction_cost_config else 0.0,
+            "taker_fee_bps": cfg.transaction_cost_config.taker_fee_bps if cfg.transaction_cost_config else 0.0,
+            "spread_bps": cfg.transaction_cost_config.spread_bps if cfg.transaction_cost_config else 0.0,
+            "slippage_bps": cfg.transaction_cost_config.slippage_bps if cfg.transaction_cost_config else 0.0,
+            "minimum_slippage_bps": cfg.transaction_cost_config.minimum_slippage_bps if cfg.transaction_cost_config else 0.0,
+            "volatility_slippage_multiplier": cfg.transaction_cost_config.volatility_slippage_multiplier if cfg.transaction_cost_config else 0.0,
+            "default_liquidity_role": cfg.default_liquidity_role.value,
+            "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
+            "volatility_slippage_source": "candle high-low range divided by close, in basis points",
+        },
+        "cost_summary": {
+            "total_fee_cost": total_fee_cost,
+            "total_spread_cost": total_spread_cost,
+            "total_slippage_cost": total_slippage_cost,
+            "total_cost": total_cost,
+            "gross_pnl": gross_pnl_total,
+            "net_pnl": net_pnl_total,
+            "cost_to_gross_pnl_ratio": None if gross_pnl_total == 0 else total_cost / abs(gross_pnl_total),
+            "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
+            "volatility_slippage_source": "candle high-low range divided by close, in basis points",
+        },
+        "limitations": [
+            "No borrow fees modeled",
+            "No futures funding modeled",
+            "No maintenance margin or liquidation model",
+        ],
+        "short_performance": {
+            "short_close_count": len(short_closing_execs),
+            "short_win_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) > 0]),
+            "short_loss_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) < 0]),
+        },
+        "position_sizing": cfg.position_sizing.to_metadata(),
+        "short_exposure_policy": {
+            "mode": cfg.short_exposure_mode.value,
+            "default_policy": "short exposure is bounded by cash unless explicit simulated-margin mode is enabled",
+            "scope": "backtest_only",
+            "spot_short_execution": "simulated only; not a real spot exchange order capability",
+            "modeled_economics": {
+                "borrow_fees": False,
+                "futures_funding": False,
+                "maintenance_margin": False,
+                "liquidation": False,
+                "initial_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
+            },
+            "unsupported_economics": [
+                "No borrow fees modeled",
+                "No futures funding modeled",
+                "No maintenance margin or liquidation model",
+            ],
+        },
+        "short_economics": {
+            "scope": "backtest_only_simulation",
+            "cash_bounded_short": cfg.short_exposure_mode is ShortExposureMode.CASH_BOUNDED,
+            "simulated_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
+            "real_spot_short_execution": False,
+            "real_futures_or_margin_execution": False,
+            "borrow_fees_modeled": False,
+            "futures_funding_modeled": False,
+            "maintenance_margin_modeled": False,
+            "liquidation_modeled": False,
+            "warning": "Short results are simulation-only and exclude borrow fees, futures funding, maintenance margin, and liquidation.",
+        },
+        "simulated_margin": cfg.simulated_margin.to_metadata(),
+        "guardrails": cfg.guardrails.to_metadata(),
+        "account_state": _account_state(
+            cash,
+            position,
+            final_equity_valuation_price,
+            avg_entry,
+            cfg,
+            equity_semantics=final_equity_point.equity_semantics,
+        ),
+        "equity_semantics": {
+            "execution_equity_after": "net account value immediately after the fill at effective execution price",
+            "mark_to_market_equity_after": "net account value after the fill marked to the candle close",
+            "equity_points.equity": "primary equity series; new entry candles use execution-price valuation to avoid same-candle fill/close PnL, other candles use candle-close mark-to-market",
+            "equity_points.mark_price": "candle close retained for market-price reference",
+            "equity_points.equity_valuation_price": "price used for primary equity at that point",
+            "final_equity": "last value from the primary equity series",
+        },
+        "execution_metrics": {
+            "filled_execution_count": len(filled_execs),
+            "skipped_action_count": skipped_action_count,
+            "blocked_action_count": blocked_action_count,
+            "entry_count": entry_count,
+            "exit_count": exit_count,
+            "partial_exit_count": partial_exit_count,
+            "full_exit_count": full_exit_count,
+            "open_ending_position": position,
+            "realized_pnl": realized_pnl,
+            "unrealized_pnl": final_equity_point.unrealized_pnl,
+            "gross_pnl": gross_pnl_total,
+            "net_pnl": net_pnl_total,
+            "total_cost": total_cost,
+            "max_drawdown": min([p.drawdown for p in equity_points], default=0.0),
+        },
+        "performance_metrics": calculate_performance_metrics(
+            equity_points,
+            interval=cfg.interval,
+            risk_free_rate=cfg.risk_free_rate,
+        ).to_metadata(),
+        "trade_attribution": calculate_trade_attribution_metrics(executions, equity_points),
+    }
+    summary_metadata["timing_diagnostics"] = calculate_trade_timing_diagnostics(
+        executions,
+        frame,
+    )
+    summary_metadata["risk_exit_audit"] = calculate_risk_exit_audit(
+        executions,
+        summary_metadata,
+    )
+    summary_metadata["score_calibration"] = calculate_score_calibration_diagnostics(
+        executions,
+        summary_metadata,
+    )
+    summary_metadata["performance_diagnostics"] = calculate_backtest_performance_diagnostics(
+        summary_metadata,
+        executions,
+        equity_points,
+    )
+
     summary = StrategyBacktestSummary(
         starting_cash=cfg.starting_cash,
         ending_cash=cash,
@@ -223,111 +350,7 @@ def run_strategy_backtest_engine(
         gross_pnl=gross_pnl_total,
         net_pnl=net_pnl_total,
         average_net_r=(sum(net_rs) / len(net_rs)) if net_rs else None,
-        metadata={
-            "transaction_cost": {
-                "maker_fee_bps": cfg.transaction_cost_config.maker_fee_bps if cfg.transaction_cost_config else 0.0,
-                "taker_fee_bps": cfg.transaction_cost_config.taker_fee_bps if cfg.transaction_cost_config else 0.0,
-                "spread_bps": cfg.transaction_cost_config.spread_bps if cfg.transaction_cost_config else 0.0,
-                "slippage_bps": cfg.transaction_cost_config.slippage_bps if cfg.transaction_cost_config else 0.0,
-                "minimum_slippage_bps": cfg.transaction_cost_config.minimum_slippage_bps if cfg.transaction_cost_config else 0.0,
-                "volatility_slippage_multiplier": cfg.transaction_cost_config.volatility_slippage_multiplier if cfg.transaction_cost_config else 0.0,
-                "default_liquidity_role": cfg.default_liquidity_role.value,
-                "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
-                "volatility_slippage_source": "candle high-low range divided by close, in basis points",
-            },
-            "cost_summary": {
-                "total_fee_cost": total_fee_cost,
-                "total_spread_cost": total_spread_cost,
-                "total_slippage_cost": total_slippage_cost,
-                "total_cost": total_cost,
-                "gross_pnl": gross_pnl_total,
-                "net_pnl": net_pnl_total,
-                "cost_to_gross_pnl_ratio": None if gross_pnl_total == 0 else total_cost / abs(gross_pnl_total),
-                "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
-                "volatility_slippage_source": "candle high-low range divided by close, in basis points",
-            },
-            "limitations": [
-                "No borrow fees modeled",
-                "No futures funding modeled",
-                "No maintenance margin or liquidation model",
-            ],
-            "short_performance": {
-                "short_close_count": len(short_closing_execs),
-                "short_win_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) > 0]),
-                "short_loss_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) < 0]),
-            },
-            "position_sizing": cfg.position_sizing.to_metadata(),
-            "short_exposure_policy": {
-                "mode": cfg.short_exposure_mode.value,
-                "default_policy": "short exposure is bounded by cash unless explicit simulated-margin mode is enabled",
-                "scope": "backtest_only",
-                "spot_short_execution": "simulated only; not a real spot exchange order capability",
-                "modeled_economics": {
-                    "borrow_fees": False,
-                    "futures_funding": False,
-                    "maintenance_margin": False,
-                    "liquidation": False,
-                    "initial_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
-                },
-                "unsupported_economics": [
-                    "No borrow fees modeled",
-                    "No futures funding modeled",
-                    "No maintenance margin or liquidation model",
-                ],
-            },
-            "short_economics": {
-                "scope": "backtest_only_simulation",
-                "cash_bounded_short": cfg.short_exposure_mode is ShortExposureMode.CASH_BOUNDED,
-                "simulated_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
-                "real_spot_short_execution": False,
-                "real_futures_or_margin_execution": False,
-                "borrow_fees_modeled": False,
-                "futures_funding_modeled": False,
-                "maintenance_margin_modeled": False,
-                "liquidation_modeled": False,
-                "warning": "Short results are simulation-only and exclude borrow fees, futures funding, maintenance margin, and liquidation.",
-            },
-            "simulated_margin": cfg.simulated_margin.to_metadata(),
-            "guardrails": cfg.guardrails.to_metadata(),
-            "account_state": _account_state(
-                cash,
-                position,
-                final_equity_valuation_price,
-                avg_entry,
-                cfg,
-                equity_semantics=final_equity_point.equity_semantics,
-            ),
-            "equity_semantics": {
-                "execution_equity_after": "net account value immediately after the fill at effective execution price",
-                "mark_to_market_equity_after": "net account value after the fill marked to the candle close",
-                "equity_points.equity": "primary equity series; new entry candles use execution-price valuation to avoid same-candle fill/close PnL, other candles use candle-close mark-to-market",
-                "equity_points.mark_price": "candle close retained for market-price reference",
-                "equity_points.equity_valuation_price": "price used for primary equity at that point",
-                "final_equity": "last value from the primary equity series",
-            },
-            "execution_metrics": {
-                "filled_execution_count": len(filled_execs),
-                "skipped_action_count": skipped_action_count,
-                "blocked_action_count": blocked_action_count,
-                "entry_count": entry_count,
-                "exit_count": exit_count,
-                "partial_exit_count": partial_exit_count,
-                "full_exit_count": full_exit_count,
-                "open_ending_position": position,
-                "realized_pnl": realized_pnl,
-                "unrealized_pnl": final_equity_point.unrealized_pnl,
-                "gross_pnl": gross_pnl_total,
-                "net_pnl": net_pnl_total,
-                "total_cost": total_cost,
-                "max_drawdown": min([p.drawdown for p in equity_points], default=0.0),
-            },
-            "performance_metrics": calculate_performance_metrics(
-                equity_points,
-                interval=cfg.interval,
-                risk_free_rate=cfg.risk_free_rate,
-            ).to_metadata(),
-            "trade_attribution": calculate_trade_attribution_metrics(executions, equity_points),
-        },
+        metadata=summary_metadata,
     )
     return StrategyBacktestResult(tuple(executions), tuple(equity_points), summary)
 
@@ -443,9 +466,18 @@ def _action_with_regime_metadata(
         "spread_regime",
         "trend_regime",
         "mean_reversion_regime",
+        "session_tag",
+        "weekday_tag",
+        "trading_value_percentile",
+        "liquidity_zscore",
+        "range_spread_proxy_percentile",
+        "wick_dominance_proxy",
     ):
         if key in clean_context:
             metadata.setdefault(key, clean_context[key])
+    if "session_tag" in clean_context:
+        metadata.setdefault("session", clean_context["session_tag"])
+        metadata.setdefault("market_session", clean_context["session_tag"])
     metadata.setdefault("market_regime_context", clean_context)
     return replace(action, metadata=metadata)
 

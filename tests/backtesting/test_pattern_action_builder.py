@@ -218,6 +218,34 @@ def test_limit_entry_reference_fill_uses_reference_only_when_touched() -> None:
     assert actions[0].metadata["fill_assumption"] == "REFERENCE_LIMIT"
 
 
+def test_limit_midpoint_and_boundary_modes_require_touch() -> None:
+    midpoint_actions = build_pattern_trade_actions(
+        _Event("BULLISH", entry_reference=100.0, zone_mid=98.0, zone_low=96.0, zone_high=100.0),
+        _plan("LONG"),
+        _candles([{"high": 99.0, "low": 97.5, "close": 98.5}]),
+        entry_action_timestamp=0,
+        confirmation_candle={"timestamp": 0, "open": 100.0, "high": 104.0, "low": 99.0, "close": 103.0},
+        position_side="LONG",
+        entry_mode=PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
+    )
+    boundary_actions = build_pattern_trade_actions(
+        _Event("BULLISH", entry_reference=100.0, zone_mid=98.0, zone_low=96.0, zone_high=100.0),
+        _plan("LONG"),
+        _candles([{"high": 97.0, "low": 95.5, "close": 96.5}]),
+        entry_action_timestamp=0,
+        confirmation_candle={"timestamp": 0, "open": 100.0, "high": 104.0, "low": 99.0, "close": 103.0},
+        position_side="LONG",
+        entry_mode=PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY,
+    )
+
+    assert midpoint_actions[0].action_type == StrategyActionType.ENTER_LONG
+    assert midpoint_actions[0].requested_price == pytest.approx(98.0)
+    assert midpoint_actions[0].metadata["fill_price_source"] == "PATTERN_MIDPOINT"
+    assert boundary_actions[0].action_type == StrategyActionType.ENTER_LONG
+    assert boundary_actions[0].requested_price == pytest.approx(96.0)
+    assert boundary_actions[0].metadata["fill_price_source"] == "PATTERN_BOUNDARY"
+
+
 def test_limit_entry_reference_no_fill_returns_skip_metadata() -> None:
     actions = build_pattern_trade_actions(
         _Event("BULLISH", entry_reference=95.0),

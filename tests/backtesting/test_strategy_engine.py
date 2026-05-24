@@ -20,7 +20,7 @@ def _candles() -> pd.DataFrame:
 
 def test_engine_buy_sell_and_equity_accounting() -> None:
     actions = [
-        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1.0, metadata={"pattern_event_id": "e1"}),
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1.0, metadata={"pattern_event_id": "e1", "risk_per_unit": 2.0}),
         StrategyAction(StrategyActionType.PARTIAL_EXIT_LONG, timestamp=2, quantity=0.4, metadata={"exit_reason": "TAKE_PROFIT"}),
         StrategyAction(StrategyActionType.EXIT_LONG, timestamp=3, quantity=0.6, metadata={"exit_reason": "TIME_STOP"}),
     ]
@@ -53,6 +53,11 @@ def test_engine_buy_sell_and_equity_accounting() -> None:
     assert attribution["trade_metrics"]["expectancy"] == pytest.approx(3.8)
     assert attribution["attribution"]["by_position_side"]["LONG"]["completed_trade_count"] == 1
     assert attribution["attribution"]["by_exit_reason"]["TAKE_PROFIT+TIME_STOP"]["net_pnl"] == pytest.approx(3.8)
+    timing = result.summary.metadata["timing_diagnostics"]
+    assert timing["schema_version"] == "trade_timing_diagnostics_v1"
+    assert timing["completed_trade_count"] == 1
+    assert timing["trades"][0]["mfe_price"] == pytest.approx(6.0)
+    assert timing["trades"][0]["mae_price"] == pytest.approx(1.0)
 
 
 def test_engine_rejects_unsorted_candles() -> None:
@@ -169,8 +174,24 @@ def test_engine_attaches_market_regime_metadata_without_changing_fills() -> None
         config=StrategyEngineConfig(
             starting_cash=10000,
             market_regime_by_timestamp={
-                1: {"market_regime": "LOW_VOL_UPTREND", "trend_regime": "UPTREND"},
-                2: {"market_regime": "LOW_VOL_UPTREND", "trend_regime": "UPTREND"},
+                1: {
+                    "market_regime": "LOW_VOL_UPTREND",
+                    "trend_regime": "UPTREND",
+                    "liquidity_regime": "LOW",
+                    "spread_regime": "WIDE",
+                    "session_tag": "EU_US_OVERLAP",
+                    "weekday_tag": "WEEKDAY",
+                    "trading_value_percentile": 0.2,
+                    "range_spread_proxy_percentile": 0.9,
+                },
+                2: {
+                    "market_regime": "LOW_VOL_UPTREND",
+                    "trend_regime": "UPTREND",
+                    "liquidity_regime": "LOW",
+                    "spread_regime": "WIDE",
+                    "session_tag": "EU_US_OVERLAP",
+                    "weekday_tag": "WEEKDAY",
+                },
             },
         ),
     )
@@ -179,7 +200,12 @@ def test_engine_attaches_market_regime_metadata_without_changing_fills() -> None
     assert [execution.quantity for execution in tagged.executions] == [execution.quantity for execution in baseline.executions]
     assert tagged.executions[0].metadata["market_regime"] == "LOW_VOL_UPTREND"
     assert tagged.executions[0].metadata["market_regime_context"]["trend_regime"] == "UPTREND"
+    assert tagged.executions[0].metadata["session"] == "EU_US_OVERLAP"
+    assert tagged.executions[0].metadata["trading_value_percentile"] == 0.2
     assert tagged.summary.metadata["trade_attribution"]["attribution"]["by_market_regime"]["LOW_VOL_UPTREND"]["completed_trade_count"] == 1
+    assert tagged.summary.metadata["trade_attribution"]["attribution"]["by_session"]["EU_US_OVERLAP"]["completed_trade_count"] == 1
+    assert tagged.summary.metadata["trade_attribution"]["attribution"]["by_liquidity_regime"]["LOW"]["completed_trade_count"] == 1
+    assert tagged.summary.metadata["trade_attribution"]["attribution"]["by_spread_regime"]["WIDE"]["completed_trade_count"] == 1
 
 
 def test_engine_records_cost_summary_and_volatility_slippage() -> None:

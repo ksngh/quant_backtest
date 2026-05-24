@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getBacktestRun, getHealth, listBacktestRuns } from "../lib/api";
+import { extractPerformanceDiagnostics, type MetricDefinition } from "../lib/performanceDiagnostics";
+import { buildRunConclusionModel } from "../lib/runConclusion";
+import { buildStrategyExplanationModel } from "../lib/strategyExplanation";
 import type {
   BacktestGraphPoint,
   BacktestRunDetailResponse,
@@ -13,63 +16,6 @@ import type {
 } from "../types/api";
 
 type AnyRecord = Record<string, unknown>;
-
-type PatternKnowledge = {
-  indicators: string[];
-  economicMeaning: string[];
-  fallback: boolean;
-};
-
-const PATTERN_KNOWLEDGE: Record<string, PatternKnowledge> = {
-  FAIR_VALUE_GAP: {
-    indicators: ["Displacement candle", "Volume ratio", "Three-candle imbalance", "ATR risk buffer"],
-    economicMeaning: [
-      "Targets price gaps created by aggressive directional order flow.",
-      "The thesis is that unfilled imbalance zones can act as liquidity magnets or continuation levels.",
-    ],
-    fallback: true,
-  },
-  ORDER_BLOCK: {
-    indicators: ["Source candle zone", "Displacement confirmation", "ATR risk buffer", "Volume context"],
-    economicMeaning: [
-      "Models a price zone where a prior opposing candle preceded a strong directional move.",
-      "The thesis is that retests of that zone can reveal institutional absorption or defended inventory.",
-    ],
-    fallback: true,
-  },
-  TRENDLINE_BREAK: {
-    indicators: ["Pivot highs/lows", "Trendline slope", "ATR breakout buffer", "Breakout close"],
-    economicMeaning: [
-      "Tracks a structural regime shift after repeated trendline interaction.",
-      "The thesis is that a confirmed break can unlock stops and momentum continuation.",
-    ],
-    fallback: true,
-  },
-  CUP_AND_HANDLE: {
-    indicators: ["Swing pivots", "Cup depth", "Handle pullback", "Neckline breakout"],
-    economicMeaning: [
-      "Models accumulation, shallow pullback, and breakout continuation.",
-      "The thesis is that reduced selling pressure in the handle can precede follow-through demand.",
-    ],
-    fallback: true,
-  },
-  DIAMOND: {
-    indicators: ["Expansion pivots", "Contraction pivots", "Boundary break", "Measured move height"],
-    economicMeaning: [
-      "Models volatility expansion followed by compression before directional resolution.",
-      "The thesis is that a boundary break can release trapped positioning from the consolidation.",
-    ],
-    fallback: true,
-  },
-  ADAM_AND_EVE: {
-    indicators: ["Spike low", "Rounded retest", "Neckline breakout", "Measured move depth"],
-    economicMeaning: [
-      "Models a sharp capitulation low followed by a slower accumulation retest.",
-      "The thesis is that neckline recovery confirms demand has absorbed the prior selloff.",
-    ],
-    fallback: true,
-  },
-};
 
 function asRecord(value: unknown): AnyRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as AnyRecord) : null;
@@ -210,29 +156,6 @@ function parameterRows(value: unknown, prefix = ""): { label: string; value: str
   });
 }
 
-function patternKey(detail: BacktestRunDetailResponse): string {
-  const params = detail.strategy_config.parameters;
-  const direct =
-    (typeof params.pattern === "string" && params.pattern) ||
-    (typeof params.strategy === "string" && params.strategy) ||
-    detail.strategy_config.key ||
-    detail.strategy_config.name;
-  return String(direct).toUpperCase();
-}
-
-function explanationRecord(detail: BacktestRunDetailResponse): AnyRecord | null {
-  return asRecord(detail.strategy_config.metadata?.explanation);
-}
-
-function patternKnowledge(detail: BacktestRunDetailResponse): PatternKnowledge {
-  const key = patternKey(detail);
-  return PATTERN_KNOWLEDGE[key] ?? {
-    indicators: ["Strategy-defined indicators from persisted metadata"],
-    economicMeaning: ["Economic interpretation is not available for this strategy metadata."],
-    fallback: true,
-  };
-}
-
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="section-header">
@@ -242,11 +165,22 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
-function MetricCard({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" | "neutral" }) {
+function MetricCard({
+  label,
+  value,
+  tone,
+  helper,
+}: {
+  label: string;
+  value: string;
+  tone?: "good" | "bad" | "neutral";
+  helper?: string;
+}) {
   return (
-    <div className={`metric-card ${tone ?? "neutral"}`}>
+    <div className={`metric-card ${tone ?? "neutral"}`} title={helper}>
       <span>{label}</span>
       <strong>{value}</strong>
+      {helper && <small>{helper}</small>}
     </div>
   );
 }
@@ -492,44 +426,55 @@ function Chart({
 }
 
 function StrategyExplanation({ detail }: { detail: BacktestRunDetailResponse }) {
-  const explanation = explanationRecord(detail);
-  const knowledge = patternKnowledge(detail);
-  const algorithmName = String(explanation?.algorithm_name ?? detail.strategy_config.name);
-  const algorithmKey = String(explanation?.algorithm_key ?? patternKey(detail));
-  const rules = {
-    Detection: listText(explanation?.detection_rules),
-    Entry: listText(explanation?.entry_rules),
-    "Stop Loss": listText(explanation?.stop_loss_rules),
-    "Take Profit": listText(explanation?.take_profit_rules),
-    "Risk Management": [
-      ...listText(explanation?.partial_exit_rules),
-      ...listText(explanation?.soft_invalidation_rules),
-      ...listText(explanation?.time_stop_rules),
-    ],
-    Limitations: listText(explanation?.known_limitations),
-  };
+  const model = buildStrategyExplanationModel(detail);
 
   return (
     <section className="panel">
-      <SectionHeader title="Strategy Logic" subtitle={`${algorithmName} / ${algorithmKey}`} />
+      <SectionHeader title={model.title} subtitle={model.subtitle} />
+      {model.fallback && (
+        <p className="diagnostic-warning">
+          Persisted explanation metadata is missing; this section combines static strategy knowledge with actual run metadata.
+        </p>
+      )}
       <div className="strategy-grid">
         <div className="info-block">
-          <h3>Indicators</h3>
-          <CompactList items={knowledge.indicators} />
+          <h3>Strategy Overview</h3>
+          <KeyValueGrid rows={model.overview} />
         </div>
         <div className="info-block">
-          <h3>Economic Meaning</h3>
-          <CompactList items={knowledge.economicMeaning} />
-          {knowledge.fallback && <p className="source-note">Static fallback when persisted economic metadata is missing.</p>}
+          <h3>Economic Hypothesis</h3>
+          <CompactList items={model.economicHypothesis} />
+        </div>
+        <div className="info-block">
+          <h3>Indicators Used</h3>
+          <CompactList items={model.indicatorsUsed} />
+        </div>
+        <div className="info-block">
+          <h3>Bad Performance Clues</h3>
+          {model.badPerformanceClues.length ? <CompactList items={model.badPerformanceClues} /> : <p className="muted">No deterministic diagnostic clue is available for this run.</p>}
         </div>
       </div>
       <div className="rules-grid">
-        {Object.entries(rules).map(([title, items]) => (
-          <div className="rule-card" key={title}>
-            <h3>{title}</h3>
-            <CompactList items={items} />
-          </div>
-        ))}
+        <div className="rule-card">
+          <h3>Risk Management Design</h3>
+          <KeyValueGrid rows={model.riskManagementDesign} />
+        </div>
+        <div className="rule-card">
+          <h3>Actual Risk Behavior</h3>
+          <KeyValueGrid rows={model.actualRiskBehavior} />
+        </div>
+        <div className="rule-card">
+          <h3>Entry Timing</h3>
+          <KeyValueGrid rows={model.entryTiming} />
+        </div>
+        <div className="rule-card">
+          <h3>Exit Timing</h3>
+          <KeyValueGrid rows={model.exitTiming} />
+        </div>
+        <div className="rule-card">
+          <h3>Known Limitations</h3>
+          <CompactList items={model.knownLimitations} />
+        </div>
       </div>
     </section>
   );
@@ -549,6 +494,472 @@ function AccountStatePanel({ detail }: { detail: BacktestRunDetailResponse }) {
         <MetricCard label="Margin Used" value={fmtNum(valueNum(state, "margin_used_after"))} />
       </div>
       {valueText(state, "cash_after_semantics") && <p className="muted">{valueText(state, "cash_after_semantics")}</p>}
+    </section>
+  );
+}
+
+function formatMetricValue(metric: MetricDefinition): string {
+  if (metric.displayValue) return metric.displayValue;
+  if (metric.value === null || metric.value === undefined) return "No metric available";
+  if (metric.format === "boolean") return metric.value ? "Yes" : "No";
+  if (typeof metric.value !== "number") return String(metric.value);
+  if (metric.format === "percent") return fmtPct(metric.value);
+  if (metric.format === "periods") return `${fmtNum(metric.value)} periods`;
+  return fmtNum(metric.value);
+}
+
+function PerformanceDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const diagnostics = extractPerformanceDiagnostics(detail.summary.metadata);
+  const costProfile = asRecord(detail.summary.metadata?.cost_profile);
+  const topMetrics = diagnostics.metrics.filter((metric) =>
+    [
+      "total_return",
+      "annualized_return",
+      "annualized_volatility",
+      "sharpe_ratio",
+      "sortino_ratio",
+      "calmar_ratio",
+      "max_drawdown",
+      "max_drawdown_duration_periods",
+      "hit_ratio",
+      "expectancy",
+      "profit_factor",
+      "cost_to_gross_pnl_ratio",
+    ].includes(metric.key),
+  );
+  const secondaryMetrics = diagnostics.metrics.filter((metric) =>
+    [
+      "payoff_ratio",
+      "average_r",
+      "median_r",
+      "max_consecutive_losses",
+      "exposure_fraction",
+      "turnover_ratio",
+      "zero_transaction_cost_assumption",
+    ].includes(metric.key),
+  );
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Performance Diagnostics"
+        subtitle="Risk-adjusted return, trade lifecycle quality, cost drag, exposure, and turnover from saved metadata."
+      />
+      {!diagnostics.hasMetrics ? (
+        <p className="muted">No metric available for this run. Legacy runs may not include research diagnostics metadata.</p>
+      ) : (
+        <>
+          {diagnostics.zeroCostAssumption === true && (
+            <p className="diagnostic-warning">
+              Zero-cost assumption active: fees, spread, and slippage were not charged, so live-like performance is likely overstated.
+            </p>
+          )}
+          <div className="diagnostic-labels">
+            {diagnostics.labels.length ? (
+              diagnostics.labels.map((label) => (
+                <span className="interpretation-pill" key={label}>
+                  {label}
+                </span>
+              ))
+            ) : (
+              <span className="interpretation-pill neutral">No major diagnostic flag</span>
+            )}
+          </div>
+          <div className="metric-grid diagnostics-grid">
+            <MetricCard label="Cost Profile" value={String(costProfile?.profile_key ?? "Unavailable")} helper={String(costProfile?.description ?? "Named cost profile metadata is unavailable.")} />
+            {topMetrics.map((metric) => (
+              <MetricCard
+                helper={metric.helper}
+                key={metric.key}
+                label={metric.label}
+                tone={metric.tone}
+                value={formatMetricValue(metric)}
+              />
+            ))}
+          </div>
+          <div className="diagnostic-table">
+            <KeyValueGrid
+              rows={secondaryMetrics.map((metric) => ({
+                label: metric.label,
+                value: `${formatMetricValue(metric)} - ${metric.helper}`,
+              }))}
+            />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RunDiagnosisPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const diagnosis = asRecord(asRecord(detail.diagnostics?.summary)?.performance_diagnostics);
+  const flags = Array.isArray(diagnosis?.flags) ? diagnosis.flags.map(asRecord).filter((flag): flag is AnyRecord => Boolean(flag)) : [];
+  const warnings = listText(diagnosis?.warnings);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Run Diagnosis"
+        subtitle="Deterministic forensic flags from saved metadata, trades, and graph points."
+      />
+      {!diagnosis ? (
+        <p className="muted">No run diagnosis available.</p>
+      ) : (
+        <>
+          <div className="diagnosis-summary">
+            <MetricCard label="Highest Severity" value={String(diagnosis.highest_severity ?? "None")} tone={diagnosis.highest_severity === "CRITICAL" ? "bad" : diagnosis.highest_severity === "WARNING" ? "bad" : "neutral"} />
+            <MetricCard label="Flag Count" value={fmtNum(valueNum(diagnosis, "flag_count"))} />
+            <MetricCard label="Inference Strength" value={String(diagnosis.inference_strength ?? "Partial")} />
+          </div>
+          {warnings.length > 0 && <p className="diagnostic-warning">{warnings.join(" / ")}</p>}
+          {flags.length ? (
+            <div className="diagnosis-list">
+              {flags.slice(0, 8).map((flag) => (
+                <div className={`diagnosis-card ${String(flag.severity ?? "INFO").toLowerCase()}`} key={String(flag.code)}>
+                  <div>
+                    <strong>{String(flag.code)}</strong>
+                    <span>{String(flag.category ?? "general")} / {String(flag.severity ?? "INFO")}</span>
+                  </div>
+                  <p>{String(flag.message ?? "")}</p>
+                  <small>{String(flag.suggested_next_analysis ?? "")}</small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No deterministic poor-performance flag was detected.</p>
+          )}
+          <details className="debug-details">
+            <summary>Raw diagnosis details</summary>
+            <pre>{JSON.stringify(diagnosis, null, 2)}</pre>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RunConclusionPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const conclusion = buildRunConclusionModel(detail);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Run Conclusion"
+        subtitle="Deterministic diagnosis of likely failure reasons and next analysis steps."
+      />
+      <div className="diagnosis-summary">
+        <MetricCard label="Conclusion" value={conclusion.status.replace(/_/g, " ")} tone={conclusion.status === "weak_run" ? "bad" : "neutral"} />
+        <MetricCard label="Confidence" value={conclusion.confidence} />
+        <MetricCard label="Completed Trades" value={fmtNum(conclusion.completedTradeCount)} />
+      </div>
+      <p className={conclusion.status === "weak_run" ? "diagnostic-warning" : "muted"}>{conclusion.headline}</p>
+      <div className="diagnosis-list">
+        {conclusion.reasons.map((reason) => (
+          <div className={`diagnosis-card ${reason.severity}`} key={`${reason.category}-${reason.title}`}>
+            <div>
+              <strong>{reason.title}</strong>
+              <span>{reason.category} / {reason.severity}</span>
+            </div>
+            <p>{reason.evidence}</p>
+            <small>{reason.recommendedNextAnalysis}</small>
+          </div>
+        ))}
+      </div>
+      <div className="diagnostic-table">
+        <KeyValueGrid rows={conclusion.evidenceRows} />
+      </div>
+      <details className="debug-details">
+        <summary>Raw conclusion evidence</summary>
+        <pre>{JSON.stringify(conclusion.rawEvidence, null, 2)}</pre>
+      </details>
+    </section>
+  );
+}
+
+function TimingDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const timing = asRecord(asRecord(detail.diagnostics?.summary)?.timing_diagnostics ?? detail.summary.metadata?.timing_diagnostics);
+  const aggregate = asRecord(timing?.aggregate);
+  const flags = Array.isArray(timing?.flags) ? timing.flags.map(asRecord).filter((flag): flag is AnyRecord => Boolean(flag)) : [];
+  const trades = Array.isArray(timing?.trades) ? timing.trades.map(asRecord).filter((trade): trade is AnyRecord => Boolean(trade)) : [];
+  const warnings = listText(timing?.warnings);
+  const codes = new Set(flags.map((flag) => String(flag.code ?? "")));
+  const labels = [
+    codes.has("ENTRY_WAS_LATE_CHASING") ? "Entry was late/chasing" : null,
+    codes.has("EXIT_LEFT_MONEY_ON_TABLE") ? "Exit left money on table" : null,
+    codes.has("IMMEDIATE_ADVERSE_EXCURSION") ? "Immediate adverse excursion" : null,
+  ].filter((label): label is string => Boolean(label));
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Entry/Exit Timing"
+        subtitle="MFE, MAE, entry-reference divergence, and post-entry reaction diagnostics from the saved trade path."
+      />
+      {!timing ? (
+        <p className="muted">No timing diagnosis available.</p>
+      ) : (
+        <>
+          <div className="metric-grid diagnostics-grid">
+            <MetricCard label="Completed Trades" value={fmtNum(valueNum(timing, "completed_trade_count"))} />
+            <MetricCard label="Path Mode" value={String(timing.path_mode ?? "Unknown")} helper={String(timing.partial_exit_policy ?? "")} />
+            <MetricCard label="Avg MFE R" value={fmtNum(valueNum(aggregate, "average_mfe_r"))} helper="Best unrealized R multiple reached before final exit." />
+            <MetricCard label="Avg MAE R" value={fmtNum(valueNum(aggregate, "average_mae_r"))} helper="Worst adverse R multiple reached before final exit." />
+          </div>
+          <div className="diagnostic-labels">
+            {labels.length ? (
+              labels.map((label) => (
+                <span className="interpretation-pill" key={label}>
+                  {label}
+                </span>
+              ))
+            ) : (
+              <span className="interpretation-pill neutral">No major timing flag</span>
+            )}
+          </div>
+          {warnings.length > 0 && <p className="diagnostic-warning">{warnings.join(" / ")}</p>}
+          {trades.length ? (
+            <div className="timing-trade-list">
+              {trades.slice(0, 6).map((trade, index) => (
+                <div className="timing-trade-card" key={`${String(trade.entry_timestamp ?? "entry")}-${index}`}>
+                  <strong>{String(trade.position_side ?? "Trade")} {String(trade.exit_reason ?? "exit")}</strong>
+                  <span>MFE {fmtNum(valueNum(trade, "mfe_r"))}R / MAE {fmtNum(valueNum(trade, "mae_r"))}R / Realized {fmtNum(valueNum(trade, "realized_r"))}R</span>
+                  <small>Bars to MFE {fmtNum(valueNum(trade, "bars_to_mfe"))}, MAE {fmtNum(valueNum(trade, "bars_to_mae"))}, exit {fmtNum(valueNum(trade, "bars_to_exit"))}</small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No completed trade lifecycle could be matched to a price path.</p>
+          )}
+          <details className="debug-details">
+            <summary>Raw timing details</summary>
+            <pre>{JSON.stringify(timing, null, 2)}</pre>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RiskAuditPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const audit = asRecord(asRecord(detail.diagnostics?.summary)?.risk_exit_audit ?? detail.summary.metadata?.risk_exit_audit);
+  const dominance = asRecord(audit?.dominance);
+  const targetQuality = asRecord(audit?.target_quality);
+  const partialExit = asRecord(audit?.partial_exit);
+  const distribution = asRecord(audit?.exit_reason_distribution);
+  const flags = Array.isArray(audit?.flags) ? audit.flags.map(asRecord).filter((flag): flag is AnyRecord => Boolean(flag)) : [];
+  const rows = distribution
+    ? Object.entries(distribution).map(([reason, raw]) => {
+        const value = asRecord(raw);
+        return {
+          label: reason,
+          value: `${fmtNum(valueNum(value, "count"))} exits / ${fmtPct(valueNum(value, "ratio"))} / avg R ${fmtNum(valueNum(value, "average_r"))}`,
+        };
+      })
+    : [];
+
+  return (
+    <section className="panel">
+      <SectionHeader title="Risk Management" subtitle="Configured risk design versus realized exit behavior." />
+      {!audit ? (
+        <p className="muted">No risk audit available.</p>
+      ) : (
+        <>
+          <div className="metric-grid diagnostics-grid">
+            <MetricCard label="Completed Exits" value={fmtNum(valueNum(audit, "completed_exit_count"))} />
+            <MetricCard label="Stop Dominance" value={fmtPct(valueNum(dominance, "stop_loss_dominance_ratio"))} />
+            <MetricCard label="Soft Invalidation" value={fmtPct(valueNum(dominance, "soft_invalidation_dominance_ratio"))} />
+            <MetricCard label="Time Stop" value={fmtPct(valueNum(dominance, "time_stop_dominance_ratio"))} />
+          </div>
+          {flags.length > 0 && (
+            <div className="diagnostic-labels">
+              {flags.map((flag) => (
+                <span className="interpretation-pill" key={String(flag.code)}>
+                  {String(flag.code)}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="strategy-grid">
+            <div className="info-block">
+              <h3>Risk Design</h3>
+              <KeyValueGrid
+                rows={[
+                  { label: "Take-Profit Avg R", value: fmtNum(valueNum(targetQuality, "take_profit_average_r")) },
+                  { label: "Hard-Stop Avg R", value: fmtNum(valueNum(targetQuality, "hard_stop_average_r")) },
+                  { label: "First Target Hit Rate", value: fmtPct(valueNum(targetQuality, "first_target_hit_rate")) },
+                  { label: "Final Target Hit Rate", value: fmtPct(valueNum(targetQuality, "final_target_hit_rate")) },
+                  { label: "Avg Target Distance R", value: fmtNum(valueNum(targetQuality, "average_target_distance_r")) },
+                  { label: "Avg Target Distance Price", value: fmtNum(valueNum(targetQuality, "average_target_distance_price")) },
+                ]}
+              />
+            </div>
+            <div className="info-block">
+              <h3>Realized Outcomes</h3>
+              <KeyValueGrid rows={rows} />
+              <KeyValueGrid
+                rows={[
+                  { label: "Partial Exit PnL", value: fmtNum(valueNum(partialExit, "partial_exit_net_pnl")) },
+                  { label: "Partial Contribution", value: fmtPct(valueNum(partialExit, "partial_exit_pnl_contribution_ratio")) },
+                ]}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ScoreCalibrationPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const calibration = asRecord(asRecord(detail.diagnostics?.summary)?.score_calibration ?? detail.summary.metadata?.score_calibration);
+  const componentAnalysis = asRecord(calibration?.component_analysis);
+  const buckets = Array.isArray(calibration?.buckets)
+    ? calibration.buckets.map(asRecord).filter((bucket): bucket is AnyRecord => Boolean(bucket))
+    : [];
+  const thresholds = Array.isArray(calibration?.threshold_sensitivity)
+    ? calibration.threshold_sensitivity.map(asRecord).filter((row): row is AnyRecord => Boolean(row))
+    : [];
+  const flags = Array.isArray(calibration?.flags) ? calibration.flags.map(asRecord).filter((flag): flag is AnyRecord => Boolean(flag)) : [];
+  const warnings = listText(calibration?.warnings);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Score Reliability"
+        subtitle="Pattern-score calibration by realized bucket, component placeholder rate, and threshold sensitivity."
+      />
+      {!calibration ? (
+        <p className="muted">No pattern score calibration available.</p>
+      ) : (
+        <>
+          <div className="metric-grid diagnostics-grid">
+            <MetricCard label="Scored Trades" value={`${fmtNum(valueNum(calibration, "scored_trade_count"))} / ${fmtNum(valueNum(calibration, "total_completed_trade_count"))}`} />
+            <MetricCard label="Inference Strength" value={String(calibration.inference_strength ?? "Partial")} />
+            <MetricCard label="Placeholder Rate" value={fmtPct(valueNum(componentAnalysis, "placeholder_component_rate"))} helper="Share of score components marked placeholder." />
+            <MetricCard label="Flag Count" value={fmtNum(valueNum(calibration, "flag_count"))} />
+          </div>
+          {warnings.length > 0 && <p className="diagnostic-warning">{warnings.join(" / ")}</p>}
+          {flags.length > 0 && (
+            <div className="diagnostic-labels">
+              {flags.map((flag) => (
+                <span className="interpretation-pill" key={String(flag.code)}>
+                  {String(flag.code)}
+                </span>
+              ))}
+            </div>
+          )}
+          {buckets.length ? (
+            <div className="table-wrap compact diagnostic-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Score Bucket</th>
+                    <th>Trades</th>
+                    <th>Hit Rate</th>
+                    <th>Avg R</th>
+                    <th>Median R</th>
+                    <th>Expectancy</th>
+                    <th>Profit Factor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buckets.map((bucket) => (
+                    <tr key={String(bucket.bucket)}>
+                      <td>{String(bucket.bucket)}</td>
+                      <td>{fmtNum(valueNum(bucket, "trade_count"))}</td>
+                      <td>{fmtPct(valueNum(bucket, "hit_ratio"))}</td>
+                      <td>{fmtNum(valueNum(bucket, "average_r"))}</td>
+                      <td>{fmtNum(valueNum(bucket, "median_r"))}</td>
+                      <td>{fmtNum(valueNum(bucket, "expectancy"))}</td>
+                      <td>{bucket.profit_factor_is_infinite ? "Infinite" : fmtNum(valueNum(bucket, "profit_factor"))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="muted">No score buckets available for this run.</p>
+          )}
+          {thresholds.length > 0 && (
+            <details className="debug-details">
+              <summary>Threshold sensitivity</summary>
+              <KeyValueGrid
+                rows={thresholds.map((row) => ({
+                  label: `Score >= ${fmtNum(valueNum(row, "minimum_pattern_score"))}`,
+                  value: `${fmtNum(valueNum(row, "trade_count"))} trades / hit ${fmtPct(valueNum(row, "hit_ratio"))} / avg R ${fmtNum(valueNum(row, "average_r"))}`,
+                }))}
+              />
+            </details>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function TradabilityDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const attribution = asRecord(asRecord(detail.diagnostics?.summary)?.trade_attribution ?? detail.summary.metadata?.trade_attribution);
+  const groups = asRecord(attribution?.attribution);
+  const bySession = asRecord(groups?.by_session);
+  const byLiquidity = asRecord(groups?.by_liquidity_regime);
+  const bySpread = asRecord(groups?.by_spread_regime);
+  const rowsFor = (record: AnyRecord | null, label: string) =>
+    record
+      ? Object.entries(record).map(([key, raw]) => {
+          const metrics = asRecord(raw);
+          return {
+            label: `${label} / ${key}`,
+            value: `${fmtNum(valueNum(metrics, "completed_trade_count"))} trades / expectancy ${fmtNum(valueNum(metrics, "expectancy"))} / avg R ${fmtNum(valueNum(metrics, "average_r"))}`,
+          };
+        })
+      : [];
+  const rows = [...rowsFor(bySession, "Session"), ...rowsFor(byLiquidity, "Liquidity"), ...rowsFor(bySpread, "Spread")];
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Tradability Diagnostics"
+        subtitle="OHLCV-derived liquidity, range-spread, and UTC session attribution. These are proxies, not order-book spreads."
+      />
+      {rows.length ? (
+        <div className="diagnostic-table">
+          <KeyValueGrid rows={rows} />
+        </div>
+      ) : (
+        <p className="muted">No tradability attribution is available for this run. Enable market-regime tagging on newer runs to populate liquidity, spread, and session groups.</p>
+      )}
+    </section>
+  );
+}
+
+function ResearchReportPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const report = asRecord(detail.research_report);
+  const markdown = typeof report?.markdown === "string" ? report.markdown : null;
+  return (
+    <section className="panel">
+      <SectionHeader title="Research Report" subtitle="Portable read-only JSON/markdown summary for this saved run." />
+      {!report ? (
+        <p className="muted">No research report artifact is available for this run.</p>
+      ) : (
+        <>
+          <KeyValueGrid
+            rows={[
+              { label: "Schema", value: String(report.schema_version ?? "Unavailable") },
+              { label: "Report Mode", value: "Saved-run read-only artifact" },
+            ]}
+          />
+          {markdown && (
+            <details className="debug-details" open>
+              <summary>Markdown preview</summary>
+              <pre>{markdown}</pre>
+            </details>
+          )}
+          <details className="debug-details">
+            <summary>Report JSON</summary>
+            <pre>{JSON.stringify(report, null, 2)}</pre>
+          </details>
+        </>
+      )}
     </section>
   );
 }
@@ -790,6 +1201,14 @@ export default function DashboardPage() {
 
               {allEquityZero && <p className="error">Equity series is all zero; treat this run as placeholder-neutral.</p>}
 
+              <PerformanceDiagnosticsPanel detail={detail} />
+              <RunConclusionPanel detail={detail} />
+              <RunDiagnosisPanel detail={detail} />
+              <ScoreCalibrationPanel detail={detail} />
+              <TradabilityDiagnosticsPanel detail={detail} />
+              <TimingDiagnosticsPanel detail={detail} />
+              <RiskAuditPanel detail={detail} />
+
               <div className="chart-grid">
                 <Chart color="#2563eb" points={detail.graph_points} title="Close Price" trades={detail.trades} valueKey="close_price" />
                 <Chart
@@ -805,6 +1224,7 @@ export default function DashboardPage() {
               <AccountStatePanel detail={detail} />
               <TradeTable trades={detail.trades} />
               <StrategyExplanation detail={detail} />
+              <ResearchReportPanel detail={detail} />
               <div className="two-column">
                 <ParametersPanel detail={detail} />
                 <RuntimePanel detail={detail} runtime={runtime} />

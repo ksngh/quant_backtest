@@ -216,12 +216,148 @@ input {
   overflow-wrap: anywhere;
 }
 
+.metric-card small {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
 .metric-card.good strong {
   color: var(--green);
 }
 
 .metric-card.bad strong {
   color: var(--red);
+}
+
+.diagnostics-grid {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.diagnostic-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.interpretation-pill {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.interpretation-pill.neutral {
+  background: #f8fafc;
+  border-color: var(--border);
+  color: #334155;
+}
+
+.diagnostic-warning {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.diagnostic-table {
+  margin-top: 12px;
+}
+
+.diagnosis-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  margin-bottom: 12px;
+}
+
+.diagnosis-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.diagnosis-card {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.diagnosis-card.warning,
+.diagnosis-card.critical {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.diagnosis-card strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.diagnosis-card span,
+.diagnosis-card small {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.diagnosis-card p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0;
+}
+
+.timing-trade-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.timing-trade-card {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.timing-trade-card strong,
+.timing-trade-card span,
+.timing-trade-card small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.timing-trade-card strong {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.timing-trade-card span {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.timing-trade-card small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 6px;
 }
 
 .chart-grid,
@@ -558,6 +694,10 @@ pre {
 
   .toolbar,
   .metric-grid,
+  .diagnostics-grid,
+  .diagnosis-summary,
+  .diagnosis-list,
+  .timing-trade-list,
   .kv-grid,
   .run-list,
   .range-controls {

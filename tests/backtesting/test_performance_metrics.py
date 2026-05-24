@@ -162,7 +162,15 @@ def test_unsupported_interval_returns_explicit_warning() -> None:
 
 def test_trade_attribution_handles_no_losses_without_infinite_json_value() -> None:
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    metadata = {"pattern_type": "FAIR_VALUE_GAP", "pattern_direction": "BULLISH", "regime": "TRENDING"}
+    metadata = {
+        "pattern_type": "FAIR_VALUE_GAP",
+        "pattern_direction": "BULLISH",
+        "regime": "TRENDING",
+        "session_tag": "EU_US_OVERLAP",
+        "liquidity_regime": "LOW",
+        "spread_regime": "WIDE",
+        "weekday_tag": "WEEKDAY",
+    }
     metrics = calculate_trade_attribution_metrics(
         [
             _execution(timestamp=start, action_type="ENTER_LONG", position_after=1.0, metadata=metadata),
@@ -187,6 +195,10 @@ def test_trade_attribution_handles_no_losses_without_infinite_json_value() -> No
     assert trade_metrics["profit_factor_is_infinite"] is True
     assert metrics["attribution"]["by_pattern_type"]["FAIR_VALUE_GAP"]["net_pnl"] == 25.0
     assert metrics["attribution"]["by_market_regime"]["TRENDING"]["completed_trade_count"] == 1
+    assert metrics["attribution"]["by_session"]["EU_US_OVERLAP"]["completed_trade_count"] == 1
+    assert metrics["attribution"]["by_liquidity_regime"]["LOW"]["completed_trade_count"] == 1
+    assert metrics["attribution"]["by_spread_regime"]["WIDE"]["completed_trade_count"] == 1
+    assert metrics["attribution"]["by_weekday_tag"]["WEEKDAY"]["completed_trade_count"] == 1
 
 
 def test_trade_attribution_handles_no_wins_and_max_consecutive_losses() -> None:

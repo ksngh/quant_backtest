@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pandas as pd
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli, pattern_postgres_runner_cli
 from quant_bitcoin.backtesting import strategy_postgres_runner_core
+from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus
 from quant_bitcoin.risk.exit_plan import RiskExitDirection, RiskExitPlan, RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
@@ -13,6 +14,10 @@ class FakeProvider:
 
 def make_candles():
     return pd.DataFrame({"timestamp":pd.date_range("2026-05-18",periods=3,freq="min",tz="UTC"),"open":[100,101,102],"high":[101,102,103],"low":[99,100,101],"close":[100,101,102],"volume":[1,1,1]})
+
+
+def make_loss_guard_candles():
+    return pd.DataFrame({"timestamp":pd.date_range("2026-05-18",periods=3,freq="min",tz="UTC"),"open":[100,90,90],"high":[101,91,91],"low":[99,89,89],"close":[100,90,90],"volume":[1000,1000,1000]})
 
 
 def _valid_risk_plan() -> RiskExitPlan:
@@ -51,10 +56,30 @@ class _SizingStubStrategy:
                     "position_side": "LONG",
                     "risk_plan": _valid_risk_plan(),
                     "event_id": "sizing-event",
-                    "pattern_type": "STUB",
+                    "pattern_type": "FAIR_VALUE_GAP",
+                    "entry_reference": 100.5,
+                    "zone_mid": 100.5,
+                    "zone_low": 99.5,
+                    "zone_high": 101.5,
                 },
             )
         ]
+
+
+class _FvgEntryStubStrategy(_SizingStubStrategy):
+    strategy_key = "FAIR_VALUE_GAP"
+    strategy_name = "FAIR_VALUE_GAP_PATTERN_STRATEGY"
+
+
+class _OrderBlockEntryStubStrategy(_SizingStubStrategy):
+    strategy_key = "ORDER_BLOCK"
+    strategy_name = "ORDER_BLOCK_PATTERN_STRATEGY"
+
+
+class _TrendlineEntryStubStrategy(_SizingStubStrategy):
+    strategy_key = "TRENDLINE_BREAK"
+    strategy_name = "TRENDLINE_BREAK_PATTERN_STRATEGY"
+
 
 def test_strategy_cli_empty_candles_warning(monkeypatch,capsys):
     monkeypatch.setattr(strategy_postgres_runner_cli.PostgresCandleDataProvider,'from_database_url',lambda *a,**k:FakeProvider(make_candles().iloc[0:0]))
@@ -261,6 +286,43 @@ def test_build_transaction_cost_config_from_args():
     assert liquidity_role.value == "MAKER"
 
 
+def test_cost_profile_config_from_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--cost-profile", "binance_spot_taker_baseline", "--no-persist"])
+    config, _ = strategy_postgres_runner_core._build_transaction_cost_config(args)
+
+    assert config.taker_fee_bps == 10.0
+    assert config.spread_bps == 1.0
+    assert config.slippage_bps == 1.0
+
+
+def test_cost_profile_rejects_manual_conflict_without_override():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--cost-profile", "conservative_crypto_1m", "--taker-fee-bps", "1", "--no-persist"])
+
+    try:
+        strategy_postgres_runner_core._build_transaction_cost_config(args)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "--allow-cost-profile-overrides" in str(exc)
+
+
+def test_cost_profile_override_is_deterministic():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--cost-profile",
+        "conservative_crypto_1m",
+        "--taker-fee-bps",
+        "1",
+        "--allow-cost-profile-overrides",
+        "--no-persist",
+    ])
+    config, _ = strategy_postgres_runner_core._build_transaction_cost_config(args)
+
+    assert config.taker_fee_bps == 1.0
+    assert config.spread_bps == 3.0
+
+
 def test_build_position_sizing_and_margin_config_from_args():
     parser = strategy_postgres_runner_core.build_parser("x")
     args = parser.parse_args(
@@ -327,7 +389,7 @@ def test_strategy_cli_output_includes_short_model_limitations(monkeypatch, capsy
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "_build_actions",
-        lambda *_: (
+        lambda *_, **__: (
             type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
             [
                 strategy_postgres_runner_cli.StrategyAction(
@@ -371,7 +433,7 @@ def test_strategy_cli_output_includes_sizing_and_margin_metadata(monkeypatch, ca
     monkeypatch.setattr(
         strategy_postgres_runner_core,
         "_build_actions",
-        lambda *_: (
+        lambda *_, **__: (
             type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
             [
                 strategy_postgres_runner_cli.StrategyAction(
@@ -471,6 +533,159 @@ def test_build_pattern_entry_filter_config_args():
     assert cfg.quantity_override == 3
 
 
+def test_build_fvg_entry_config_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--fvg-entry-mode",
+        "limit_at_pattern_midpoint",
+        "--fvg-entry-max-wait-bars",
+        "3",
+        "--fvg-entry-expire-status",
+        "cancelled",
+        "--no-persist",
+    ])
+
+    mode = strategy_postgres_runner_core._selected_fvg_entry_mode(args)
+    config = strategy_postgres_runner_core._selected_fvg_entry_config(args)
+
+    assert mode is PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT
+    assert config == PatternEntryConfig(max_wait_bars=3, expire_status=PatternEntryStatus.CANCELLED)
+
+
+def test_fvg_entry_mode_cli_output_contains_fill_diagnostics(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _FvgEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "FAIR_VALUE_GAP",
+        "--fvg-entry-mode",
+        "limit_at_pattern_midpoint",
+        "--fvg-entry-max-wait-bars",
+        "2",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    execution = out["executions"][0]
+    diagnostics = out["diagnostics"]["fvg_entry_mode"]
+
+    assert execution["metadata"]["entry_mode"] == "LIMIT_AT_PATTERN_MIDPOINT"
+    assert execution["metadata"]["fill_price_source"] == "PATTERN_MIDPOINT"
+    assert execution["metadata"]["bars_waited"] == 1
+    assert diagnostics["selected_entry_mode"] == "LIMIT_AT_PATTERN_MIDPOINT"
+    assert diagnostics["fill_rate"] == 1.0
+    assert out["summary"]["metadata"]["fvg_entry_mode"]["filled_entry_count"] == 1
+
+
+def test_fvg_entry_mode_comparison_output_contains_modes(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _FvgEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "FAIR_VALUE_GAP",
+        "--compare-fvg-entry-modes",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    comparison = out["diagnostics"]["fvg_entry_mode_comparison"]
+
+    assert comparison["schema_version"] == "fvg_entry_mode_comparison_v1"
+    assert "MARKET_ON_CONFIRMATION_CLOSE" in comparison["modes"]
+    assert "LIMIT_AT_PATTERN_MIDPOINT" in comparison["modes"]
+    assert comparison["modes"]["MARKET_ON_CONFIRMATION_CLOSE"]["economic_interpretation"] == "momentum_continuation_after_confirmation"
+    assert comparison["modes"]["LIMIT_AT_PATTERN_MIDPOINT"]["economic_interpretation"] == "imbalance_retest_or_rebalancing_entry"
+
+
+def test_pattern_entry_mode_rejects_unsupported_combination_before_provider_load() -> None:
+    try:
+        strategy_postgres_runner_core.run([
+            "--no-persist",
+            "--pattern",
+            "DIAMOND",
+            "--pattern-entry-mode",
+            "limit_at_pattern_midpoint",
+        ])
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "not supported for DIAMOND" in str(exc)
+
+
+def test_order_block_pattern_policy_metadata_in_cli_output(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _OrderBlockEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "ORDER_BLOCK",
+        "--pattern-entry-mode",
+        "market_on_next_open",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    policy = out["diagnostics"]["pattern_execution_policy"]
+
+    assert policy["pattern_key"] == "ORDER_BLOCK"
+    assert policy["policy_key"] == "ORDER_BLOCK_ZONE_RETEST"
+    assert policy["selected_entry_mode"] == "MARKET_ON_NEXT_OPEN"
+    assert out["executions"][0]["metadata"]["pattern_execution_policy_key"] == "ORDER_BLOCK_ZONE_RETEST"
+
+
+def test_trendline_break_pattern_policy_metadata_in_cli_output(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _TrendlineEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "TRENDLINE_BREAK",
+        "--pattern-entry-mode",
+        "limit_at_entry_reference",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    policy = out["summary"]["metadata"]["pattern_execution_policy"]
+
+    assert policy["pattern_key"] == "TRENDLINE_BREAK"
+    assert policy["policy_key"] == "TRENDLINE_BREAKOUT_CONFIRMATION"
+    assert policy["selected_entry_mode"] == "LIMIT_AT_ENTRY_REFERENCE"
+
+
 def test_profile_output_contains_timing_keys(monkeypatch, capsys):
     monkeypatch.setattr(
         strategy_postgres_runner_cli.PostgresCandleDataProvider,
@@ -506,3 +721,87 @@ def test_no_persist_output_contains_runtime_metadata(monkeypatch, capsys):
     assert runtime["strategy_key"] == "FAIR_VALUE_GAP"
     assert "total_elapsed_ms" in runtime
     assert "pattern_timings" in runtime
+
+
+def test_cli_output_contains_cost_profile_metadata(monkeypatch, capsys):
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(make_candles()),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--cost-profile", "high_slippage_stress"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    profile = out["summary"]["metadata"]["cost_profile"]
+    assert profile["profile_key"] == "high_slippage_stress"
+    assert profile["slippage_bps"] == 20.0
+    assert profile["zero_cost_profile"] is False
+
+
+def test_cli_passes_continuity_flag_to_provider(monkeypatch, capsys):
+    captured = {}
+
+    def fake_provider(*args, **kwargs):
+        captured["enforce_continuity"] = kwargs.get("enforce_continuity")
+        return FakeProvider(make_candles())
+
+    monkeypatch.setattr(strategy_postgres_runner_cli.PostgresCandleDataProvider, "from_database_url", fake_provider)
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--enforce-candle-continuity"]) == 0
+    json.loads(capsys.readouterr().out)
+    assert captured["enforce_continuity"] is True
+
+
+def test_cli_guardrail_blocks_after_consecutive_loss(monkeypatch, capsys):
+    candles = make_loss_guard_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda *_, **__: (
+            type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
+            [
+                StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
+                StrategyAction(StrategyActionType.EXIT_LONG, timestamp=candles.iloc[1]["timestamp"], quantity=1.0),
+                StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[2]["timestamp"], quantity=1.0),
+            ],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--max-consecutive-losses", "1"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["executions"][-1]["reason"] == "RISK_GUARD_MAX_CONSECUTIVE_LOSSES"
+    assert out["summary"]["metadata"]["guardrails"]["max_consecutive_losses"] == 1
+
+
+def test_cli_market_regime_enabled_adds_execution_metadata(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "_build_actions",
+        lambda *_, **__: (
+            type("StubStrategy", (), {"strategy_key": "STUB", "strategy_name": "STUB_PATTERN"})(),
+            [StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[1]["timestamp"], quantity=1.0)],
+        ),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--enable-market-regime",
+        "--market-regime-window",
+        "1",
+        "--market-regime-min-trading-value",
+        "1",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    metadata = out["executions"][0]["metadata"]
+    assert metadata["market_regime"] != "UNKNOWN"
+    assert out["summary"]["metadata"]["workflow_settings"]["market_regime_enabled"] is True

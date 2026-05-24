@@ -43,6 +43,7 @@ def build_pattern_trade_actions(
     soft_invalidation: SoftInvalidationRule | None = None,
     entry_config: PatternEntryConfig | None = None,
     entry_mode: PatternEntryMode = PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
+    entry_custom_price: float | None = None,
     intrabar_policy_config: IntrabarPolicyConfig | None = None,
     max_wait_bars: int | None = None,
 ) -> list[StrategyAction]:
@@ -88,6 +89,7 @@ def build_pattern_trade_actions(
         event,
         entry_mode,
         side,
+        custom_price=entry_custom_price,
         max_wait_bars=max_wait_bars if max_wait_bars is not None else (entry_config.max_wait_bars if entry_config else None),
     )
     if entry_config is not None:
@@ -104,6 +106,7 @@ def build_pattern_trade_actions(
         "fill_assumption": _fill_assumption(plan.mode),
         "fill_price_source": _fill_price_source(plan.mode),
         "confirmation_close": _candle_value(confirmation_candle, "close"),
+        "entry_custom_price": entry_custom_price,
         "entry_quantity_source": "ACTION_OVERRIDE" if entry_quantity is not None else "ENGINE_CONFIG",
         "engine_sizing_allowed": entry_quantity is None,
         **_score_metadata_from_event(event),

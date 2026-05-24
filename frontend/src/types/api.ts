@@ -171,5 +171,6 @@ export type BacktestRunDetailResponse = {
   trades: BacktestTrade[];
   graph_points: BacktestGraphPoint[];
   diagnostics?: BacktestResearchDiagnostics | null;
+  research_report?: Record<string, unknown> | null;
   warnings: WarningMessage[];
 };

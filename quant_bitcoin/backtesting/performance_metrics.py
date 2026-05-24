@@ -52,6 +52,9 @@ class TradeLifecycleOutcome:
     timeframe: str
     session: str
     market_regime: str
+    liquidity_regime: str
+    spread_regime: str
+    weekday_tag: str
     gross_pnl: float
     net_pnl: float
     realized_r_multiple: float | None
@@ -124,6 +127,9 @@ def calculate_trade_attribution_metrics(
             "by_timeframe": _grouped_attribution(outcomes, "timeframe"),
             "by_session": _grouped_attribution(outcomes, "session"),
             "by_market_regime": _grouped_attribution(outcomes, "market_regime"),
+            "by_liquidity_regime": _grouped_attribution(outcomes, "liquidity_regime"),
+            "by_spread_regime": _grouped_attribution(outcomes, "spread_regime"),
+            "by_weekday_tag": _grouped_attribution(outcomes, "weekday_tag"),
         },
         "warnings": tuple(warnings),
     }
@@ -292,8 +298,11 @@ def _new_open_trade(execution: StrategyExecution, side: str) -> dict[str, Any]:
         "pattern_type": _metadata_key(metadata, "pattern_type"),
         "pattern_direction": _metadata_key(metadata, "pattern_direction"),
         "timeframe": _metadata_key(metadata, "timeframe", "interval"),
-        "session": _metadata_key(metadata, "session", "market_session"),
+        "session": _metadata_key(metadata, "session", "market_session", "session_tag"),
         "market_regime": _metadata_key(metadata, "market_regime", "regime"),
+        "liquidity_regime": _metadata_key(metadata, "liquidity_regime"),
+        "spread_regime": _metadata_key(metadata, "spread_regime"),
+        "weekday_tag": _metadata_key(metadata, "weekday_tag"),
         "gross_pnl": 0.0,
         "net_pnl": 0.0,
         "r_values": [],
@@ -320,8 +329,11 @@ def _apply_exit_to_trade(trade: dict[str, Any], execution: StrategyExecution) ->
         ("pattern_type", ("pattern_type",)),
         ("pattern_direction", ("pattern_direction",)),
         ("timeframe", ("timeframe", "interval")),
-        ("session", ("session", "market_session")),
+        ("session", ("session", "market_session", "session_tag")),
         ("market_regime", ("market_regime", "regime")),
+        ("liquidity_regime", ("liquidity_regime",)),
+        ("spread_regime", ("spread_regime",)),
+        ("weekday_tag", ("weekday_tag",)),
     ):
         if trade[target] == "UNKNOWN":
             trade[target] = _metadata_key(metadata, *keys)
@@ -339,6 +351,9 @@ def _finalize_trade(trade: dict[str, Any]) -> TradeLifecycleOutcome:
         timeframe=trade["timeframe"],
         session=trade["session"],
         market_regime=trade["market_regime"],
+        liquidity_regime=trade["liquidity_regime"],
+        spread_regime=trade["spread_regime"],
+        weekday_tag=trade["weekday_tag"],
         gross_pnl=float(trade["gross_pnl"]),
         net_pnl=float(trade["net_pnl"]),
         realized_r_multiple=(sum(r_values) / len(r_values)) if r_values else None,
