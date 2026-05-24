@@ -63,6 +63,9 @@ class StrategyEquityPoint:
     available_buying_power: float | None = None
     cash_semantics: str | None = None
     equity_semantics: str | None = None
+    short_carrying_cost_cumulative: float | None = None
+    short_would_liquidate: bool | None = None
+    short_liquidation_buffer_ratio: float | None = None
 
 
 @dataclass(frozen=True)

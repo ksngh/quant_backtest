@@ -54,6 +54,12 @@ def _event(direction: str = "BULLISH") -> DiamondEvent:
         liquidity_pass=None,
         spread_pass=None,
         displacement_confirmed=True,
+        split_position=4,
+        expansion_pivot_count=4,
+        contraction_pivot_count=4,
+        boundary_touch_count=4,
+        boundary_deviation_atr=0.0,
+        alternating_pivot_score=1.0,
         pattern_score=0.8,
         entry_reference=112.0 if is_bullish else 85.0,
         stop_reference=102.0 if is_bullish else 95.0,
@@ -119,6 +125,9 @@ def test_measured_target_uses_diamond_height_by_direction() -> None:
     assert bearish.measured_target == pytest.approx(55.0)
     assert bullish.risk_plan.targets[2].source == RiskExitTargetSource.MEASURED
     assert bullish.risk_plan.targets[2].price == pytest.approx(142.0)
+    assert bullish.risk_plan.targets[2].metadata["target_source"] == "MEASURED"
+    assert bullish.risk_plan.target_semantics["detector_target_reference"] == pytest.approx(142.0)
+    assert bullish.risk_plan.target_semantics["measured_targets"][0]["price"] == pytest.approx(142.0)
 
 
 def test_soft_invalidation_metadata_for_close_back_inside_range() -> None:

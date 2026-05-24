@@ -7,6 +7,8 @@ from quant_bitcoin.indicators import (
     PivotConfig,
     PivotType,
     detect_pivots,
+    pivot_strength_diagnostics,
+    pivot_timing_metadata,
     remove_close_duplicate_pivots,
 )
 
@@ -41,6 +43,18 @@ def test_detects_pivot_high_in_simple_five_candle_sequence() -> None:
     assert pivot["pivot_timestamp"] == candles.loc[2, "timestamp"]
     assert pivot["confirmed_timestamp"] == candles.loc[4, "timestamp"]
     assert pivot["is_confirmed"] == True
+
+
+def test_pivot_timing_metadata_confirmation_delay_matches_right_window() -> None:
+    metadata = pivot_timing_metadata(PivotConfig(left_window=2, right_window=3))
+
+    assert metadata["current_candle_included"] is False
+    assert metadata["requires_closed_candle"] is True
+    assert metadata["warmup_period"] == 6
+    assert metadata["confirmation_delay"] == 3
+    assert metadata["baseline_mode"] == "CONFIRMED_AFTER_RIGHT_WINDOW"
+    assert metadata["use_atr_filter"] is False
+    assert metadata["minimum_pivot_strength_atr"] == pytest.approx(0.5)
 
 
 def test_detects_pivot_low_in_simple_five_candle_sequence() -> None:
@@ -144,6 +158,33 @@ def test_atr_filter_rejects_weak_pivots() -> None:
     )
 
     assert pivots.empty
+
+
+def test_atr_filter_accepts_strong_pivot_and_reports_density() -> None:
+    candles = _candles([10, 11, 15, 12, 11], [7, 8, 9, 8, 7], atr=[1, 1, 1, 1, 1])
+    config = PivotConfig(
+        left_window=2,
+        right_window=2,
+        use_atr_filter=True,
+        minimum_pivot_strength_atr=0.5,
+    )
+
+    pivots = detect_pivots(candles, config)
+    diagnostics = pivot_strength_diagnostics(
+        pivots,
+        config,
+        current_index=4,
+        candle_count=len(candles),
+    )
+
+    assert len(pivots) == 1
+    assert pivots.iloc[0]["strength"] == pytest.approx(3.0)
+    assert diagnostics["schema_version"] == "pivot_strength_diagnostics_v1"
+    assert diagnostics["use_atr_filter"] is True
+    assert diagnostics["pivot_count"] == 1
+    assert diagnostics["confirmed_pivot_count"] == 1
+    assert diagnostics["pivot_density_per_100_candles"] == pytest.approx(20.0)
+    assert diagnostics["no_lookahead_confirmed"] is True
 
 
 def test_filters_same_type_close_duplicate_pivots_by_stronger_price() -> None:

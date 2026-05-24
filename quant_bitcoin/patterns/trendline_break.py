@@ -27,14 +27,23 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
 )
-from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
+from quant_bitcoin.indicators.pivots import (
+    PivotConfig,
+    PivotType,
+    detect_pivots,
+    pivot_strength_diagnostics,
+)
+from quant_bitcoin.indicators.swing_structure import (
+    SwingStructureConfig,
+    swing_structure_alignment_feature,
+)
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
@@ -98,6 +107,9 @@ class TrendlineBreakConfig:
     liquidity_pass: bool | None = None
     spread_pass: bool | None = None
     require_confirmed_pivots: bool = True
+    require_independent_third_touch: bool = False
+    retest_entry_max_wait_bars: int | None = None
+    follow_through_confirmation_bars: int = 0
     allow_displacement_bonus: bool = True
     minimum_pattern_score: float = 0.7
     emit_pending: bool = False
@@ -105,6 +117,7 @@ class TrendlineBreakConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    swing_structure_config: SwingStructureConfig | None = None
 
     def __post_init__(self) -> None:
         if self.minimum_touch_count < 2:
@@ -132,6 +145,10 @@ class TrendlineBreakConfig:
             raise ValueError("maximum_slope_abs must be non-negative when supplied")
         if self.maximum_allowed_touch_deviation_atr < 0:
             raise ValueError("maximum_allowed_touch_deviation_atr must be non-negative")
+        if self.retest_entry_max_wait_bars is not None and self.retest_entry_max_wait_bars < 1:
+            raise ValueError("retest_entry_max_wait_bars must be at least 1 when supplied")
+        if self.follow_through_confirmation_bars < 0:
+            raise ValueError("follow_through_confirmation_bars must be non-negative")
         if self.breakout_atr_multiplier < 0:
             raise ValueError("breakout_atr_multiplier must be non-negative")
         if self.weak_volume_ratio < 0:
@@ -161,7 +178,12 @@ class TrendlineBreakEvent:
     trendline_slope: float
     trendline_intercept: float
     touch_count: int
+    fit_pivot_count: int
+    validation_touch_count: int
     source_pivot_indices: tuple[int, ...]
+    fit_pivot_indices: tuple[int, ...]
+    validation_touch_indices: tuple[int, ...]
+    touch_deviations: tuple[float, ...]
     trendline_value: float
     break_price: float
     break_distance: float
@@ -171,6 +193,9 @@ class TrendlineBreakEvent:
     liquidity_pass: bool | None
     spread_pass: bool | None
     displacement_confirmed: bool
+    retest_entry_eligible: bool
+    retest_wait_bars: int | None
+    follow_through_bars: int
     pattern_score: float
     entry_reference: float
     stop_reference: float
@@ -181,12 +206,19 @@ class TrendlineBreakEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    executable_pattern_score: float | None = None
+    diagnostic_pattern_score: float | None = None
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
+    pivot_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class _TrendlineCandidate:
     trendline_type: TrendlineType
     source_pivot_indices: tuple[int, ...]
+    fit_pivot_indices: tuple[int, int]
+    validation_touch_indices: tuple[int, ...]
+    touch_deviations: tuple[float, ...]
     slope: float
     intercept: float
     touch_count: int
@@ -220,7 +252,7 @@ def detect_trendline_breaks(
         trendline_config.atr_config,
     )
     volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
+        candle_frame,
         trendline_config.volume_ratio_config,
     )
     enriched = candle_frame.copy()
@@ -228,7 +260,7 @@ def detect_trendline_breaks(
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
 
     pivot_rows = detect_pivots(
-        enriched[["symbol", "timestamp", "open", "high", "low", "close"]],
+        enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr"]],
         trendline_config.pivot_config,
     )
     if trendline_config.require_confirmed_pivots:
@@ -435,16 +467,23 @@ def _build_direction_candidates(
             continue
         intercept = float(older["price"]) - slope * older_index
         touches = _touching_pivots(records, candles, slope, intercept, config)
-        if len(touches) < config.minimum_touch_count:
+        touch_indices = tuple(index for index, _ in touches)
+        validation_touch_indices = tuple(index for index in touch_indices if index not in {older_index, newer_index})
+        if len(touch_indices) < config.minimum_touch_count:
+            continue
+        if config.require_independent_third_touch and not validation_touch_indices:
             continue
 
         candidates.append(
             _TrendlineCandidate(
                 trendline_type=trendline_type,
-                source_pivot_indices=tuple(touches),
+                source_pivot_indices=touch_indices,
+                fit_pivot_indices=(older_index, newer_index),
+                validation_touch_indices=validation_touch_indices,
+                touch_deviations=tuple(deviation for _, deviation in touches),
                 slope=slope,
                 intercept=intercept,
-                touch_count=len(touches),
+                touch_count=len(touch_indices),
                 trendline_length=trendline_length,
             )
         )
@@ -472,8 +511,8 @@ def _touching_pivots(
     slope: float,
     intercept: float,
     config: TrendlineBreakConfig,
-) -> list[int]:
-    touches: list[int] = []
+) -> list[tuple[int, float]]:
+    touches: list[tuple[int, float]] = []
     for pivot in pivot_records:
         pivot_index = int(pivot["pivot_index"])
         trendline_value = _trendline_value(slope, intercept, pivot_index)
@@ -483,7 +522,7 @@ def _touching_pivots(
         if atr is not None:
             max_deviation = config.maximum_allowed_touch_deviation_atr * atr
         if deviation <= max_deviation:
-            touches.append(pivot_index)
+            touches.append((pivot_index, deviation))
     return touches
 
 
@@ -532,16 +571,44 @@ def _evaluate_candidate(
     else:
         pattern_status = TrendlineBreakStatus.VALID
 
+    follow_through_end_index = _follow_through_end_index(
+        candidate,
+        candles,
+        current_index,
+        direction,
+        config.follow_through_confirmation_bars,
+    )
+    if follow_through_end_index is None:
+        return None
+    retest_wait_bars = _trendline_retest_wait_bars(
+        candidate,
+        candles,
+        current_index,
+        direction,
+        config.retest_entry_max_wait_bars,
+    )
+    retest_entry_eligible = retest_wait_bars is not None
+
     displacement_confirmed = _displacement_confirmed(
         displacement_rows,
         current_index,
         expected_displacement,
     )
+    swing_structure_feature = swing_structure_alignment_feature(
+        all_pivots,
+        current_index=current_index,
+        direction=direction.value,
+        config=config.swing_structure_config,
+    )
+    source_pivots = all_pivots[
+        all_pivots["pivot_index"].isin(candidate.source_pivot_indices)
+    ]
     score_metadata = _calculate_pattern_score_metadata(
         candidate=candidate,
         break_distance_atr=max(break_distance_atr, 0.0),
         volume_ratio=volume_ratio,
         displacement_confirmed=displacement_confirmed,
+        swing_structure_feature=swing_structure_feature,
         config=config,
     )
     pattern_score = float(score_metadata["pattern_score"])
@@ -586,14 +653,19 @@ def _evaluate_candidate(
         pattern_status=pattern_status.value,
         symbol=symbol,
         timeframe=timeframe,
-        timestamp=current["timestamp"],
+        timestamp=candles.iloc[follow_through_end_index]["timestamp"],
         start_index=min(candidate.source_pivot_indices),
-        end_index=current_index,
+        end_index=follow_through_end_index,
         trendline_type=candidate.trendline_type.value,
         trendline_slope=candidate.slope,
         trendline_intercept=candidate.intercept,
         touch_count=candidate.touch_count,
+        fit_pivot_count=len(candidate.fit_pivot_indices),
+        validation_touch_count=len(candidate.validation_touch_indices),
         source_pivot_indices=candidate.source_pivot_indices,
+        fit_pivot_indices=candidate.fit_pivot_indices,
+        validation_touch_indices=candidate.validation_touch_indices,
+        touch_deviations=candidate.touch_deviations,
         trendline_value=trendline_value,
         break_price=break_price,
         break_distance=break_distance,
@@ -603,6 +675,9 @@ def _evaluate_candidate(
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
         displacement_confirmed=displacement_confirmed,
+        retest_entry_eligible=retest_entry_eligible,
+        retest_wait_bars=retest_wait_bars,
+        follow_through_bars=config.follow_through_confirmation_bars,
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
@@ -616,7 +691,57 @@ def _evaluate_candidate(
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        executable_pattern_score=score_metadata["executable_pattern_score"],
+        diagnostic_pattern_score=score_metadata["diagnostic_pattern_score"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
+        pivot_metadata=pivot_strength_diagnostics(
+            source_pivots,
+            config.pivot_config,
+            current_index=current_index,
+            candle_count=len(candles),
+        ),
     )
+
+
+def _follow_through_end_index(
+    candidate: _TrendlineCandidate,
+    candles: pd.DataFrame,
+    breakout_index: int,
+    direction: TrendlineBreakDirection,
+    required_bars: int,
+) -> int | None:
+    if required_bars == 0:
+        return breakout_index
+    end_index = breakout_index + required_bars
+    if end_index >= len(candles):
+        return None
+    for index in range(breakout_index + 1, end_index + 1):
+        close = float(candles.iloc[index]["close"])
+        value = _trendline_value(candidate.slope, candidate.intercept, index)
+        if direction == TrendlineBreakDirection.BULLISH and close <= value:
+            return None
+        if direction == TrendlineBreakDirection.BEARISH and close >= value:
+            return None
+    return end_index
+
+
+def _trendline_retest_wait_bars(
+    candidate: _TrendlineCandidate,
+    candles: pd.DataFrame,
+    breakout_index: int,
+    direction: TrendlineBreakDirection,
+    max_wait_bars: int | None,
+) -> int | None:
+    if max_wait_bars is None:
+        return None
+    last_index = min(len(candles) - 1, breakout_index + max_wait_bars)
+    for index in range(breakout_index + 1, last_index + 1):
+        value = _trendline_value(candidate.slope, candidate.intercept, index)
+        high = float(candles.iloc[index]["high"])
+        low = float(candles.iloc[index]["low"])
+        if low <= value <= high:
+            return index - breakout_index
+    return None
 
 
 def _select_best_event(events: list[TrendlineBreakEvent]) -> TrendlineBreakEvent:
@@ -647,6 +772,7 @@ def _calculate_pattern_score(
     volume_ratio: float,
     displacement_confirmed: bool,
     config: TrendlineBreakConfig,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> float:
     return float(
         _calculate_pattern_score_metadata(
@@ -654,6 +780,7 @@ def _calculate_pattern_score(
             break_distance_atr=break_distance_atr,
             volume_ratio=volume_ratio,
             displacement_confirmed=displacement_confirmed,
+            swing_structure_feature=swing_structure_feature,
             config=config,
         )["pattern_score"]
     )
@@ -666,6 +793,7 @@ def _calculate_pattern_score_metadata(
     volume_ratio: float,
     displacement_confirmed: bool,
     config: TrendlineBreakConfig,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if candidate.touch_count >= config.strong_touch_count:
         trendline_quality_score = 1.0
@@ -691,7 +819,9 @@ def _calculate_pattern_score_metadata(
         volume_confirmation_score = 0.0
 
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
-    structure_alignment_score = 0.6
+    structure_feature = swing_structure_feature or _missing_score_feature(
+        reason="feature_not_computed"
+    )
     displacement_score = 1.0 if displacement_confirmed else 0.0
 
     return build_score_metadata(
@@ -701,10 +831,20 @@ def _calculate_pattern_score_metadata(
             {"name": "breakout_strength", "raw_score": breakout_strength_score, "weight": 0.25, "source": "observed_break_distance_atr", "description": "ATR-normalized break distance beyond the trendline."},
             {"name": "volume_confirmation", "raw_score": volume_confirmation_score, "weight": 0.20, "source": "observed_volume_ratio", "description": "Relative volume at the break candle."},
             {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.10, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
-            {"name": "structure_alignment", "raw_score": structure_alignment_score, "weight": 0.10, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved broader-structure alignment prior."},
+            {"name": "structure_alignment", "raw_score": structure_feature["score"], "weight": 0.10, "source": structure_feature["source"], "description": "No-lookahead swing-structure alignment at the trendline break candle.", "metadata": structure_feature},
             {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation on the breakout candle."},
         ],
     )
+
+
+def _missing_score_feature(reason: str) -> dict[str, Any]:
+    return {
+        "feature_available": False,
+        "source": "missing_context",
+        "context": "MISSING_CONTEXT",
+        "score": 0.0,
+        "missing_context_reason": reason,
+    }
 
 
 def _displacement_confirmed(

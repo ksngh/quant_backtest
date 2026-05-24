@@ -1,8 +1,8 @@
 # quant_bitcoin
 
-`quant_bitcoin` is a small Python project for Bitcoin quantitative-trading experiments. The current implementation focuses on offline and paper-only workflows: candle data loading, standard candle normalization, RSI signals, basic historical backtesting, paper trade recording, Binance public historical candle downloading, and basic paper risk checks.
+`quant_bitcoin` is a small Python project for Bitcoin quantitative-trading experiments. The current implementation focuses on offline and paper-only workflows: candle data loading, standard candle normalization, RSI and chart-pattern research strategies, historical backtesting, saved-run diagnostics/reporting, paper trade recording, Binance public historical candle downloading, and basic paper risk checks.
 
-> **Safety status:** live trading and real Binance order execution are intentionally blocked. This project does not place real orders, does not sign exchange requests, and does not store or load API keys.
+> **Safety status:** live trading and real Binance order execution are intentionally blocked. Pattern research outputs are backtest/paper-only. This project does not place real orders, does not sign exchange requests, and does not store or load API keys.
 
 ## Current scope
 
@@ -12,12 +12,13 @@ Implemented components:
 - **CSV candle provider** for loading local CSV files into the standard candle schema.
 - **Binance candle downloader** for public historical spot klines only; it normalizes responses to the standard candle schema and rejects order endpoints.
 - **RSI strategy** that returns `BUY`, `SELL`, or `HOLD` signals from standard candle data.
+- **Pattern research strategies** for supported chart-pattern experiments with explicit entry, risk, cost, no-lookahead, score, and diagnostics metadata.
 - **Basic backtester** for a simple long-only, fixed-quantity historical simulation.
 - **Canonical strategy-engine backtester** for strategy actions, long/short simulation, transaction costs, explicit position sizing, account-state metadata, and persisted graph-ready outputs.
 - **Paper trader** for in-memory fake trade recording and paper cash/position updates.
 - **Paper risk checker** for deterministic cash and position checks before paper trades.
 - **PostgreSQL candle persistence** for Binance spot candle storage, restartable historical backfill, and public WebSocket closed-candle ingestion.
-- **Read-only dashboard API/frontend** for inspecting saved simulated backtest results.
+- **Read-only dashboard API/frontend** for inspecting saved simulated backtest results, diagnostics, assumptions, and research reports.
 
 Out of scope unless a future approved task explicitly asks for it:
 
@@ -33,10 +34,12 @@ Out of scope unless a future approved task explicitly asks for it:
 quant_bitcoin/
   backtesting/        Basic backtest engine and result models.
   execution/          Paper-only execution simulation.
+  indicators/         Offline technical-indicator helpers.
   market_data/        CSV provider, Binance public downloader, backfill, and WebSocket ingestion.
+  patterns/           Offline chart-pattern detection and risk/exit planning.
   persistence/        PostgreSQL candle repository and ingestion checkpoint storage.
   risk/               Paper-only risk checks.
-  strategies/         RSI strategy and signal contract.
+  strategies/         RSI and pattern strategy/action contracts.
 docs/                 Architecture, data contract, workflow, and decision docs.
 tasks/                Task definitions and completion criteria.
 tests/                Unit, contract, and safety tests.
@@ -319,7 +322,9 @@ static presets are `zero`, `binance_spot_taker_baseline`,
 `conservative_crypto_1m`, and `high_slippage_stress`. Manual bps flags still
 work when no profile is selected; combining a profile with manual bps requires
 `--allow-cost-profile-overrides`. Profiles are offline assumptions only and do
-not query exchange fee tiers or account endpoints.
+not query exchange fee tiers or account endpoints. Use `--strict-cost-mode` to
+block zero-cost 1m pattern runs, and `--cost-sensitivity-report` to include a
+deterministic zero/baseline/conservative/stress cost comparison.
 
 This is a historical simulation over stored standard candles only. It does not
 place orders, does not call exchange order or account endpoints, does not sign
@@ -345,10 +350,15 @@ Short simulation is not spot execution. The default `cash_bounded` mode limits
 short exposure by cash/buying power and must not be read as a real spot short
 order capability. Explicit `simulated_margin` mode is backtest-only and
 requires `--simulated-margin-leverage`; it checks initial margin as
-`notional / leverage`. Borrow fees, futures funding, maintenance margin, and
-liquidation are still not modeled. JSON output records this under
-`short_economics` and adds a `short_economics_simulation_only` warning when
-short results are present.
+`notional / leverage`.
+
+By default, borrow fees, futures funding, maintenance margin, and liquidation
+remain unmodeled and JSON output records that under `short_economics`, adding a
+`short_economics_simulation_only` warning when short results are present. For
+research runs, `ShortEconomicsConfig(enabled=True, ...)` can add deterministic
+borrow/funding carrying-cost deductions and diagnostic-only maintenance /
+liquidation flags. These diagnostics do not auto-close positions, submit
+exchange orders, or imply real margin/futures account support.
 
 Result fields distinguish cash balance from free cash:
 

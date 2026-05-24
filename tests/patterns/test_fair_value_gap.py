@@ -6,30 +6,41 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from quant_bitcoin.indicators import AtrConfig, DisplacementCandleConfig, VolumeRatioConfig
+from quant_bitcoin.indicators import (
+    AtrConfig,
+    DisplacementCandleConfig,
+    PivotConfig,
+    SupportResistanceZoneConfig,
+    VolumeInputMode,
+    VolumeRatioBaselineMode,
+    VolumeRatioConfig,
+)
 from quant_bitcoin.patterns import (
     FairValueGapConfig,
     PatternStatus,
     PatternType,
+    detect_fair_value_gaps_at_index,
     detect_patterns,
     filter_new_events,
 )
 
 
-def _config() -> FairValueGapConfig:
-    return FairValueGapConfig(
-        atr_config=AtrConfig(period=1),
-        volume_ratio_config=VolumeRatioConfig(
+def _config(**overrides: object) -> FairValueGapConfig:
+    values = {
+        "atr_config": AtrConfig(period=1),
+        "volume_ratio_config": VolumeRatioConfig(
             window=2,
             minimum_volume_ratio_for_confirmation=1.3,
             high_volume_ratio_threshold=2.0,
             require_full_window=False,
         ),
-        displacement_config=DisplacementCandleConfig(
+        "displacement_config": DisplacementCandleConfig(
             minimum_range_atr_multiplier=1.0,
             minimum_volume_ratio=1.3,
         ),
-    )
+    }
+    values.update(overrides)
+    return FairValueGapConfig(**values)
 
 
 def _candles(rows: list[dict]) -> pd.DataFrame:
@@ -82,7 +93,7 @@ def test_detects_one_bullish_fair_value_gap_event() -> None:
     event = events[0]
     assert event.pattern_type == PatternType.FAIR_VALUE_GAP.value
     assert event.direction == "BULLISH"
-    assert event.pattern_status == PatternStatus.VALID.value
+    assert event.pattern_status == PatternStatus.WEAK.value
     assert event.symbol == "BTCUSDT"
     assert event.timeframe == "1m"
     assert event.timestamp == "2026-05-16T00:02:00Z"
@@ -99,16 +110,90 @@ def test_detects_one_bullish_fair_value_gap_event() -> None:
     assert event.displacement_confirmed is True
     assert event.displacement_direction == "BULLISH"
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
-    assert event.pattern_score >= 0.7
+    assert event.pattern_score == pytest.approx(event.executable_pattern_score)
+    assert event.pattern_score < event.diagnostic_pattern_score
+    assert event.diagnostic_pattern_score >= 0.7
     assert event.score_components["gap_quality"]["weighted_score"] > 0
     assert event.score_components["liquidity"]["is_placeholder"] is True
-    assert event.score_component_sources["structure_alignment"] == "placeholder_constant"
+    assert event.score_components["liquidity"]["included_in_executable_score"] is False
+    assert event.score_component_sources["structure_alignment"] == "missing_context"
+    assert event.score_components["structure_alignment"]["raw_score"] == 0.0
+    assert event.score_components["structure_alignment"]["is_placeholder"] is False
+    assert event.score_components["support_resistance_context"]["source"] == "missing_context"
     assert event.score_calibration["is_calibrated_probability"] is False
     assert event.entry_reference == pytest.approx(101.0)
     assert event.stop_reference == pytest.approx(99.0)
     assert event.target_reference == pytest.approx(105.0)
     assert event.risk_reward == pytest.approx(2.0)
     assert event.reason
+
+
+def test_fvg_event_records_atr_timing_metadata_and_warmup_blocks_early_event() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(atr_config=AtrConfig(period=1, smoothing_method="SMA")),
+    )[0]
+
+    assert event.atr_metadata["period"] == 1
+    assert event.atr_metadata["smoothing_method"] == "SMA"
+    assert event.atr_metadata["current_candle_included"] is True
+    assert event.atr_metadata["first_valid_index"] == 0
+    assert (
+        detect_patterns(
+            _valid_bullish_fvg_candles(),
+            symbol="BTCUSDT",
+            timeframe="1m",
+            config=_config(atr_config=AtrConfig(period=4)),
+        )
+        == []
+    )
+
+
+def test_fvg_volume_confirmation_accepts_prior_only_volume_config() -> None:
+    events = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            volume_ratio_config=VolumeRatioConfig(
+                window=1,
+                baseline_mode=VolumeRatioBaselineMode.PRIOR_ONLY,
+                minimum_volume_ratio_for_confirmation=1.3,
+                high_volume_ratio_threshold=2.0,
+            )
+        ),
+    )
+
+    assert len(events) == 1
+    assert events[0].volume_ratio == pytest.approx(5.0)
+    assert events[0].displacement_confirmed is True
+
+
+def test_fvg_volume_confirmation_can_use_quote_volume_when_available() -> None:
+    candles = _valid_bullish_fvg_candles()
+    candles["volume"] = [1.0, 1.0, 1.0]
+    candles["quote_volume"] = [1_000.0, 5_000.0, 1_000.0]
+
+    events = detect_patterns(
+        candles,
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            volume_ratio_config=VolumeRatioConfig(
+                window=2,
+                require_full_window=False,
+                volume_input_mode=VolumeInputMode.QUOTE_VOLUME_IF_AVAILABLE,
+                minimum_volume_ratio_for_confirmation=1.3,
+                high_volume_ratio_threshold=2.0,
+            )
+        ),
+    )
+
+    assert len(events) == 1
+    assert events[0].volume_ratio == pytest.approx(5_000.0 / 3_000.0)
+    assert events[0].displacement_confirmed is True
 
 
 def test_insufficient_candle_history_returns_empty_list() -> None:
@@ -198,6 +283,120 @@ def test_detector_accepts_standard_schema_without_binance_raw_fields() -> None:
 
     assert list(candles.columns) == ["timestamp", "open", "high", "low", "close", "volume"]
     assert len(detect_patterns(candles, symbol="BTCUSDT", config=_config())) == 1
+
+
+def test_bullish_fvg_near_confirmed_support_gets_observed_context_score() -> None:
+    candles = _candles(
+        [
+            {"open": 104.0, "high": 105.0, "low": 99.0, "close": 104.0},
+            {"open": 101.0, "high": 103.0, "low": 95.0, "close": 102.0},
+            {"open": 103.0, "high": 104.0, "low": 99.0, "close": 103.0},
+            {"open": 101.0, "high": 103.0, "low": 95.2, "close": 102.0},
+            {"open": 102.0, "high": 104.0, "low": 99.0, "close": 103.0},
+            {"open": 98.0, "high": 100.0, "low": 96.0, "close": 99.0},
+            {"open": 95.0, "high": 108.0, "low": 94.0, "close": 107.0, "volume": 500.0},
+            {"open": 103.0, "high": 104.0, "low": 102.0, "close": 103.0},
+        ]
+    )
+
+    events = detect_fair_value_gaps_at_index(
+        candles,
+        7,
+        symbol="BTCUSDT",
+        config=_config(
+            minimum_pattern_score=0.0,
+            pivot_config=PivotConfig(
+                left_window=1,
+                right_window=1,
+                minimum_distance_between_pivots=1,
+            ),
+            support_resistance_config=SupportResistanceZoneConfig(
+                minimum_touch_count=2,
+                zone_width_atr_multiplier=1.5,
+                maximum_zone_width_rate=0.2,
+                merge_overlapping_zones=False,
+            ),
+        ),
+    )
+
+    assert len(events) == 1
+    component = events[0].score_components["support_resistance_context"]
+    assert component["source"] == "observed_support_resistance_proximity"
+    assert component["raw_score"] > 0
+    assert component["is_placeholder"] is False
+    assert component["metadata"]["context"] == "NEAR_SUPPORT"
+    assert component["metadata"]["latest_confirmed_index"] <= 7
+
+
+def test_fvg_at_index_score_context_is_unchanged_by_future_candles() -> None:
+    candles = _candles(
+        [
+            {"open": 104.0, "high": 105.0, "low": 99.0, "close": 104.0},
+            {"open": 101.0, "high": 103.0, "low": 95.0, "close": 102.0},
+            {"open": 103.0, "high": 104.0, "low": 99.0, "close": 103.0},
+            {"open": 101.0, "high": 103.0, "low": 95.2, "close": 102.0},
+            {"open": 102.0, "high": 104.0, "low": 99.0, "close": 103.0},
+            {"open": 98.0, "high": 100.0, "low": 96.0, "close": 99.0},
+            {"open": 95.0, "high": 108.0, "low": 94.0, "close": 107.0, "volume": 500.0},
+            {"open": 103.0, "high": 104.0, "low": 102.0, "close": 103.0},
+        ]
+    )
+    future = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-05-16T00:08:00Z",
+                "open": 150.0,
+                "high": 160.0,
+                "low": 149.0,
+                "close": 155.0,
+                "volume": 100.0,
+            },
+            {
+                "timestamp": "2026-05-16T00:09:00Z",
+                "open": 120.0,
+                "high": 121.0,
+                "low": 118.0,
+                "close": 119.0,
+                "volume": 100.0,
+            },
+            {
+                "timestamp": "2026-05-16T00:10:00Z",
+                "open": 150.0,
+                "high": 160.0,
+                "low": 149.0,
+                "close": 155.0,
+                "volume": 100.0,
+            },
+        ]
+    )
+    config = _config(
+        minimum_pattern_score=0.0,
+        pivot_config=PivotConfig(
+            left_window=1,
+            right_window=1,
+            minimum_distance_between_pivots=1,
+        ),
+        support_resistance_config=SupportResistanceZoneConfig(
+            minimum_touch_count=2,
+            zone_width_atr_multiplier=1.5,
+            maximum_zone_width_rate=0.2,
+            merge_overlapping_zones=False,
+        ),
+    )
+
+    prefix_event = detect_fair_value_gaps_at_index(
+        candles, 7, symbol="BTCUSDT", config=config
+    )[0]
+    extended_event = detect_fair_value_gaps_at_index(
+        pd.concat([candles, future], ignore_index=True),
+        7,
+        symbol="BTCUSDT",
+        config=config,
+    )[0]
+
+    assert prefix_event.score_components["support_resistance_context"] == (
+        extended_event.score_components["support_resistance_context"]
+    )
 
 
 def test_requiring_unavailable_liquidity_or_spread_filters_needs_explicit_values() -> None:

@@ -57,6 +57,9 @@ class SoftInvalidationRule:
 
     invalidates_when: str
     reference_price: float | None = None
+    max_bars_after_entry: int | None = None
+    favorable_close_condition: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +94,7 @@ def simulate_pattern_exit(
     *,
     soft_invalidation: SoftInvalidationRule | None = None,
     intrabar_policy_config: IntrabarPolicyConfig | None = None,
+    entry_filled_on_first_candle: bool = False,
 ) -> PatternExitSimulationResult:
     """Simulate completed candles against a risk/exit plan.
 
@@ -121,6 +125,8 @@ def simulate_pattern_exit(
     remaining_ratio = 1.0
     events: list[PatternExitEvent] = []
     hit_target_names: set[str] = set()
+    soft_condition_satisfied = False
+    fvg_lifecycle_state = "FRESH"
 
     for candle_index, candle in frame.iterrows():
         high = float(candle["high"])
@@ -145,9 +151,79 @@ def simulate_pattern_exit(
         exit_policy_metadata = {
             "intrabar_precedence_policy": INTRABAR_PRECEDENCE_POLICY,
             "ambiguous_stop_target": stop_hit and target_hit,
+            "combined_entry_exit_sequencing": bool(entry_filled_on_first_candle and candle_index == 0),
             "intrabar_policy": (intrabar_policy_config.mode.value if intrabar_policy_config else IntrabarSequencingMode.CONSERVATIVE.value),
             "be_trailing_sequence": "favorable-extreme updates are applied before stop/target checks",
+            "initial_stop_price": plan.stop_price,
+            "effective_stop_price": current_stop,
+            "stop_moved_by_break_even_or_trailing": abs(current_stop - float(plan.stop_price)) > 1e-12,
         }
+
+        if entry_filled_on_first_candle and candle_index == 0 and (stop_hit or target_hit):
+            decision_target = hit_target or plan.targets[0]
+            touches = detect_intrabar_touches(
+                high=high,
+                low=low,
+                entry_price=plan.entry_price,
+                stop_price=current_stop,
+                target_price=decision_target.price,
+            )
+            decision = resolve_intrabar_decision(
+                direction=direction.value,
+                touches=touches,
+                config=intrabar_policy_config,
+            )
+            exit_policy_metadata.update(
+                {
+                    "is_ambiguous": decision.is_ambiguous,
+                    "decision_reason": decision.reason,
+                    "decision_outcome": decision.outcome,
+                    "entry_touched": touches.entry_touched,
+                    "stop_touched": touches.stop_touched,
+                    "target_touched": touches.target_touched,
+                    "ambiguous_entry_stop_target": touches.ambiguous_entry_stop_target,
+                }
+            )
+            if decision.skipped or decision.outcome in {"ENTRY", "NONE"}:
+                continue
+            if decision.outcome == "TARGET" and hit_target is not None:
+                exit_ratio = min(
+                    remaining_ratio,
+                    _partial_exit_ratio(plan.partial_exits, hit_target) or remaining_ratio,
+                )
+                remaining_ratio = round(max(0.0, remaining_ratio - exit_ratio), 12)
+                hit_target_names.add(hit_target.name)
+                events.append(
+                    PatternExitEvent(
+                        timestamp=timestamp,
+                        candle_index=int(candle_index),
+                        reason=PatternExitReason.TAKE_PROFIT,
+                        price=hit_target.price,
+                        quantity_ratio=exit_ratio,
+                        remaining_quantity_ratio=remaining_ratio,
+                        target_name=hit_target.name,
+                        stop_price=current_stop,
+                        metadata={**exit_policy_metadata, "target_source": str(hit_target.source.value if hasattr(hit_target.source, "value") else hit_target.source)},
+                    )
+                )
+                if remaining_ratio <= 0:
+                    break
+                continue
+            if decision.outcome == "STOP":
+                events.append(
+                    PatternExitEvent(
+                        timestamp=timestamp,
+                        candle_index=int(candle_index),
+                        reason=PatternExitReason.HARD_STOP,
+                        price=current_stop,
+                        quantity_ratio=remaining_ratio,
+                        remaining_quantity_ratio=0.0,
+                        stop_price=current_stop,
+                        metadata={**exit_policy_metadata, "precedence": INTRABAR_PRECEDENCE_POLICY},
+                    )
+                )
+                remaining_ratio = 0.0
+                break
 
         if stop_hit and target_hit and hit_target is not None:
             touches = detect_intrabar_touches(
@@ -240,21 +316,56 @@ def simulate_pattern_exit(
         if remaining_ratio <= 0:
             break
 
-        if soft_invalidation is not None and _soft_invalidated(soft_invalidation, close):
-            events.append(
-                PatternExitEvent(
-                    timestamp=timestamp,
-                    candle_index=int(candle_index),
-                    reason=PatternExitReason.SOFT_INVALIDATION,
-                    price=close,
-                    quantity_ratio=remaining_ratio,
-                    remaining_quantity_ratio=0.0,
-                    stop_price=current_stop,
-                    metadata={"rule": soft_invalidation.invalidates_when},
+        if soft_invalidation is not None:
+            lifecycle = _post_entry_fvg_lifecycle_state(soft_invalidation, direction, high, low, close)
+            if lifecycle is not None:
+                fvg_lifecycle_state = lifecycle
+            if soft_invalidation.favorable_close_condition is not None:
+                soft_condition_satisfied = soft_condition_satisfied or _favorable_soft_close(soft_invalidation, close)
+                if _soft_reaction_failure_expired(soft_invalidation, candle_index + 1, soft_condition_satisfied):
+                    events.append(
+                        PatternExitEvent(
+                            timestamp=timestamp,
+                            candle_index=int(candle_index),
+                            reason=PatternExitReason.SOFT_INVALIDATION,
+                            price=close,
+                            quantity_ratio=remaining_ratio,
+                            remaining_quantity_ratio=0.0,
+                            stop_price=current_stop,
+                            metadata={
+                                "rule": soft_invalidation.invalidates_when,
+                                "favorable_close_condition": soft_invalidation.favorable_close_condition,
+                                "reference_price": soft_invalidation.reference_price,
+                                "max_bars_after_entry": soft_invalidation.max_bars_after_entry,
+                                "bars_after_entry": candle_index + 1,
+                                "favorable_close_observed": soft_condition_satisfied,
+                                "post_entry_lifecycle_state": fvg_lifecycle_state,
+                                **(soft_invalidation.metadata or {}),
+                            },
+                        )
+                    )
+                    remaining_ratio = 0.0
+                    break
+            elif _soft_invalidated(soft_invalidation, close):
+                events.append(
+                    PatternExitEvent(
+                        timestamp=timestamp,
+                        candle_index=int(candle_index),
+                        reason=PatternExitReason.SOFT_INVALIDATION,
+                        price=close,
+                        quantity_ratio=remaining_ratio,
+                        remaining_quantity_ratio=0.0,
+                        stop_price=current_stop,
+                        metadata={
+                            "rule": soft_invalidation.invalidates_when,
+                            "reference_price": soft_invalidation.reference_price,
+                            "max_bars_after_entry": soft_invalidation.max_bars_after_entry,
+                            **(soft_invalidation.metadata or {}),
+                        },
+                    )
                 )
-            )
-            remaining_ratio = 0.0
-            break
+                remaining_ratio = 0.0
+                break
 
         if _time_stop_hit(plan, candle_index + 1, max_favorable_r):
             events.append(
@@ -395,6 +506,70 @@ def _soft_invalidated(rule: SoftInvalidationRule, close: float) -> bool:
     if ">" in condition:
         return close > rule.reference_price
     return False
+
+
+def _favorable_soft_close(rule: SoftInvalidationRule, close: float) -> bool:
+    if rule.reference_price is None or rule.favorable_close_condition is None:
+        return False
+    condition = rule.favorable_close_condition.lower()
+    if "<=" in condition:
+        return close <= rule.reference_price
+    if ">=" in condition:
+        return close >= rule.reference_price
+    if "<" in condition:
+        return close < rule.reference_price
+    if ">" in condition:
+        return close > rule.reference_price
+    return False
+
+
+def _soft_reaction_failure_expired(rule: SoftInvalidationRule, bar_number: int, satisfied: bool) -> bool:
+    if satisfied or rule.max_bars_after_entry is None:
+        return False
+    return bar_number >= rule.max_bars_after_entry
+
+
+def _post_entry_fvg_lifecycle_state(
+    rule: SoftInvalidationRule,
+    direction: RiskExitDirection,
+    high: float,
+    low: float,
+    close: float,
+) -> str | None:
+    metadata = rule.metadata or {}
+    if str(metadata.get("pattern_type") or "").upper() != "FAIR_VALUE_GAP":
+        return None
+    zone_low = _metadata_float(metadata.get("zone_low"))
+    zone_high = _metadata_float(metadata.get("zone_high"))
+    midpoint = _metadata_float(rule.reference_price)
+    if zone_low is None or zone_high is None or midpoint is None:
+        return None
+    if direction == RiskExitDirection.LONG:
+        if close < zone_low:
+            return "BROKEN"
+        if low <= zone_low:
+            return "FILLED"
+        if low <= midpoint:
+            return "PARTIALLY_FILLED"
+        if low <= zone_high:
+            return "TOUCHED"
+        return "FRESH"
+    if close > zone_high:
+        return "BROKEN"
+    if high >= zone_high:
+        return "FILLED"
+    if high >= midpoint:
+        return "PARTIALLY_FILLED"
+    if high >= zone_low:
+        return "TOUCHED"
+    return "FRESH"
+
+
+def _metadata_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _time_stop_hit(plan: RiskExitPlan, bar_number: int, max_favorable_r: float) -> bool:

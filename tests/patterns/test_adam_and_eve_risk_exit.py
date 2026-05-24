@@ -49,11 +49,17 @@ def _event() -> AdamAndEveEvent:
         liquidity_pass=None,
         spread_pass=None,
         displacement_confirmed=True,
+        prior_downtrend_method="local_lookback_close_decline_lower_low",
+        prior_downtrend_strength=0.1,
+        prior_lower_low_confirmed=True,
         pattern_score=0.8,
         entry_reference=104.0,
-        stop_reference=80.0,
+        stop_reference=81.0,
+        stop_reference_mode="EVE_LOW",
+        detector_reference_stop=80.0,
+        detector_reference_risk_reward=20.0 / 24.0,
         target_reference=124.0,
-        risk_reward=20.0 / 24.0,
+        risk_reward=20.0 / 23.0,
         reason="test event",
     )
 
@@ -93,6 +99,12 @@ def test_measured_target_equals_neckline_plus_pattern_height() -> None:
     assert plan.risk_plan.targets[0].source == RiskExitTargetSource.R_MULTIPLE
     assert plan.risk_plan.targets[2].source == RiskExitTargetSource.MEASURED
     assert plan.risk_plan.targets[2].price == pytest.approx(120.0)
+    assert plan.risk_plan.targets[2].metadata["target_source"] == "MEASURED"
+    semantics = plan.risk_plan.target_semantics
+    assert semantics["schema_version"] == "target_semantics_v1"
+    assert semantics["detector_target_reference"] == pytest.approx(124.0)
+    assert semantics["measured_targets"][0]["price"] == pytest.approx(120.0)
+    assert semantics["risk_targets"][2]["source"] == "MEASURED"
 
 
 def test_neckline_soft_exit_metadata_is_present() -> None:
@@ -110,6 +122,7 @@ def test_nearest_structure_target_is_used_when_supplied() -> None:
     assert plan.structural_targets == pytest.approx((116.0, 130.0))
     assert plan.risk_plan.targets[1].source == RiskExitTargetSource.STRUCTURE
     assert plan.risk_plan.targets[1].price == pytest.approx(116.0)
+    assert plan.risk_plan.target_semantics["structural_targets"][0]["price"] == pytest.approx(116.0)
 
 
 def test_minimum_profit_filter_can_skip_poor_risk_reward_plan() -> None:

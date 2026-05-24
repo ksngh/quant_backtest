@@ -186,6 +186,93 @@ def detect_pivots(
     return pd.DataFrame(filtered, columns=PIVOT_OUTPUT_COLUMNS)
 
 
+def pivot_timing_metadata(config: PivotConfig | None = None) -> dict[str, Any]:
+    """Return Pivot indicator timing semantics without changing output columns."""
+
+    pivot_config = config or PivotConfig()
+    return {
+        "schema_version": "indicator_timing_metadata_v1",
+        "indicator": "PIVOT",
+        "current_candle_included": False,
+        "requires_closed_candle": True,
+        "warmup_period": int(pivot_config.left_window + pivot_config.right_window + 1),
+        "confirmation_delay": int(pivot_config.right_window),
+        "baseline_mode": "CONFIRMED_AFTER_RIGHT_WINDOW",
+        "use_atr_filter": bool(pivot_config.use_atr_filter),
+        "minimum_pivot_strength_atr": float(pivot_config.minimum_pivot_strength_atr),
+        "safe_usage": "confirmed_pivot_only_after_right_window_closes",
+    }
+
+
+def pivot_strength_diagnostics(
+    pivots: pd.DataFrame | list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    config: PivotConfig | None = None,
+    *,
+    current_index: int | None = None,
+    candle_count: int | None = None,
+) -> dict[str, Any]:
+    """Return pivot strength, density, and confirmation metadata."""
+
+    pivot_config = config or PivotConfig()
+    frame = pivots.copy(deep=True) if isinstance(pivots, pd.DataFrame) else pd.DataFrame(list(pivots))
+    if frame.empty:
+        strengths: list[float] = []
+        confirmed_indices: list[int] = []
+        confirmed_count = 0
+    else:
+        strengths = _numeric_column_values(frame, "strength")
+        confirmed_count = (
+            int(frame["is_confirmed"].fillna(False).astype(bool).sum())
+            if "is_confirmed" in frame.columns
+            else len(frame)
+        )
+        confirmed_indices = [
+            int(value) for value in _numeric_column_values(frame, "confirmed_index")
+        ]
+    total_count = len(frame)
+    max_confirmed_index = max(confirmed_indices) if confirmed_indices else None
+    no_lookahead_confirmed = (
+        True
+        if current_index is None or max_confirmed_index is None
+        else max_confirmed_index <= current_index
+    )
+    density = (
+        None
+        if not candle_count or candle_count <= 0
+        else total_count / float(candle_count) * 100.0
+    )
+    return {
+        "schema_version": "pivot_strength_diagnostics_v1",
+        "left_window": int(pivot_config.left_window),
+        "right_window": int(pivot_config.right_window),
+        "confirmation_delay": int(pivot_config.right_window),
+        "use_atr_filter": bool(pivot_config.use_atr_filter),
+        "minimum_pivot_strength_atr": float(pivot_config.minimum_pivot_strength_atr),
+        "pivot_count": total_count,
+        "confirmed_pivot_count": confirmed_count,
+        "pivot_density_per_100_candles": density,
+        "average_strength": None if not strengths else sum(strengths) / len(strengths),
+        "max_strength": None if not strengths else max(strengths),
+        "min_strength": None if not strengths else min(strengths),
+        "max_confirmed_index": max_confirmed_index,
+        "current_index": current_index,
+        "no_lookahead_confirmed": no_lookahead_confirmed,
+        "higher_timeframe_context": {
+            "enabled": False,
+            "mode": "metadata_only_not_configured",
+        },
+    }
+
+
+def _numeric_column_values(frame: pd.DataFrame, column: str) -> list[float]:
+    if column not in frame.columns:
+        return []
+    return [
+        float(value)
+        for value in pd.to_numeric(frame[column], errors="coerce").dropna().tolist()
+    ]
+
+
 def remove_close_duplicate_pivots(
     pivots: list[dict[str, Any]], config: PivotConfig
 ) -> list[dict[str, Any]]:

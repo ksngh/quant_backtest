@@ -40,7 +40,7 @@ def test_diamond_weak_event_returns_risk_plan_invalid_skip(monkeypatch) -> None:
         risk_plan = Plan()
 
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
-    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, candles=None, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1
@@ -69,7 +69,7 @@ def test_diamond_bullish_event_enters_long(monkeypatch) -> None:
         risk_plan = Plan()
 
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
-    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, candles=None, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1
@@ -95,7 +95,7 @@ def test_diamond_bearish_event_enters_short(monkeypatch) -> None:
         risk_plan = Plan()
 
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
-    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, candles=None, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1
@@ -120,7 +120,7 @@ def test_diamond_missing_status_is_filtered_by_default(monkeypatch) -> None:
         risk_plan = Plan()
 
     monkeypatch.setattr("quant_bitcoin.strategies.patterns.detect_diamond_patterns", lambda frame, config=None: [Event()])
-    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, config=None: Wrapper())
+    monkeypatch.setattr("quant_bitcoin.strategies.patterns.create_diamond_risk_exit_plan", lambda event, candles=None, config=None: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
     assert len(actions) == 1

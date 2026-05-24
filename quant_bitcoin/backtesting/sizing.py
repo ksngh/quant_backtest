@@ -24,6 +24,13 @@ class ShortExposureMode(Enum):
     SIMULATED_MARGIN = "SIMULATED_MARGIN"
 
 
+class SizingRiskSource(Enum):
+    FILL_ADJUSTED = "FILL_ADJUSTED"
+    ORIGINAL_REFERENCE = "ORIGINAL_REFERENCE"
+    MISSING = "MISSING"
+    ACTION_OVERRIDE = "ACTION_OVERRIDE"
+
+
 @dataclass(frozen=True)
 class PositionSizingConfig:
     mode: PositionSizingMode = PositionSizingMode.FIXED_QUANTITY
@@ -69,6 +76,10 @@ class BacktestGuardrailConfig:
     max_account_drawdown: float | None = None
     max_consecutive_losses: int | None = None
     max_daily_loss: float | None = None
+    close_open_position_on_breach: bool = False
+    max_position_notional: float | None = None
+    max_symbol_notional: float | None = None
+    max_leverage_simulated: float | None = None
 
     def __post_init__(self) -> None:
         if self.max_account_drawdown is not None:
@@ -80,6 +91,12 @@ class BacktestGuardrailConfig:
                 raise ValueError("max_consecutive_losses must be a positive integer")
         if self.max_daily_loss is not None:
             _validate_positive_finite(self.max_daily_loss, "max_daily_loss")
+        if self.max_position_notional is not None:
+            _validate_positive_finite(self.max_position_notional, "max_position_notional")
+        if self.max_symbol_notional is not None:
+            _validate_positive_finite(self.max_symbol_notional, "max_symbol_notional")
+        if self.max_leverage_simulated is not None:
+            _validate_positive_finite(self.max_leverage_simulated, "max_leverage_simulated")
 
     def to_metadata(self) -> dict[str, object]:
         return {
@@ -87,6 +104,43 @@ class BacktestGuardrailConfig:
             "max_account_drawdown": self.max_account_drawdown,
             "max_consecutive_losses": self.max_consecutive_losses,
             "max_daily_loss": self.max_daily_loss,
+            "close_open_position_on_breach": self.close_open_position_on_breach,
+            "max_position_notional": self.max_position_notional,
+            "max_symbol_notional": self.max_symbol_notional,
+            "max_leverage_simulated": self.max_leverage_simulated,
+            "forced_exit_behavior": "disabled by default; when enabled the strategy engine simulates a close at current candle price",
+        }
+
+
+@dataclass(frozen=True)
+class ShortEconomicsConfig:
+    """Research-only short carrying-cost and liquidation diagnostics."""
+
+    enabled: bool = False
+    borrow_fee_bps_per_day: float = 0.0
+    funding_bps_per_interval: float = 0.0
+    maintenance_margin_rate: float = 0.0
+    liquidation_buffer_rate: float = 0.0
+
+    def __post_init__(self) -> None:
+        _validate_non_negative_finite(self.borrow_fee_bps_per_day, "borrow_fee_bps_per_day")
+        _validate_non_negative_finite(self.funding_bps_per_interval, "funding_bps_per_interval")
+        _validate_non_negative_finite(self.maintenance_margin_rate, "maintenance_margin_rate")
+        _validate_non_negative_finite(self.liquidation_buffer_rate, "liquidation_buffer_rate")
+        if float(self.maintenance_margin_rate) >= 1.0:
+            raise ValueError("maintenance_margin_rate must be < 1.0")
+
+    def to_metadata(self) -> dict[str, object]:
+        return {
+            "schema_version": "short_economics_research_v1",
+            "enabled": self.enabled,
+            "scope": "backtest_only_research",
+            "borrow_fee_bps_per_day": float(self.borrow_fee_bps_per_day),
+            "funding_bps_per_interval": float(self.funding_bps_per_interval),
+            "maintenance_margin_rate": float(self.maintenance_margin_rate),
+            "liquidation_buffer_rate": float(self.liquidation_buffer_rate),
+            "real_spot_short_execution": False,
+            "real_futures_or_margin_execution": False,
         }
 
 

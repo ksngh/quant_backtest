@@ -167,10 +167,35 @@ def test_combines_optional_structural_and_measured_targets_with_metadata() -> No
     assert plan.targets[1].source == RiskExitTargetSource.STRUCTURE
     assert plan.targets[1].price == pytest.approx(103.0)
     assert plan.targets[1].r_multiple == pytest.approx(0.6)
-    assert plan.targets[1].metadata == {"rule": "nearest_actionable_structure"}
+    assert plan.targets[1].metadata["rule"] == "nearest_actionable_structure"
+    assert plan.targets[1].metadata["target_source"] == "STRUCTURE"
     assert plan.targets[2].source == RiskExitTargetSource.MEASURED
     assert plan.targets[2].price == pytest.approx(112.0)
     assert plan.targets[2].r_multiple == pytest.approx(2.4)
+    assert plan.targets[2].metadata["target_source"] == "MEASURED"
+    semantics = plan.target_semantics
+    assert semantics["schema_version"] == "target_semantics_v1"
+    assert semantics["risk_targets"][1]["source"] == "STRUCTURE"
+    assert semantics["risk_targets"][2]["source"] == "MEASURED"
+    assert semantics["structural_targets"][0]["price"] == pytest.approx(103.0)
+    assert semantics["measured_targets"][0]["price"] == pytest.approx(112.0)
+
+
+def test_detector_target_reference_is_separate_from_measured_target_semantics() -> None:
+    plan = create_risk_exit_plan(
+        direction="LONG",
+        entry_price=100.0,
+        structural_stop=95.0,
+        atr=0.0,
+        detector_target_reference=123.0,
+        measured_targets=[120.0],
+    )
+
+    semantics = plan.target_semantics
+    assert semantics["detector_target_reference"] == pytest.approx(123.0)
+    assert semantics["measured_targets"][0]["price"] == pytest.approx(120.0)
+    assert semantics["risk_targets"][2]["source"] == "MEASURED"
+    assert semantics["risk_targets"][2]["price"] == pytest.approx(120.0)
 
 
 def test_represents_time_stop_break_even_trailing_stop_and_partial_exit_settings() -> None:

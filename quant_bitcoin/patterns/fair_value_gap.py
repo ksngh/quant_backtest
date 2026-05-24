@@ -23,12 +23,21 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
+)
+from quant_bitcoin.indicators.pivots import PivotConfig, detect_pivots
+from quant_bitcoin.indicators.support_resistance_zone import (
+    SupportResistanceZoneConfig,
+    support_resistance_proximity_feature,
+)
+from quant_bitcoin.indicators.swing_structure import (
+    SwingStructureConfig,
+    swing_structure_alignment_feature,
 )
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
@@ -100,6 +109,9 @@ class FairValueGapConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    pivot_config: PivotConfig | None = None
+    support_resistance_config: SupportResistanceZoneConfig | None = None
+    swing_structure_config: SwingStructureConfig | None = None
     retrospective_lifecycle: bool = False
 
     def __post_init__(self) -> None:
@@ -168,6 +180,9 @@ class PatternEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    executable_pattern_score: float | None = None
+    diagnostic_pattern_score: float | None = None
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def detect_patterns(
@@ -236,10 +251,7 @@ def detect_fair_value_gaps(
         candle_frame[["symbol", "timestamp", "high", "low", "close"]],
         fvg_config.atr_config,
     )
-    volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
-        fvg_config.volume_ratio_config,
-    )
+    volume_rows = calculate_volume_ratio(candle_frame, fvg_config.volume_ratio_config)
     enriched = candle_frame.copy()
     enriched["atr"] = atr_rows["atr"]
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
@@ -451,11 +463,30 @@ def _evaluate_fair_value_gap(
     if fvg_state in (FairValueGapState.FILLED, FairValueGapState.BROKEN):
         return None
 
+    zone_mid = (zone_low + zone_high) / 2
+    context_pivots = _context_pivots(candles, candle_3_index, config.pivot_config)
+    support_resistance_feature = support_resistance_proximity_feature(
+        context_pivots,
+        current_index=candle_3_index,
+        price=zone_mid,
+        direction=direction.value,
+        atr=atr,
+        config=config.support_resistance_config,
+    )
+    swing_structure_feature = swing_structure_alignment_feature(
+        context_pivots,
+        current_index=candle_3_index,
+        direction=direction.value,
+        config=config.swing_structure_config,
+    )
+
     score_metadata = _calculate_pattern_score_metadata(
         gap_size_atr=gap_size_atr,
         displacement_confirmed=displacement_confirmed,
         volume_ratio=volume_ratio,
         fvg_state=fvg_state,
+        support_resistance_feature=support_resistance_feature,
+        swing_structure_feature=swing_structure_feature,
         config=config,
     )
     pattern_score = float(score_metadata["pattern_score"])
@@ -466,7 +497,6 @@ def _evaluate_fair_value_gap(
         config=config,
     )
 
-    zone_mid = (zone_low + zone_high) / 2
     entry_reference = zone_mid
     if direction == PatternDirection.BULLISH:
         stop_reference = zone_low - config.break_buffer_atr_multiplier * atr
@@ -516,8 +546,8 @@ def _evaluate_fair_value_gap(
         volume_ratio=volume_ratio,
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
-        structure_context=None,
-        support_resistance_context=None,
+        structure_context=str(swing_structure_feature.get("context")),
+        support_resistance_context=str(support_resistance_feature.get("context")),
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
@@ -531,6 +561,9 @@ def _evaluate_fair_value_gap(
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        executable_pattern_score=score_metadata["executable_pattern_score"],
+        diagnostic_pattern_score=score_metadata["diagnostic_pattern_score"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
     )
 
 
@@ -573,6 +606,8 @@ def _calculate_pattern_score(
     volume_ratio: float,
     fvg_state: FairValueGapState,
     config: FairValueGapConfig,
+    support_resistance_feature: dict[str, Any] | None = None,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> float:
     return float(
         _calculate_pattern_score_metadata(
@@ -580,6 +615,8 @@ def _calculate_pattern_score(
             displacement_confirmed=displacement_confirmed,
             volume_ratio=volume_ratio,
             fvg_state=fvg_state,
+            support_resistance_feature=support_resistance_feature,
+            swing_structure_feature=swing_structure_feature,
             config=config,
         )["pattern_score"]
     )
@@ -592,6 +629,8 @@ def _calculate_pattern_score_metadata(
     volume_ratio: float,
     fvg_state: FairValueGapState,
     config: FairValueGapConfig,
+    support_resistance_feature: dict[str, Any] | None = None,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if 0.2 <= gap_size_atr <= 1.0:
         gap_quality_score = 1.0
@@ -615,8 +654,12 @@ def _calculate_pattern_score_metadata(
     else:
         volume_confirmation_score = 0.0
 
-    structure_alignment_score = 0.5
-    support_resistance_context_score = 0.5
+    structure_feature = swing_structure_feature or _missing_score_feature(
+        reason="feature_not_computed"
+    )
+    support_feature = support_resistance_feature or _missing_score_feature(
+        reason="feature_not_computed"
+    )
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
 
     if fvg_state == FairValueGapState.FRESH:
@@ -652,19 +695,19 @@ def _calculate_pattern_score_metadata(
             },
             {
                 "name": "structure_alignment",
-                "raw_score": structure_alignment_score,
+                "raw_score": structure_feature["score"],
                 "weight": 0.15,
-                "source": "placeholder_constant",
-                "is_placeholder": True,
-                "description": "Reserved structure-alignment prior; no swing/regime feature is wired into this score yet.",
+                "source": structure_feature["source"],
+                "description": "No-lookahead swing-structure alignment at the FVG confirmation candle.",
+                "metadata": structure_feature,
             },
             {
                 "name": "support_resistance_context",
-                "raw_score": support_resistance_context_score,
+                "raw_score": support_feature["score"],
                 "weight": 0.10,
-                "source": "placeholder_constant",
-                "is_placeholder": True,
-                "description": "Reserved support/resistance prior; not a measured zone interaction in this score.",
+                "source": support_feature["source"],
+                "description": "No-lookahead proximity to confirmed support/resistance zones at the FVG reference price.",
+                "metadata": support_feature,
             },
             {
                 "name": "liquidity",
@@ -683,6 +726,28 @@ def _calculate_pattern_score_metadata(
             },
         ],
     )
+
+
+def _context_pivots(
+    candles: pd.DataFrame, current_index: int, config: PivotConfig | None
+) -> pd.DataFrame:
+    if current_index < 0:
+        return pd.DataFrame()
+    visible = candles.iloc[: current_index + 1]
+    return detect_pivots(
+        visible[["symbol", "timestamp", "open", "high", "low", "close"]],
+        config,
+    )
+
+
+def _missing_score_feature(reason: str) -> dict[str, Any]:
+    return {
+        "feature_available": False,
+        "source": "missing_context",
+        "context": "MISSING_CONTEXT",
+        "score": 0.0,
+        "missing_context_reason": reason,
+    }
 
 
 def _classify_pattern_status(

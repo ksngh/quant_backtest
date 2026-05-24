@@ -112,6 +112,34 @@ def test_non_ambiguous_touches_return_direct_outcome() -> None:
 
 
 @pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        (IntrabarSequencingMode.CONSERVATIVE, "ENTRY"),
+        (IntrabarSequencingMode.OPTIMISTIC, "TARGET"),
+        (IntrabarSequencingMode.ENTRY_FIRST_THEN_TARGET, "TARGET"),
+        (IntrabarSequencingMode.ENTRY_FIRST_THEN_STOP, "ENTRY"),
+    ],
+)
+def test_entry_target_without_stop_is_policy_driven(mode: IntrabarSequencingMode, expected: str) -> None:
+    touches = detect_intrabar_touches(
+        high=106.0,
+        low=99.0,
+        entry_price=100.0,
+        stop_price=95.0,
+        target_price=105.0,
+    )
+
+    decision = resolve_intrabar_decision(
+        direction="LONG",
+        touches=touches,
+        config=IntrabarPolicyConfig(mode=mode),
+    )
+
+    assert decision.outcome == expected
+    assert decision.is_ambiguous is True
+
+
+@pytest.mark.parametrize(
     ("kwargs", "message"),
     [
         (

@@ -123,6 +123,8 @@ def create_fair_value_gap_risk_exit_plan(
         atr=atr,
         config=planner_config.to_risk_exit_config(),
         structural_targets=targets,
+        detector_target_reference=event.target_reference,
+        atr_metadata=getattr(event, "atr_metadata", {}),
     )
 
     return FairValueGapRiskExitPlan(

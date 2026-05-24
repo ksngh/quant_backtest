@@ -31,7 +31,12 @@ def _event(direction: str = "BULLISH") -> TrendlineBreakEvent:
         trendline_slope=-1.0 if is_bullish else 1.0,
         trendline_intercept=102.0 if is_bullish else 98.0,
         touch_count=2,
+        fit_pivot_count=2,
+        validation_touch_count=0,
         source_pivot_indices=(0, 1),
+        fit_pivot_indices=(0, 1),
+        validation_touch_indices=(),
+        touch_deviations=(0.0, 0.0),
         trendline_value=100.0,
         break_price=102.0 if is_bullish else 98.0,
         break_distance=2.0,
@@ -41,6 +46,9 @@ def _event(direction: str = "BULLISH") -> TrendlineBreakEvent:
         liquidity_pass=None,
         spread_pass=None,
         displacement_confirmed=True,
+        retest_entry_eligible=False,
+        retest_wait_bars=None,
+        follow_through_bars=0,
         pattern_score=0.8,
         entry_reference=100.0,
         stop_reference=95.0 if is_bullish else 105.0,
@@ -117,8 +125,11 @@ def test_r_targets_and_structural_target_metadata_are_present() -> None:
     assert targets[0].price == pytest.approx(108.0)
     assert targets[1].source == RiskExitTargetSource.STRUCTURE
     assert targets[1].price == pytest.approx(112.0)
-    assert targets[1].metadata == {"rule": "nearest_actionable_structure"}
+    assert targets[1].metadata["rule"] == "nearest_actionable_structure"
+    assert targets[1].metadata["target_source"] == "STRUCTURE"
     assert plan.structural_targets == pytest.approx((112.0, 118.0, 116.0))
+    assert plan.risk_plan.target_semantics["detector_target_reference"] == pytest.approx(116.0)
+    assert plan.risk_plan.target_semantics["risk_targets"][1]["source"] == "STRUCTURE"
 
 
 def test_minimum_target_filter_can_skip_poor_risk_reward_plan() -> None:

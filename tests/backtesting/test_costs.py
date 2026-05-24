@@ -9,11 +9,26 @@ from quant_bitcoin.backtesting.costs import (
     basis_points_to_decimal,
     calculate_transaction_cost,
     effective_execution_price,
+    is_zero_transaction_cost_config,
+    transaction_cost_profile_metadata,
 )
 
 
 def test_basis_points_to_decimal_converts() -> None:
     assert basis_points_to_decimal(10.0) == pytest.approx(0.001)
+
+
+def test_zero_cost_assumption_and_profile_metadata() -> None:
+    assert is_zero_transaction_cost_config(None) is True
+    assert is_zero_transaction_cost_config(TransactionCostConfig()) is True
+    assert is_zero_transaction_cost_config(TransactionCostConfig(taker_fee_bps=1.0)) is False
+
+    metadata = transaction_cost_profile_metadata(None)
+
+    assert metadata["schema_version"] == "transaction_cost_profile_v1"
+    assert metadata["profile_key"] == "zero"
+    assert metadata["zero_cost_profile"] is True
+    assert metadata["source"] == "implicit_zero_default"
 
 
 @pytest.mark.parametrize(

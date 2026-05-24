@@ -63,6 +63,50 @@ class TransactionCostBreakdown:
     volatility_bps: float | None = None
 
 
+def is_zero_transaction_cost_config(config: TransactionCostConfig | None) -> bool:
+    """Return whether a config represents explicit or implicit zero costs."""
+
+    if config is None:
+        return True
+    return (
+        config.maker_fee_bps == 0
+        and config.taker_fee_bps == 0
+        and config.spread_bps == 0
+        and config.slippage_bps == 0
+        and config.minimum_slippage_bps == 0
+        and config.volatility_slippage_multiplier == 0
+    )
+
+
+def transaction_cost_profile_metadata(
+    config: TransactionCostConfig | None,
+    *,
+    profile_key: str | None = None,
+    source: str = "strategy_engine_config",
+) -> dict[str, object]:
+    """Return a serializable cost-profile contract for engine-level runs."""
+
+    cost = config or TransactionCostConfig()
+    key = profile_key or ("zero" if is_zero_transaction_cost_config(config) else "manual")
+    return {
+        "schema_version": "transaction_cost_profile_v1",
+        "profile_key": key,
+        "description": (
+            "No fees, spread, or slippage; useful only as a debugging baseline."
+            if key == "zero"
+            else "Manual offline transaction-cost assumptions."
+        ),
+        "source": source if config is not None else "implicit_zero_default",
+        "maker_fee_bps": cost.maker_fee_bps,
+        "taker_fee_bps": cost.taker_fee_bps,
+        "spread_bps": cost.spread_bps,
+        "slippage_bps": cost.slippage_bps,
+        "minimum_slippage_bps": cost.minimum_slippage_bps,
+        "volatility_slippage_multiplier": cost.volatility_slippage_multiplier,
+        "zero_cost_profile": is_zero_transaction_cost_config(config),
+    }
+
+
 def basis_points_to_decimal(value_bps: float) -> float:
     """Convert basis points to decimal fraction.
 

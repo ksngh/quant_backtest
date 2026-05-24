@@ -120,7 +120,7 @@ def test_detects_bullish_trendline_break_event() -> None:
     event = events[0]
     assert event.pattern_type == "TRENDLINE_BREAK"
     assert event.direction == "BULLISH"
-    assert event.pattern_status == TrendlineBreakStatus.VALID.value
+    assert event.pattern_status == TrendlineBreakStatus.WEAK.value
     assert event.symbol == "BTCUSDT"
     assert event.timeframe == "1m"
     assert event.timestamp == "2026-05-16T00:06:00Z"
@@ -130,20 +130,66 @@ def test_detects_bullish_trendline_break_event() -> None:
     assert event.trendline_slope == pytest.approx(-1.0 / 3.0)
     assert event.trendline_intercept == pytest.approx(15.0 + (1.0 / 3.0))
     assert event.touch_count == 2
+    assert event.fit_pivot_count == 2
+    assert event.validation_touch_count == 0
     assert event.source_pivot_indices == (1, 4)
+    assert event.fit_pivot_indices == (1, 4)
+    assert event.validation_touch_indices == ()
+    assert event.pivot_metadata["right_window"] == 1
+    assert event.pivot_metadata["confirmation_delay"] == 1
+    assert event.pivot_metadata["pivot_count"] == 2
+    assert event.pivot_metadata["no_lookahead_confirmed"] is True
+    assert event.pivot_metadata["max_confirmed_index"] <= event.end_index
+    assert len(event.touch_deviations) == 2
+    assert event.retest_entry_eligible is False
+    assert event.follow_through_bars == 0
     assert event.trendline_value == pytest.approx(13.3333333333)
     assert event.break_price == pytest.approx(14.2)
     assert event.break_distance == pytest.approx(14.2 - 13.3333333333)
     assert event.break_distance_atr == pytest.approx((14.2 - 13.3333333333) / 3.5)
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.displacement_confirmed is True
-    assert event.pattern_score >= 0.7
+    assert event.pattern_score == pytest.approx(event.executable_pattern_score)
+    assert event.pattern_score < event.diagnostic_pattern_score
+    assert event.diagnostic_pattern_score >= 0.7
     assert event.score_components["trendline_quality"]["weighted_score"] > 0
-    assert event.score_components["structure_alignment"]["is_placeholder"] is True
+    assert event.score_components["structure_alignment"]["source"] == "observed_swing_structure_alignment"
+    assert event.score_components["structure_alignment"]["is_placeholder"] is False
+    assert (
+        event.score_components["structure_alignment"]["metadata"]["latest_confirmed_index"]
+        <= event.end_index
+    )
     assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_components["liquidity"]["included_in_executable_score"] is False
     assert event.score_calibration["is_calibrated_probability"] is False
     assert event.risk_reward == pytest.approx(2.0)
     assert event.reason
+
+
+def test_atr_strength_pivot_filter_reduces_trendline_candidates() -> None:
+    base_events = detect_trendline_breaks(
+        _bullish_break_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(),
+    )
+    filtered_events = detect_trendline_breaks(
+        _bullish_break_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            pivot_config=PivotConfig(
+                left_window=1,
+                right_window=1,
+                minimum_distance_between_pivots=1,
+                use_atr_filter=True,
+                minimum_pivot_strength_atr=0.5,
+            )
+        ),
+    )
+
+    assert len(base_events) == 1
+    assert filtered_events == []
 
 
 def test_detects_bearish_trendline_break_event() -> None:
@@ -157,7 +203,7 @@ def test_detects_bearish_trendline_break_event() -> None:
     assert len(events) == 1
     event = events[0]
     assert event.direction == "BEARISH"
-    assert event.pattern_status == TrendlineBreakStatus.VALID.value
+    assert event.pattern_status == TrendlineBreakStatus.WEAK.value
     assert event.trendline_type == TrendlineType.ASCENDING_SUPPORT.value
     assert event.trendline_slope == pytest.approx(1.0 / 3.0)
     assert event.trendline_value == pytest.approx(6.6666666667)
@@ -165,6 +211,60 @@ def test_detects_bearish_trendline_break_event() -> None:
     assert event.break_distance == pytest.approx(6.6666666667 - 5.8)
     assert event.source_pivot_indices == (1, 4)
     assert event.displacement_confirmed is True
+
+
+def test_two_pivot_candidate_rejected_when_independent_third_touch_required() -> None:
+    events = detect_trendline_breaks(
+        _bullish_break_candles(),
+        symbol="BTCUSDT",
+        config=_config(require_independent_third_touch=True),
+    )
+
+    assert events == []
+
+
+def test_independent_third_touch_candidate_can_be_accepted() -> None:
+    candles = _candles(
+        [
+            {"open": 9.0, "high": 10.0, "low": 8.0, "close": 9.0},
+            {"open": 14.0, "high": 15.0, "low": 9.0, "close": 14.0},
+            {"open": 11.0, "high": 12.0, "low": 8.0, "close": 11.0},
+            {"open": 13.0, "high": 14.0, "low": 9.0, "close": 13.0},
+            {"open": 10.0, "high": 11.0, "low": 8.0, "close": 10.0},
+            {"open": 12.0, "high": 13.0, "low": 8.0, "close": 12.0},
+            {"open": 10.0, "high": 11.0, "low": 8.0, "close": 10.0},
+            {"open": 11.0, "high": 14.0, "low": 11.0, "close": 13.8, "volume": 500.0},
+        ]
+    )
+    events = detect_trendline_breaks(
+        candles,
+        symbol="BTCUSDT",
+        config=_config(require_independent_third_touch=True),
+    )
+
+    assert len(events) == 1
+    assert events[0].touch_count >= 3
+    assert events[0].validation_touch_count >= 1
+
+
+def test_retest_metadata_waits_for_side_aware_trendline_touch() -> None:
+    candles = pd.concat(
+        [
+            _bullish_break_candles(),
+            _candles([{"timestamp": "2026-05-16T00:07:00Z", "open": 14.0, "high": 14.4, "low": 13.0, "close": 14.1, "volume": 300.0}]),
+        ],
+        ignore_index=True,
+    )
+
+    events = detect_trendline_breaks(
+        candles,
+        symbol="BTCUSDT",
+        config=_config(retest_entry_max_wait_bars=2),
+    )
+
+    assert len(events) >= 1
+    assert events[0].retest_entry_eligible is True
+    assert events[0].retest_wait_bars == 1
 
 
 def test_insufficient_pivot_history_returns_empty_list() -> None:

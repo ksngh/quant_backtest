@@ -22,6 +22,11 @@ class PatternEntryMode(Enum):
     LIMIT_AT_ENTRY_REFERENCE = "LIMIT_AT_ENTRY_REFERENCE"
     LIMIT_AT_PATTERN_MIDPOINT = "LIMIT_AT_PATTERN_MIDPOINT"
     LIMIT_AT_PATTERN_BOUNDARY = "LIMIT_AT_PATTERN_BOUNDARY"
+    LIMIT_AT_PATTERN_NEAR_BOUNDARY = "LIMIT_AT_PATTERN_NEAR_BOUNDARY"
+    LIMIT_AT_PATTERN_FAR_BOUNDARY = "LIMIT_AT_PATTERN_FAR_BOUNDARY"
+    LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT = "LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT"
+    LIMIT_AT_TRENDLINE_RETEST = "LIMIT_AT_TRENDLINE_RETEST"
+    LIMIT_AT_NECKLINE_RETEST = "LIMIT_AT_NECKLINE_RETEST"
     LIMIT_AT_CUSTOM_PRICE = "LIMIT_AT_CUSTOM_PRICE"
 
 
@@ -95,7 +100,17 @@ def create_entry_plan_from_event(
         elif entry_mode == PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT:
             limit_price = _required_numeric_field(event, "zone_mid")
         elif entry_mode == PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY:
-            limit_price = _boundary_price(event, normalized_direction)
+            limit_price = _boundary_price(event, normalized_direction, variant="far")
+        elif entry_mode == PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY:
+            limit_price = _boundary_price(event, normalized_direction, variant="near")
+        elif entry_mode == PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY:
+            limit_price = _boundary_price(event, normalized_direction, variant="far")
+        elif entry_mode == PatternEntryMode.LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT:
+            limit_price = _order_block_618_price(event, normalized_direction)
+        elif entry_mode == PatternEntryMode.LIMIT_AT_TRENDLINE_RETEST:
+            limit_price = _required_numeric_field(event, "trendline_value")
+        elif entry_mode == PatternEntryMode.LIMIT_AT_NECKLINE_RETEST:
+            limit_price = _required_numeric_field(event, "neckline")
         else:
             if custom_price is None:
                 raise ValueError("custom_price is required for LIMIT_AT_CUSTOM_PRICE mode")
@@ -229,7 +244,7 @@ def _required_numeric_field(event: Any, name: str) -> float:
     return _positive_float(value, name)
 
 
-def _boundary_price(event: Any, direction: str) -> float:
+def _boundary_price(event: Any, direction: str, *, variant: str) -> float:
     zone_low = _event_field(event, "zone_low")
     if zone_low is None:
         zone_low = _event_field(event, "lower_boundary_value")
@@ -238,9 +253,24 @@ def _boundary_price(event: Any, direction: str) -> float:
         zone_high = _event_field(event, "upper_boundary_value")
     zone_low = _positive_float(zone_low, "zone_low")
     zone_high = _positive_float(zone_high, "zone_high")
+    if variant == "near":
+        if direction == "LONG":
+            return zone_high
+        return zone_low
     if direction == "LONG":
         return zone_low
     return zone_high
+
+
+def _order_block_618_price(event: Any, direction: str) -> float:
+    zone_low = _positive_float(_event_field(event, "zone_low"), "zone_low")
+    zone_high = _positive_float(_event_field(event, "zone_high"), "zone_high")
+    if zone_high <= zone_low:
+        raise ValueError("zone_high must be greater than zone_low")
+    zone_size = zone_high - zone_low
+    if direction == "LONG":
+        return zone_high - zone_size * 0.618
+    return zone_low + zone_size * 0.618
 
 
 def _optional_str(value: Any) -> str | None:
@@ -250,7 +280,10 @@ def _optional_str(value: Any) -> str | None:
 
 
 def _positive_float(value: Any, name: str) -> float:
-    number = float(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be numeric") from exc
     if number <= 0:
         raise ValueError(f"{name} must be positive")
     return number

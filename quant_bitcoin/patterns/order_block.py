@@ -25,12 +25,21 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
+)
+from quant_bitcoin.indicators.pivots import PivotConfig, detect_pivots
+from quant_bitcoin.indicators.support_resistance_zone import (
+    SupportResistanceZoneConfig,
+    support_resistance_proximity_feature,
+)
+from quant_bitcoin.indicators.swing_structure import (
+    SwingStructureConfig,
+    swing_structure_alignment_feature,
 )
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
@@ -88,6 +97,8 @@ class OrderBlockConfig:
     allow_single_candle_order_block: bool = True
     allow_multi_candle_order_block: bool = False
     maximum_source_cluster_size: int = 3
+    emit_retest_events: bool = False
+    retest_entry_max_wait_bars: int | None = None
     zone_definition: OrderBlockZoneDefinition | str = OrderBlockZoneDefinition.FULL_RANGE
     require_displacement: bool = True
     minimum_displacement_body_ratio: float = 0.6
@@ -116,6 +127,9 @@ class OrderBlockConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    pivot_config: PivotConfig | None = None
+    support_resistance_config: SupportResistanceZoneConfig | None = None
+    swing_structure_config: SwingStructureConfig | None = None
     retrospective_lifecycle: bool = False
 
     def __post_init__(self) -> None:
@@ -123,6 +137,8 @@ class OrderBlockConfig:
             raise ValueError("source_search_lookback must be at least 1")
         if self.maximum_source_cluster_size < 1:
             raise ValueError("maximum_source_cluster_size must be at least 1")
+        if self.retest_entry_max_wait_bars is not None and self.retest_entry_max_wait_bars < 1:
+            raise ValueError("retest_entry_max_wait_bars must be at least 1 when supplied")
         _coerce_zone_definition(self.zone_definition)
         if not self.allow_single_candle_order_block:
             raise ValueError("single-candle order blocks must be enabled in this batch")
@@ -186,7 +202,9 @@ class OrderBlockEvent:
     source_mode: str
     source_cluster_start_index: int
     source_cluster_end_index: int
+    source_cluster_size: int
     zone_definition: str
+    detector_input_type: str
     displacement_direction: str
     displacement_range_atr: float
     body_ratio: float
@@ -197,6 +215,8 @@ class OrderBlockEvent:
     structure_event: str | None
     support_resistance_context: str | None
     mitigation_depth: float
+    retest_entry_eligible: bool
+    retest_wait_bars: int | None
     pattern_score: float
     entry_reference: float
     stop_reference: float
@@ -207,6 +227,9 @@ class OrderBlockEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    executable_pattern_score: float | None = None
+    diagnostic_pattern_score: float | None = None
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def detect_order_blocks(
@@ -237,7 +260,7 @@ def detect_order_blocks(
         order_block_config.atr_config,
     )
     volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
+        candle_frame,
         order_block_config.volume_ratio_config,
     )
     enriched = candle_frame.copy()
@@ -257,21 +280,21 @@ def detect_order_blocks(
         displacement_direction = str(displacement["displacement_direction"])
         if displacement_direction == DisplacementDirection.BULLISH.value:
             direction = OrderBlockDirection.BULLISH
-            source_index = _find_source_candle(enriched, displacement_index, direction, order_block_config)
+            source_cluster = _find_source_cluster(enriched, displacement_index, direction, order_block_config)
         elif displacement_direction == DisplacementDirection.BEARISH.value:
             direction = OrderBlockDirection.BEARISH
-            source_index = _find_source_candle(enriched, displacement_index, direction, order_block_config)
+            source_cluster = _find_source_cluster(enriched, displacement_index, direction, order_block_config)
         else:
             continue
 
-        if source_index is None:
+        if source_cluster is None:
             continue
 
         event = _evaluate_order_block(
             direction,
             enriched,
             displacement,
-            source_index,
+            source_cluster,
             displacement_index,
             symbol=symbol_value,
             timeframe=timeframe,
@@ -370,33 +393,48 @@ def _displacement_config(config: OrderBlockConfig) -> DisplacementCandleConfig:
     )
 
 
-def _find_source_candle(
+def _find_source_cluster(
     candles: pd.DataFrame,
     displacement_index: int,
     direction: OrderBlockDirection,
     config: OrderBlockConfig,
-) -> int | None:
+) -> tuple[int, int] | None:
     start_index = max(0, displacement_index - config.source_search_lookback)
     for source_index in range(displacement_index - 1, start_index - 1, -1):
         source = candles.iloc[source_index]
-        if direction == OrderBlockDirection.BULLISH and float(source["close"]) < float(source["open"]):
-            return source_index
-        if direction == OrderBlockDirection.BEARISH and float(source["close"]) > float(source["open"]):
-            return source_index
+        if not _is_opposing_source_candle(source, direction):
+            continue
+        if not config.allow_multi_candle_order_block:
+            return source_index, source_index
+        cluster_start = source_index
+        max_start = max(start_index, source_index - config.maximum_source_cluster_size + 1)
+        for candidate_index in range(source_index - 1, max_start - 1, -1):
+            if not _is_opposing_source_candle(candles.iloc[candidate_index], direction):
+                break
+            cluster_start = candidate_index
+        return cluster_start, source_index
     return None
+
+
+def _is_opposing_source_candle(source: pd.Series, direction: OrderBlockDirection) -> bool:
+    if direction == OrderBlockDirection.BULLISH:
+        return float(source["close"]) < float(source["open"])
+    return float(source["close"]) > float(source["open"])
 
 
 def _evaluate_order_block(
     direction: OrderBlockDirection,
     candles: pd.DataFrame,
     displacement: pd.Series,
-    source_index: int,
+    source_cluster: tuple[int, int],
     displacement_index: int,
     *,
     symbol: str | None,
     timeframe: str | None,
     config: OrderBlockConfig,
 ) -> OrderBlockEvent | None:
+    source_start_index, source_end_index = source_cluster
+    source_index = source_end_index
     displacement_candle = candles.iloc[displacement_index]
     atr = _optional_float(displacement_candle["atr"])
     volume_ratio = _optional_float(displacement_candle["volume_ratio"])
@@ -416,7 +454,8 @@ def _evaluate_order_block(
     if volume_ratio < config.weak_volume_ratio:
         return None
 
-    zone = _zone_boundaries(candles.iloc[source_index], direction, config)
+    source_frame = candles.iloc[source_start_index : source_end_index + 1]
+    zone = _zone_boundaries(source_frame, direction, config)
     if zone is None:
         return None
     zone_low, zone_high = zone
@@ -429,8 +468,8 @@ def _evaluate_order_block(
     if zone_size_atr > config.maximum_zone_size_atr_multiplier:
         return None
 
-    lifecycle_candles = candles if config.retrospective_lifecycle else candles.iloc[: displacement_index + 1]
-    state, mitigation_depth = _classify_state(
+    lifecycle_candles = candles if (config.retrospective_lifecycle or config.emit_retest_events) else candles.iloc[: displacement_index + 1]
+    state, mitigation_depth, state_index = _classify_state(
         direction,
         lifecycle_candles,
         displacement_index,
@@ -442,6 +481,34 @@ def _evaluate_order_block(
     )
     if state == OrderBlockState.BROKEN:
         return None
+    retest_entry_eligible = state in {OrderBlockState.TOUCHED, OrderBlockState.MITIGATED}
+    retest_wait_bars = None if state_index is None else state_index - displacement_index
+    if config.emit_retest_events:
+        if config.retest_entry_max_wait_bars is not None:
+            visible_wait_bars = len(candles) - displacement_index - 1
+            if not retest_entry_eligible and visible_wait_bars >= config.retest_entry_max_wait_bars:
+                return None
+            if retest_wait_bars is not None and retest_wait_bars > config.retest_entry_max_wait_bars:
+                return None
+        if not retest_entry_eligible:
+            return None
+
+    zone_mid = (zone_low + zone_high) / 2
+    context_pivots = _context_pivots(candles, displacement_index, config.pivot_config)
+    support_resistance_feature = support_resistance_proximity_feature(
+        context_pivots,
+        current_index=displacement_index,
+        price=zone_mid,
+        direction=direction.value,
+        atr=atr,
+        config=config.support_resistance_config,
+    )
+    swing_structure_feature = swing_structure_alignment_feature(
+        context_pivots,
+        current_index=displacement_index,
+        direction=direction.value,
+        config=config.swing_structure_config,
+    )
 
     score_metadata = _calculate_pattern_score_metadata(
         displacement_range_atr=displacement_range_atr,
@@ -449,6 +516,8 @@ def _evaluate_order_block(
         volume_ratio=volume_ratio,
         zone_size_atr=zone_size_atr,
         order_block_state=state,
+        support_resistance_feature=support_resistance_feature,
+        swing_structure_feature=swing_structure_feature,
         config=config,
     )
     pattern_score = float(score_metadata["pattern_score"])
@@ -461,7 +530,6 @@ def _evaluate_order_block(
     else:
         return None
 
-    zone_mid = (zone_low + zone_high) / 2
     entry_reference = _entry_reference(zone_low, zone_high, zone_mid, config)
     stop_reference = _stop_reference(direction, zone_low, zone_high, atr, config)
     target_reference, risk_reward = _target_and_risk_reward(
@@ -478,9 +546,12 @@ def _evaluate_order_block(
         direction=direction.value,
         symbol=symbol,
         timeframe=timeframe,
-        source_timestamp=candles.iloc[source_index]["timestamp"],
+        source_timestamp=candles.iloc[source_start_index]["timestamp"],
         displacement_timestamp=displacement_candle["timestamp"],
     )
+    source_cluster_size = source_end_index - source_start_index + 1
+    source_mode = "MULTI_CANDLE_CLUSTER" if source_cluster_size > 1 else "SINGLE_CANDLE"
+    event_end_index = state_index if config.emit_retest_events and state_index is not None else displacement_index
 
     return OrderBlockEvent(
         event_id=event_id,
@@ -490,8 +561,8 @@ def _evaluate_order_block(
         symbol=symbol,
         timeframe=timeframe,
         timestamp=displacement_candle["timestamp"],
-        start_index=source_index,
-        end_index=displacement_index,
+        start_index=source_start_index,
+        end_index=event_end_index,
         order_block_state=state.value,
         source_candle_index=source_index,
         source_candle_timestamp=candles.iloc[source_index]["timestamp"],
@@ -502,57 +573,66 @@ def _evaluate_order_block(
         zone_mid=zone_mid,
         zone_size=zone_size,
         zone_size_atr=zone_size_atr,
-        source_mode="SINGLE_CANDLE",
-        source_cluster_start_index=source_index,
-        source_cluster_end_index=source_index,
+        source_mode=source_mode,
+        source_cluster_start_index=source_start_index,
+        source_cluster_end_index=source_end_index,
+        source_cluster_size=source_cluster_size,
         zone_definition=_coerce_zone_definition(config.zone_definition).value,
+        detector_input_type="OHLCV_HEURISTIC",
         displacement_direction=direction.value,
         displacement_range_atr=displacement_range_atr,
         body_ratio=body_ratio,
         volume_ratio=volume_ratio,
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
-        structure_confirmed=None,
-        structure_event=None,
-        support_resistance_context="NO_CONTEXT",
+        structure_confirmed=bool(swing_structure_feature.get("feature_available")),
+        structure_event=str(swing_structure_feature.get("context")),
+        support_resistance_context=str(support_resistance_feature.get("context")),
         mitigation_depth=mitigation_depth,
+        retest_entry_eligible=retest_entry_eligible,
+        retest_wait_bars=retest_wait_bars,
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
         target_reference=target_reference,
         risk_reward=risk_reward,
         reason=(
-            f"{direction.value.title()} Order Block detected from nearest opposing "
-            "source candle before valid displacement."
+            f"{direction.value.title()} Order Block detected from OHLCV heuristic "
+            f"{source_mode.lower()} before valid displacement."
         ),
         score_components=score_metadata["score_components"],
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        executable_pattern_score=score_metadata["executable_pattern_score"],
+        diagnostic_pattern_score=score_metadata["diagnostic_pattern_score"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
     )
 
 
 def _zone_boundaries(
-    source: pd.Series,
+    source: pd.DataFrame,
     direction: OrderBlockDirection,
     config: OrderBlockConfig,
 ) -> tuple[float, float] | None:
     zone_definition = _coerce_zone_definition(config.zone_definition)
-    open_price = float(source["open"])
-    high = float(source["high"])
-    low = float(source["low"])
-    close = float(source["close"])
+    high = float(source["high"].max())
+    low = float(source["low"].min())
 
     if zone_definition == OrderBlockZoneDefinition.FULL_RANGE:
         return low, high
     if zone_definition == OrderBlockZoneDefinition.BODY_ONLY:
         if direction == OrderBlockDirection.BULLISH:
+            open_price = float(source["open"].max())
             return low, open_price
+        close = float(source["close"].min())
         return close, high
     if zone_definition == OrderBlockZoneDefinition.WICK_ADJUSTED:
         if direction == OrderBlockDirection.BULLISH:
-            return low, max(open_price, close)
-        return min(open_price, close), high
+            body_top = float(source[["open", "close"]].max(axis=1).max())
+            return low, body_top
+        body_bottom = float(source[["open", "close"]].min(axis=1).min())
+        return body_bottom, high
     return None
 
 
@@ -565,35 +645,39 @@ def _classify_state(
     zone_size: float,
     atr: float,
     config: OrderBlockConfig,
-) -> tuple[OrderBlockState, float]:
+) -> tuple[OrderBlockState, float, int | None]:
     later_candles = candles.iloc[displacement_index + 1 :]
     if later_candles.empty:
-        return OrderBlockState.FRESH, 0.0
+        return OrderBlockState.FRESH, 0.0, None
 
     if direction == OrderBlockDirection.BULLISH:
         broken = (later_candles["close"] < zone_low - config.broken_atr_buffer_multiplier * atr).any()
         touched_rows = later_candles[(later_candles["low"] <= zone_high) & (later_candles["close"] >= zone_low)]
         if broken:
             lowest_low = float(later_candles["low"].min())
-            return OrderBlockState.BROKEN, _clamp((zone_high - lowest_low) / zone_size)
+            broken_index = int(later_candles[later_candles["close"] < zone_low - config.broken_atr_buffer_multiplier * atr].index[0])
+            return OrderBlockState.BROKEN, _clamp((zone_high - lowest_low) / zone_size), broken_index
         if touched_rows.empty:
-            return OrderBlockState.FRESH, 0.0
+            return OrderBlockState.FRESH, 0.0, None
         lowest_low = float(touched_rows["low"].min())
         mitigation_depth = _clamp((zone_high - lowest_low) / zone_size)
+        state_index = int(touched_rows.index[0])
     else:
         broken = (later_candles["close"] > zone_high + config.broken_atr_buffer_multiplier * atr).any()
         touched_rows = later_candles[(later_candles["high"] >= zone_low) & (later_candles["close"] <= zone_high)]
         if broken:
             highest_high = float(later_candles["high"].max())
-            return OrderBlockState.BROKEN, _clamp((highest_high - zone_low) / zone_size)
+            broken_index = int(later_candles[later_candles["close"] > zone_high + config.broken_atr_buffer_multiplier * atr].index[0])
+            return OrderBlockState.BROKEN, _clamp((highest_high - zone_low) / zone_size), broken_index
         if touched_rows.empty:
-            return OrderBlockState.FRESH, 0.0
+            return OrderBlockState.FRESH, 0.0, None
         highest_high = float(touched_rows["high"].max())
         mitigation_depth = _clamp((highest_high - zone_low) / zone_size)
+        state_index = int(touched_rows.index[0])
 
     if mitigation_depth >= config.mitigation_threshold:
-        return OrderBlockState.MITIGATED, mitigation_depth
-    return OrderBlockState.TOUCHED, mitigation_depth
+        return OrderBlockState.MITIGATED, mitigation_depth, state_index
+    return OrderBlockState.TOUCHED, mitigation_depth, state_index
 
 
 def _calculate_pattern_score(
@@ -604,6 +688,8 @@ def _calculate_pattern_score(
     zone_size_atr: float,
     order_block_state: OrderBlockState,
     config: OrderBlockConfig,
+    support_resistance_feature: dict[str, Any] | None = None,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> float:
     return float(
         _calculate_pattern_score_metadata(
@@ -612,6 +698,8 @@ def _calculate_pattern_score(
             volume_ratio=volume_ratio,
             zone_size_atr=zone_size_atr,
             order_block_state=order_block_state,
+            support_resistance_feature=support_resistance_feature,
+            swing_structure_feature=swing_structure_feature,
             config=config,
         )["pattern_score"]
     )
@@ -625,6 +713,8 @@ def _calculate_pattern_score_metadata(
     zone_size_atr: float,
     order_block_state: OrderBlockState,
     config: OrderBlockConfig,
+    support_resistance_feature: dict[str, Any] | None = None,
+    swing_structure_feature: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if displacement_range_atr >= 2.0 and body_ratio >= 0.7:
         displacement_score = 1.0
@@ -645,7 +735,9 @@ def _calculate_pattern_score_metadata(
     else:
         volume_confirmation_score = 0.0
 
-    structure_confirmation_score = 0.5
+    structure_feature = swing_structure_feature or _missing_score_feature(
+        reason="feature_not_computed"
+    )
     if 0.25 <= zone_size_atr <= 1.0:
         zone_quality_score = 1.0
     elif config.minimum_zone_size_atr_multiplier <= zone_size_atr <= config.maximum_zone_size_atr_multiplier:
@@ -654,7 +746,9 @@ def _calculate_pattern_score_metadata(
         zone_quality_score = 0.0
 
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
-    support_resistance_context_score = 0.6
+    support_feature = support_resistance_feature or _missing_score_feature(
+        reason="feature_not_computed"
+    )
     if order_block_state == OrderBlockState.FRESH:
         freshness_score = 1.0
     elif order_block_state == OrderBlockState.TOUCHED:
@@ -669,13 +763,35 @@ def _calculate_pattern_score_metadata(
         [
             {"name": "displacement", "raw_score": displacement_score, "weight": 0.25, "source": "observed_displacement_candle", "description": "Displacement range/body ratio confirmation."},
             {"name": "volume_confirmation", "raw_score": volume_confirmation_score, "weight": 0.15, "source": "observed_volume_ratio", "description": "Relative volume on displacement candle."},
-            {"name": "structure_confirmation", "raw_score": structure_confirmation_score, "weight": 0.15, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved structure confirmation prior; no structure event is wired yet."},
+            {"name": "structure_confirmation", "raw_score": structure_feature["score"], "weight": 0.15, "source": structure_feature["source"], "description": "No-lookahead swing-structure alignment at the Order Block displacement candle.", "metadata": structure_feature},
             {"name": "zone_quality", "raw_score": zone_quality_score, "weight": 0.15, "source": "observed_zone_size_atr", "description": "Order block zone size normalized by ATR."},
             {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.10, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
-            {"name": "support_resistance_context", "raw_score": support_resistance_context_score, "weight": 0.10, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved support/resistance context prior."},
+            {"name": "support_resistance_context", "raw_score": support_feature["score"], "weight": 0.10, "source": support_feature["source"], "description": "No-lookahead proximity to confirmed support/resistance zones at the Order Block zone midpoint.", "metadata": support_feature},
             {"name": "freshness", "raw_score": freshness_score, "weight": 0.10, "source": "observed_lifecycle_state", "description": "Fresh/touched/mitigated order-block lifecycle state."},
         ],
     )
+
+
+def _context_pivots(
+    candles: pd.DataFrame, current_index: int, config: PivotConfig | None
+) -> pd.DataFrame:
+    if current_index < 0:
+        return pd.DataFrame()
+    visible = candles.iloc[: current_index + 1]
+    return detect_pivots(
+        visible[["symbol", "timestamp", "open", "high", "low", "close"]],
+        config,
+    )
+
+
+def _missing_score_feature(reason: str) -> dict[str, Any]:
+    return {
+        "feature_available": False,
+        "source": "missing_context",
+        "context": "MISSING_CONTEXT",
+        "score": 0.0,
+        "missing_context_reason": reason,
+    }
 
 
 def _entry_reference(

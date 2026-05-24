@@ -147,6 +147,42 @@ def test_same_candle_skip_ambiguous_policy_creates_no_exit() -> None:
     assert result.final_reason == PatternExitReason.NO_EXIT
 
 
+def test_combined_entry_target_conservative_does_not_take_same_candle_target() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 106.0, "low": 99.0, "close": 104.0}]),
+        entry_filled_on_first_candle=True,
+    )
+
+    assert result.events == ()
+    assert result.final_reason == PatternExitReason.NO_EXIT
+
+
+def test_combined_entry_target_optimistic_takes_same_candle_target() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 106.0, "low": 99.0, "close": 104.0}]),
+        intrabar_policy_config=IntrabarPolicyConfig(mode=IntrabarSequencingMode.OPTIMISTIC),
+        entry_filled_on_first_candle=True,
+    )
+
+    assert result.final_reason == PatternExitReason.TAKE_PROFIT
+    assert result.events[0].metadata["combined_entry_exit_sequencing"] is True
+    assert result.events[0].metadata["decision_outcome"] == "TARGET"
+
+
+def test_combined_entry_stop_target_skip_ambiguous_creates_no_exit() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 106.0, "low": 94.0, "close": 101.0}]),
+        intrabar_policy_config=IntrabarPolicyConfig(mode=IntrabarSequencingMode.SKIP_AMBIGUOUS),
+        entry_filled_on_first_candle=True,
+    )
+
+    assert result.events == ()
+    assert result.final_reason == PatternExitReason.NO_EXIT
+
+
 def test_short_same_candle_stop_takes_precedence_over_target() -> None:
     result = simulate_pattern_exit(
         _plan("SHORT"),
@@ -179,6 +215,80 @@ def test_soft_invalidation_exit() -> None:
 
     assert result.final_reason == PatternExitReason.SOFT_INVALIDATION
     assert result.final_price == pytest.approx(98.0)
+
+
+def test_hard_stop_takes_precedence_over_soft_invalidation() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([{"high": 102.0, "low": 94.0, "close": 98.0}]),
+        soft_invalidation=SoftInvalidationRule("close < neckline", reference_price=99.0),
+    )
+
+    assert result.final_reason == PatternExitReason.HARD_STOP
+    assert result.final_price == pytest.approx(95.0)
+    assert result.events[0].metadata["precedence"] == INTRABAR_PRECEDENCE_POLICY
+
+
+def test_fvg_midpoint_reaction_success_does_not_trigger_soft_exit() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([
+            {"high": 103.0, "low": 99.0, "close": 100.5},
+            {"high": 104.0, "low": 99.0, "close": 102.0},
+        ]),
+        soft_invalidation=SoftInvalidationRule(
+            "fvg_midpoint_reaction_failure",
+            reference_price=101.0,
+            max_bars_after_entry=2,
+            favorable_close_condition="close > fvg_midpoint",
+            metadata={"pattern_type": "FAIR_VALUE_GAP", "zone_low": 99.0, "zone_high": 103.0},
+        ),
+    )
+
+    assert result.final_reason == PatternExitReason.NO_EXIT
+
+
+def test_fvg_midpoint_reaction_failure_triggers_soft_exit_with_metadata() -> None:
+    result = simulate_pattern_exit(
+        _plan(),
+        _candles([
+            {"high": 102.0, "low": 99.5, "close": 100.5},
+            {"high": 102.0, "low": 99.0, "close": 100.8},
+        ]),
+        soft_invalidation=SoftInvalidationRule(
+            "fvg_midpoint_reaction_failure",
+            reference_price=101.0,
+            max_bars_after_entry=2,
+            favorable_close_condition="close > fvg_midpoint",
+            metadata={"pattern_type": "FAIR_VALUE_GAP", "zone_low": 99.0, "zone_high": 103.0},
+        ),
+    )
+
+    assert result.final_reason == PatternExitReason.SOFT_INVALIDATION
+    assert result.events[0].metadata["rule"] == "fvg_midpoint_reaction_failure"
+    assert result.events[0].metadata["favorable_close_observed"] is False
+    assert result.events[0].metadata["post_entry_lifecycle_state"] == "FILLED"
+
+
+def test_short_fvg_midpoint_reaction_failure_is_symmetric() -> None:
+    result = simulate_pattern_exit(
+        _plan("SHORT"),
+        _candles([
+            {"high": 101.0, "low": 98.0, "close": 99.8},
+            {"high": 102.0, "low": 98.0, "close": 99.5},
+        ]),
+        soft_invalidation=SoftInvalidationRule(
+            "fvg_midpoint_reaction_failure",
+            reference_price=99.0,
+            max_bars_after_entry=2,
+            favorable_close_condition="close < fvg_midpoint",
+            metadata={"pattern_type": "FAIR_VALUE_GAP", "zone_low": 97.0, "zone_high": 101.0},
+        ),
+    )
+
+    assert result.final_reason == PatternExitReason.SOFT_INVALIDATION
+    assert result.events[0].metadata["favorable_close_condition"] == "close < fvg_midpoint"
+    assert result.events[0].metadata["favorable_close_observed"] is False
 
 
 def test_break_even_stop_movement() -> None:

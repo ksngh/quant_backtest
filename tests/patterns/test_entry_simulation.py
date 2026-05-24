@@ -79,6 +79,55 @@ def test_limit_midpoint_and_boundary_modes() -> None:
     assert boundary_result.fill_price == pytest.approx(100.4)
 
 
+def test_fvg_near_and_far_boundary_modes_are_side_aware() -> None:
+    long_near = create_entry_plan_from_event(_event(zone_low=100.0, zone_high=102.0), PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY, "LONG")
+    long_far = create_entry_plan_from_event(_event(zone_low=100.0, zone_high=102.0), PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY, "LONG")
+    short_near = create_entry_plan_from_event(_event(zone_low=100.0, zone_high=102.0), PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY, "SHORT")
+    short_far = create_entry_plan_from_event(_event(zone_low=100.0, zone_high=102.0), PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY, "SHORT")
+
+    assert long_near.limit_price == pytest.approx(102.0)
+    assert long_far.limit_price == pytest.approx(100.0)
+    assert short_near.limit_price == pytest.approx(100.0)
+    assert short_far.limit_price == pytest.approx(102.0)
+
+
+def test_order_block_618_limit_computes_side_aware_price() -> None:
+    long_plan = create_entry_plan_from_event(_event(pattern_type="ORDER_BLOCK", zone_low=100.0, zone_high=110.0), PatternEntryMode.LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT, "LONG")
+    short_plan = create_entry_plan_from_event(_event(pattern_type="ORDER_BLOCK", zone_low=100.0, zone_high=110.0), PatternEntryMode.LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT, "SHORT")
+
+    assert long_plan.limit_price == pytest.approx(103.82)
+    assert short_plan.limit_price == pytest.approx(106.18)
+
+
+def test_trendline_retest_limit_uses_trendline_value() -> None:
+    plan = create_entry_plan_from_event(
+        _event(pattern_type="TRENDLINE_BREAK", trendline_value=101.25),
+        PatternEntryMode.LIMIT_AT_TRENDLINE_RETEST,
+        "LONG",
+        max_wait_bars=1,
+    )
+
+    result = simulate_pattern_entry(plan, _confirmation(), _future([{"low": 101.0, "high": 101.5}]))
+
+    assert plan.limit_price == pytest.approx(101.25)
+    assert result.status == PatternEntryStatus.FILLED
+    assert result.fill_price == pytest.approx(101.25)
+
+
+def test_neckline_retest_limit_uses_neckline() -> None:
+    plan = create_entry_plan_from_event(
+        _event(pattern_type="CUP_AND_HANDLE", neckline=100.0),
+        PatternEntryMode.LIMIT_AT_NECKLINE_RETEST,
+        "LONG",
+        max_wait_bars=1,
+    )
+
+    result = simulate_pattern_entry(plan, _confirmation(), _future([{"low": 99.8, "high": 100.2}]))
+
+    assert plan.limit_price == pytest.approx(100.0)
+    assert result.status == PatternEntryStatus.FILLED
+
+
 def test_limit_custom_price_and_max_wait_bars_not_filled() -> None:
     event = _event()
     plan = create_entry_plan_from_event(event, PatternEntryMode.LIMIT_AT_CUSTOM_PRICE, "LONG", custom_price=99.0, max_wait_bars=2)

@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getBacktestRun, getHealth, listBacktestRuns } from "../lib/api";
+import { buildExecutionAssumptionModel } from "../lib/executionAssumptions";
 import { extractPerformanceDiagnostics, type MetricDefinition } from "../lib/performanceDiagnostics";
+import { buildPatternGeometryModel, type PatternScoreComponent } from "../lib/patternGeometry";
+import { buildResearchReportPreview } from "../lib/researchReport";
 import { buildRunConclusionModel } from "../lib/runConclusion";
 import { buildStrategyExplanationModel } from "../lib/strategyExplanation";
 import type {
@@ -498,6 +501,47 @@ function AccountStatePanel({ detail }: { detail: BacktestRunDetailResponse }) {
   );
 }
 
+function ExecutionAssumptionsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const model = buildExecutionAssumptionModel(detail);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Execution Assumptions"
+        subtitle="Read-only fill, risk, cost, intrabar, and short-simulation assumptions saved with this run."
+      />
+      {!model.hasMetadata ? (
+        <p className="muted">No execution-assumption metadata is available for this run. Legacy rows should not be interpreted as zero-cost or live-ready.</p>
+      ) : (
+        <>
+          {model.warnings.map((warning) => (
+            <p className="diagnostic-warning" key={warning}>{warning}</p>
+          ))}
+          {model.shortLimitation && <p className="diagnostic-warning">{model.shortLimitation}</p>}
+          <div className="strategy-grid">
+            <div className="info-block">
+              <h3>Entry Fill</h3>
+              <KeyValueGrid rows={model.entryRows} />
+            </div>
+            <div className="info-block">
+              <h3>Risk Alignment</h3>
+              <KeyValueGrid rows={model.riskRows} />
+            </div>
+            <div className="info-block">
+              <h3>Cost Assumptions</h3>
+              <KeyValueGrid rows={model.costRows} />
+            </div>
+            <div className="info-block">
+              <h3>Intrabar Policy</h3>
+              <KeyValueGrid rows={model.intrabarRows} />
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function formatMetricValue(metric: MetricDefinition): string {
   if (metric.displayValue) return metric.displayValue;
   if (metric.value === null || metric.value === undefined) return "No metric available";
@@ -897,6 +941,79 @@ function ScoreCalibrationPanel({ detail }: { detail: BacktestRunDetailResponse }
   );
 }
 
+function PatternGeometryPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const model = buildPatternGeometryModel(detail);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="Pattern Geometry"
+        subtitle={`${model.patternType} detection fields, score components, and candidate-search diagnostics from saved metadata.`}
+      />
+      {!model.hasMetadata ? (
+        <p className="muted">Pattern geometry and score-component metadata is not available for this run. Legacy runs should not be interpreted as having zero score or zero geometry.</p>
+      ) : (
+        <>
+          <p className="source-note">{model.sourceTradeLabel ?? "Pattern source trade unavailable."}</p>
+          <p className="diagnostic-warning">{model.scoreExplanation}</p>
+          {model.candidateWarnings.map((warning) => (
+            <p className="diagnostic-warning" key={warning}>{warning}</p>
+          ))}
+          <div className="strategy-grid">
+            <div className="info-block">
+              <h3>Geometry Fields</h3>
+              <KeyValueGrid rows={model.geometryRows} />
+            </div>
+            <div className="info-block">
+              <h3>Score Summary</h3>
+              <KeyValueGrid rows={model.scoreRows} />
+            </div>
+          </div>
+          <div className="score-component-grid">
+            <ScoreComponentGroup components={model.observedComponents} title="Observed Components" />
+            <ScoreComponentGroup components={model.placeholderComponents} title="Placeholder / Excluded Components" />
+          </div>
+          <details className="debug-details" open={model.candidateRows.length > 0}>
+            <summary>Candidate overfit diagnostics</summary>
+            <KeyValueGrid rows={model.candidateRows} />
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ScoreComponentGroup({ components, title }: { components: PatternScoreComponent[]; title: string }) {
+  return (
+    <div className="info-block">
+      <h3>{title}</h3>
+      {!components.length ? (
+        <p className="muted">No components available.</p>
+      ) : (
+        <div className="score-component-list">
+          {components.map((component) => (
+            <div className={`score-component ${component.isPlaceholder ? "placeholder" : "observed"}`} key={component.name}>
+              <div className="score-component-heading">
+                <strong>{component.name}</strong>
+                <span>{component.includedInExecutableScore === null ? "Inclusion unavailable" : component.includedInExecutableScore ? "Executable score" : "Diagnostic only"}</span>
+              </div>
+              <KeyValueGrid
+                rows={[
+                  { label: "Raw Score", value: component.rawScore },
+                  { label: "Weight", value: component.weight },
+                  { label: "Weighted", value: component.weightedScore },
+                  { label: "Source", value: component.source },
+                ]}
+              />
+              {component.description && <p className="source-note">{component.description}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TradabilityDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
   const attribution = asRecord(asRecord(detail.diagnostics?.summary)?.trade_attribution ?? detail.summary.metadata?.trade_attribution);
   const groups = asRecord(attribution?.attribution);
@@ -934,24 +1051,26 @@ function TradabilityDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResp
 
 function ResearchReportPanel({ detail }: { detail: BacktestRunDetailResponse }) {
   const report = asRecord(detail.research_report);
-  const markdown = typeof report?.markdown === "string" ? report.markdown : null;
+  const preview = buildResearchReportPreview(detail.research_report);
   return (
     <section className="panel">
       <SectionHeader title="Research Report" subtitle="Portable read-only JSON/markdown summary for this saved run." />
-      {!report ? (
+      {!preview.hasReport ? (
         <p className="muted">No research report artifact is available for this run.</p>
       ) : (
         <>
-          <KeyValueGrid
-            rows={[
-              { label: "Schema", value: String(report.schema_version ?? "Unavailable") },
-              { label: "Report Mode", value: "Saved-run read-only artifact" },
-            ]}
-          />
-          {markdown && (
+          <KeyValueGrid rows={preview.rows} />
+          {preview.sections.length > 0 && (
+            <div className="diagnostic-labels">
+              {preview.sections.map((section) => (
+                <span className="interpretation-pill neutral" key={section}>{section}</span>
+              ))}
+            </div>
+          )}
+          {preview.markdown && (
             <details className="debug-details" open>
               <summary>Markdown preview</summary>
-              <pre>{markdown}</pre>
+              <pre>{preview.markdown}</pre>
             </details>
           )}
           <details className="debug-details">
@@ -1205,9 +1324,11 @@ export default function DashboardPage() {
               <RunConclusionPanel detail={detail} />
               <RunDiagnosisPanel detail={detail} />
               <ScoreCalibrationPanel detail={detail} />
+              <PatternGeometryPanel detail={detail} />
               <TradabilityDiagnosticsPanel detail={detail} />
               <TimingDiagnosticsPanel detail={detail} />
               <RiskAuditPanel detail={detail} />
+              <ExecutionAssumptionsPanel detail={detail} />
 
               <div className="chart-grid">
                 <Chart color="#2563eb" points={detail.graph_points} title="Close Price" trades={detail.trades} valueKey="close_price" />

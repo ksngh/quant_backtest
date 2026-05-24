@@ -17,21 +17,26 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
 )
-from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
+from quant_bitcoin.indicators.pivots import (
+    PivotConfig,
+    PivotType,
+    detect_pivots,
+    pivot_strength_diagnostics,
+)
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
@@ -81,6 +86,12 @@ class CupAndHandleConfig:
     minimum_breakout_volume_ratio: float = 1.5
     weak_breakout_volume_ratio: float = 1.3
     require_prior_uptrend: bool = True
+    prior_uptrend_method: str = "LOCAL"
+    local_uptrend_lookback: int = 5
+    local_uptrend_minimum_return_rate: float = 0.02
+    local_uptrend_require_higher_high: bool = True
+    neckline_retest_max_wait_bars: int | None = None
+    breakout_follow_through_bars: int = 0
     # Liquidity and spread modules are not implemented yet. The first detector
     # defaults these unavailable prerequisite filters to not required instead of
     # silently approximating them.
@@ -94,6 +105,7 @@ class CupAndHandleConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    enable_candidate_diagnostics: bool = False
 
     def __post_init__(self) -> None:
         if self.minimum_cup_duration < 1:
@@ -137,6 +149,16 @@ class CupAndHandleConfig:
             )
         if not 0 <= self.minimum_pattern_score <= 1:
             raise ValueError("minimum_pattern_score must be between 0 and 1")
+        if self.prior_uptrend_method.upper() not in {"LOCAL", "LEGACY_GLOBAL"}:
+            raise ValueError("prior_uptrend_method must be LOCAL or LEGACY_GLOBAL")
+        if self.local_uptrend_lookback < 1:
+            raise ValueError("local_uptrend_lookback must be at least 1")
+        if self.local_uptrend_minimum_return_rate < 0:
+            raise ValueError("local_uptrend_minimum_return_rate must be non-negative")
+        if self.neckline_retest_max_wait_bars is not None and self.neckline_retest_max_wait_bars < 1:
+            raise ValueError("neckline_retest_max_wait_bars must be at least 1 when supplied")
+        if self.breakout_follow_through_bars < 0:
+            raise ValueError("breakout_follow_through_bars must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -178,6 +200,13 @@ class CupAndHandleEvent:
     liquidity_pass: bool | None
     spread_pass: bool | None
     displacement_confirmed: bool
+    prior_uptrend_method: str
+    prior_uptrend_strength: float | None
+    neckline_retest_status: str
+    neckline_retest_wait_bars: int | None
+    breakout_follow_through_bars: int
+    handle_quality: dict[str, float]
+    detector_target_reference_semantics: str
     pattern_score: float
     entry_reference: float
     stop_reference: float
@@ -188,6 +217,9 @@ class CupAndHandleEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
+    pivot_metadata: dict[str, Any] = field(default_factory=dict)
+    candidate_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -196,6 +228,13 @@ class _CupCandidate:
     cup_bottom: dict[str, Any]
     right_rim: dict[str, Any]
     handle_low: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _CupCandidateBuildResult:
+    candidates: list[_CupCandidate]
+    candidate_count: int
+    max_guard_hit: bool
 
 
 def detect_cup_and_handle_patterns(
@@ -224,16 +263,13 @@ def detect_cup_and_handle_patterns(
         candle_frame[["symbol", "timestamp", "high", "low", "close"]],
         cup_config.atr_config,
     )
-    volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
-        cup_config.volume_ratio_config,
-    )
+    volume_rows = calculate_volume_ratio(candle_frame, cup_config.volume_ratio_config)
     enriched = candle_frame.copy()
     enriched["atr"] = atr_rows["atr"]
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
 
     pivot_rows = detect_pivots(
-        enriched[["symbol", "timestamp", "open", "high", "low", "close"]],
+        enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr"]],
         cup_config.pivot_config,
     )
     pivot_rows = pivot_rows[pivot_rows["is_confirmed"] == True]
@@ -254,9 +290,10 @@ def detect_cup_and_handle_patterns(
         ]
         if len(visible_pivots) > cup_config.max_recent_pivots:
             visible_pivots = visible_pivots.nlargest(cup_config.max_recent_pivots, "pivot_index")
+        build_result = _build_candidates(visible_pivots, cup_config)
         evaluated = [
             event
-            for candidate in _build_candidates(visible_pivots, cup_config)
+            for candidate in build_result.candidates
             if (
                 event := _evaluate_candidate(
                     candidate,
@@ -271,7 +308,22 @@ def detect_cup_and_handle_patterns(
             is not None
         ]
         if evaluated:
-            events.append(_select_best_event(evaluated))
+            selected = _select_best_event(evaluated)
+            if cup_config.enable_candidate_diagnostics:
+                selected = replace(
+                    selected,
+                    candidate_diagnostics=_candidate_diagnostics(
+                        pattern_type="CUP_AND_HANDLE",
+                        visible_pivot_count=len(visible_pivots),
+                        bars_observed=breakout_index + 1,
+                        candidate_count=build_result.candidate_count,
+                        evaluated_candidate_count=len(build_result.candidates),
+                        accepted_candidate_count=len(evaluated),
+                        selected_rank=1,
+                        max_guard_hit=build_result.max_guard_hit,
+                    ),
+                )
+            events.append(selected)
 
     return events
 
@@ -361,9 +413,9 @@ def _detect_displacements(
     )
 
 
-def _build_candidates(visible_pivots: pd.DataFrame, config: CupAndHandleConfig) -> list[_CupCandidate]:
+def _build_candidates(visible_pivots: pd.DataFrame, config: CupAndHandleConfig) -> _CupCandidateBuildResult:
     if len(visible_pivots) < 4:
-        return []
+        return _CupCandidateBuildResult([], 0, False)
 
     records = list(visible_pivots.sort_values("pivot_index").to_dict("records"))
     highs = [
@@ -396,8 +448,52 @@ def _build_candidates(visible_pivots: pd.DataFrame, config: CupAndHandleConfig) 
                     candidates.append(_CupCandidate(left_rim, cup_bottom, right_rim, handle_low))
                     candidate_count += 1
                     if candidate_count >= config.max_candidates_per_bar:
-                        return candidates
-    return candidates
+                        return _CupCandidateBuildResult(candidates, candidate_count, True)
+    return _CupCandidateBuildResult(candidates, candidate_count, False)
+
+
+def _candidate_diagnostics(
+    *,
+    pattern_type: str,
+    visible_pivot_count: int,
+    bars_observed: int,
+    candidate_count: int,
+    evaluated_candidate_count: int,
+    accepted_candidate_count: int,
+    selected_rank: int | None,
+    max_guard_hit: bool,
+) -> dict[str, Any]:
+    pivot_density = candidate_count / max(visible_pivot_count, 1)
+    bar_density = candidate_count / max(bars_observed, 1)
+    rejected_by_reason: dict[str, int] = {}
+    rejected_by_rule = max(evaluated_candidate_count - accepted_candidate_count, 0)
+    if rejected_by_rule:
+        rejected_by_reason["candidate_rule_rejected"] = rejected_by_rule
+    if max_guard_hit:
+        rejected_by_reason["max_candidate_guard_hit"] = 1
+
+    warnings: list[str] = []
+    if max_guard_hit:
+        warnings.append("max_candidate_guard_hit")
+    if pivot_density >= 2.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_pivot_density")
+    if bar_density >= 1.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_bar_density")
+
+    return {
+        "schema_version": "chart_pattern_candidate_diagnostics_v1",
+        "pattern_type": pattern_type,
+        "candidate_count": candidate_count,
+        "evaluated_candidate_count": evaluated_candidate_count,
+        "rejected_by_reason": rejected_by_reason,
+        "selected_rank": selected_rank,
+        "max_guard_hit": max_guard_hit,
+        "visible_pivot_count": visible_pivot_count,
+        "bars_observed": bars_observed,
+        "candidate_to_pivot_ratio": pivot_density,
+        "candidate_to_bar_ratio": bar_density,
+        "overfit_warnings": warnings,
+    }
 
 
 def _evaluate_candidate(
@@ -417,7 +513,8 @@ def _evaluate_candidate(
     if not left_index < bottom_index < right_index < handle_index < breakout_index:
         return None
 
-    if config.require_prior_uptrend and not _has_prior_uptrend(candles, left_index):
+    uptrend_ok, prior_uptrend_strength = _has_prior_uptrend(candles, left_index, config)
+    if config.require_prior_uptrend and not uptrend_ok:
         return None
     if config.require_liquidity_pass and config.liquidity_pass is not True:
         return None
@@ -498,6 +595,20 @@ def _evaluate_candidate(
     displacement_confirmed = _displacement_confirmed(displacement_rows, breakout_index)
     if config.require_displacement_breakout and not displacement_confirmed:
         return None
+    follow_through_end_index = _follow_through_end_index(
+        candles,
+        breakout_index,
+        neckline,
+        config.breakout_follow_through_bars,
+    )
+    if follow_through_end_index is None:
+        return None
+    neckline_retest_status, neckline_retest_wait_bars = _neckline_retest_status(
+        candles,
+        breakout_index,
+        neckline,
+        config.neckline_retest_max_wait_bars,
+    )
 
     score_metadata = _calculate_pattern_score_metadata(
         rim_difference_rate=rim_difference_rate,
@@ -543,9 +654,9 @@ def _evaluate_candidate(
         pattern_status=pattern_status.value,
         symbol=symbol,
         timeframe=timeframe,
-        timestamp=breakout["timestamp"],
+        timestamp=candles.iloc[follow_through_end_index]["timestamp"],
         start_index=left_index,
-        end_index=breakout_index,
+        end_index=follow_through_end_index,
         left_rim_index=left_index,
         cup_bottom_index=bottom_index,
         right_rim_index=right_index,
@@ -572,6 +683,17 @@ def _evaluate_candidate(
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
         displacement_confirmed=displacement_confirmed,
+        prior_uptrend_method=config.prior_uptrend_method.upper(),
+        prior_uptrend_strength=prior_uptrend_strength,
+        neckline_retest_status=neckline_retest_status,
+        neckline_retest_wait_bars=neckline_retest_wait_bars,
+        breakout_follow_through_bars=config.breakout_follow_through_bars,
+        handle_quality={
+            "handle_depth_ratio": handle_depth_ratio,
+            "handle_duration": float(handle_duration),
+            "handle_low_above_cup_midpoint": 1.0 if handle_price >= cup_midpoint else 0.0,
+        },
+        detector_target_reference_semantics="detector target_reference = breakout entry_reference + cup_depth; risk planner may rebuild measured targets from neckline/cup_depth.",
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
@@ -582,18 +704,73 @@ def _evaluate_candidate(
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
+        pivot_metadata=pivot_strength_diagnostics(
+            (
+                candidate.left_rim,
+                candidate.cup_bottom,
+                candidate.right_rim,
+                candidate.handle_low,
+            ),
+            config.pivot_config,
+            current_index=breakout_index,
+            candle_count=len(candles),
+        ),
     )
 
 
-def _has_prior_uptrend(candles: pd.DataFrame, left_index: int) -> bool:
+def _has_prior_uptrend(candles: pd.DataFrame, left_index: int, config: CupAndHandleConfig) -> tuple[bool, float | None]:
     if left_index < 1:
-        return False
-    prior = candles.iloc[: left_index + 1]
+        return False, None
+    method = config.prior_uptrend_method.upper()
+    start_index = 0 if method == "LEGACY_GLOBAL" else max(0, left_index - config.local_uptrend_lookback)
+    prior = candles.iloc[start_index : left_index + 1]
+    if len(prior) < 2:
+        return False, None
     first_close = float(prior.iloc[0]["close"])
     left_close = float(candles.iloc[left_index]["close"])
-    return left_close > first_close and float(candles.iloc[left_index]["high"]) > float(
-        prior.iloc[:-1]["high"].max()
-    )
+    if first_close <= 0:
+        return False, None
+    strength = (left_close - first_close) / first_close
+    higher_high_ok = True
+    if config.local_uptrend_require_higher_high or method == "LEGACY_GLOBAL":
+        higher_high_ok = float(candles.iloc[left_index]["high"]) > float(prior.iloc[:-1]["high"].max())
+    return strength >= config.local_uptrend_minimum_return_rate and higher_high_ok, strength
+
+
+def _follow_through_end_index(
+    candles: pd.DataFrame,
+    breakout_index: int,
+    neckline: float,
+    required_bars: int,
+) -> int | None:
+    if required_bars == 0:
+        return breakout_index
+    end_index = breakout_index + required_bars
+    if end_index >= len(candles):
+        return None
+    for index in range(breakout_index + 1, end_index + 1):
+        if float(candles.iloc[index]["close"]) <= neckline:
+            return None
+    return end_index
+
+
+def _neckline_retest_status(
+    candles: pd.DataFrame,
+    breakout_index: int,
+    neckline: float,
+    max_wait_bars: int | None,
+) -> tuple[str, int | None]:
+    if max_wait_bars is None:
+        return "NOT_REQUESTED", None
+    last_index = min(len(candles) - 1, breakout_index + max_wait_bars)
+    for index in range(breakout_index + 1, last_index + 1):
+        candle = candles.iloc[index]
+        if float(candle["close"]) < neckline:
+            return "FAILED_BELOW_NECKLINE", index - breakout_index
+        if float(candle["low"]) <= neckline <= float(candle["high"]):
+            return "RETESTED", index - breakout_index
+    return "NOT_RETESTED", None
 
 
 def _bottom_zone_duration(

@@ -135,6 +135,10 @@ def test_detects_bullish_cup_and_handle_event() -> None:
     assert event.breakout_distance == pytest.approx(3.0)
     assert event.breakout_distance_atr > 0.2
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
+    assert event.prior_uptrend_method == "LOCAL"
+    assert event.neckline_retest_status == "NOT_REQUESTED"
+    assert event.handle_quality["handle_depth_ratio"] == pytest.approx(0.3)
+    assert "detector target_reference" in event.detector_target_reference_semantics
     assert event.pattern_score >= 0.7
     assert event.score_components["roundness"]["source"] == "observed_bottom_duration"
     assert event.score_components["breakout_strength"]["weighted_score"] > 0
@@ -144,6 +148,77 @@ def test_detects_bullish_cup_and_handle_event() -> None:
     assert event.target_reference == pytest.approx(123.0)
     assert event.risk_reward == pytest.approx(20.0 / 9.0)
     assert event.reason
+
+
+def test_candidate_diagnostics_are_opt_in_and_report_guard_hits() -> None:
+    default_events = detect_cup_and_handle_patterns(
+        _valid_cup_and_handle_candles(),
+        symbol="BTCUSDT",
+        config=_config(),
+    )
+    diagnostic_events = detect_cup_and_handle_patterns(
+        _valid_cup_and_handle_candles(),
+        symbol="BTCUSDT",
+        config=_config(enable_candidate_diagnostics=True, max_candidates_per_bar=1),
+    )
+
+    assert default_events[0].candidate_diagnostics == {}
+    diagnostics = diagnostic_events[0].candidate_diagnostics
+    assert diagnostics["schema_version"] == "chart_pattern_candidate_diagnostics_v1"
+    assert diagnostics["pattern_type"] == "CUP_AND_HANDLE"
+    assert diagnostics["candidate_count"] == 1
+    assert diagnostics["evaluated_candidate_count"] == 1
+    assert diagnostics["selected_rank"] == 1
+    assert diagnostics["max_guard_hit"] is True
+    assert diagnostics["rejected_by_reason"] == {"max_candidate_guard_hit": 1}
+    assert "max_candidate_guard_hit" in diagnostics["overfit_warnings"]
+
+
+def test_local_prior_uptrend_detected_over_fixed_lookback() -> None:
+    events = detect_cup_and_handle_patterns(
+        _valid_cup_and_handle_candles(),
+        symbol="BTCUSDT",
+        config=_config(require_prior_uptrend=True, local_uptrend_lookback=1, local_uptrend_minimum_return_rate=0.05),
+    )
+
+    assert len(events) == 1
+    assert events[0].prior_uptrend_method == "LOCAL"
+    assert events[0].prior_uptrend_strength is not None
+    assert events[0].prior_uptrend_strength >= 0.05
+
+
+def test_local_prior_uptrend_absent_rejects_candidate() -> None:
+    events = detect_cup_and_handle_patterns(
+        _valid_cup_and_handle_candles(),
+        symbol="BTCUSDT",
+        config=_config(require_prior_uptrend=True, local_uptrend_lookback=1, local_uptrend_minimum_return_rate=0.20),
+    )
+
+    assert events == []
+
+
+def test_neckline_retest_status_records_fill_and_failure_cases() -> None:
+    retest = pd.concat(
+        [
+            _valid_cup_and_handle_candles(),
+            _candles([{"timestamp": "2026-05-16T00:12:00Z", "open": 102.0, "high": 103.0, "low": 100.0, "close": 102.0}]),
+        ],
+        ignore_index=True,
+    )
+    failed = pd.concat(
+        [
+            _valid_cup_and_handle_candles(),
+            _candles([{"timestamp": "2026-05-16T00:12:00Z", "open": 102.0, "high": 103.0, "low": 98.0, "close": 99.0}]),
+        ],
+        ignore_index=True,
+    )
+
+    retest_events = detect_cup_and_handle_patterns(retest, symbol="BTCUSDT", config=_config(neckline_retest_max_wait_bars=2))
+    failed_events = detect_cup_and_handle_patterns(failed, symbol="BTCUSDT", config=_config(neckline_retest_max_wait_bars=2))
+
+    assert retest_events[0].neckline_retest_status == "RETESTED"
+    assert retest_events[0].neckline_retest_wait_bars == 1
+    assert failed_events[0].neckline_retest_status == "FAILED_BELOW_NECKLINE"
 
 
 def test_insufficient_pivot_history_returns_empty_list() -> None:

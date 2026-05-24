@@ -11,6 +11,7 @@ from quant_bitcoin.indicators import (
     calculate_atr,
     calculate_atr_snapshot,
     calculate_true_range,
+    atr_timing_metadata,
     classify_volatility,
 )
 
@@ -180,3 +181,21 @@ def test_returns_latest_snapshot_for_output_schema_consumers() -> None:
     assert snapshot["true_range"] == pytest.approx(3.0)
     assert snapshot["atr"] == pytest.approx(2.5)
     assert snapshot["is_valid"] == True
+
+
+def test_atr_timing_metadata_reports_warmup_and_current_inclusion() -> None:
+    metadata = atr_timing_metadata(AtrConfig(period=5))
+    snapshot = calculate_atr_snapshot(
+        _candles([{}, {}, {}, {}, {}]),
+        AtrConfig(period=5),
+        include_timing_metadata=True,
+    )
+
+    assert metadata["current_candle_included"] is True
+    assert metadata["requires_closed_candle"] is True
+    assert metadata["period"] == 5
+    assert metadata["smoothing_method"] == AtrSmoothingMethod.RMA.value
+    assert metadata["warmup_period"] == 5
+    assert metadata["first_valid_index"] == 4
+    assert metadata["confirmation_delay"] == 0
+    assert snapshot["timing"] == metadata
