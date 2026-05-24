@@ -1,8 +1,11 @@
 from __future__ import annotations
 import json
+from types import SimpleNamespace
 import pandas as pd
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli, pattern_postgres_runner_cli
 from quant_bitcoin.backtesting import strategy_postgres_runner_core
+from quant_bitcoin.risk.exit_plan import RiskExitDirection, RiskExitPlan, RiskExitPlanStatus
+from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
 class FakeProvider:
     def __init__(self, candles: pd.DataFrame): self._c=candles
@@ -10,6 +13,48 @@ class FakeProvider:
 
 def make_candles():
     return pd.DataFrame({"timestamp":pd.date_range("2026-05-18",periods=3,freq="min",tz="UTC"),"open":[100,101,102],"high":[101,102,103],"low":[99,100,101],"close":[100,101,102],"volume":[1,1,1]})
+
+
+def _valid_risk_plan() -> RiskExitPlan:
+    return RiskExitPlan(
+        direction=RiskExitDirection.LONG,
+        entry_price=100.0,
+        structural_stop=99.0,
+        atr=1.0,
+        atr_buffer_multiplier=0.0,
+        atr_buffer=0.0,
+        stop_price=99.0,
+        risk_per_unit=1.0,
+        targets=(),
+        status=RiskExitPlanStatus.VALID,
+    )
+
+
+class _SizingStubStrategy:
+    strategy_key = "STUB"
+    strategy_name = "STUB_PATTERN"
+
+    def __init__(self, entry_filter_config=None):
+        self.entry_filter_config = entry_filter_config
+
+    def evaluate(self, candles_so_far, portfolio_state=None):
+        if len(candles_so_far) != 1:
+            return []
+        quantity = getattr(self.entry_filter_config, "quantity_override", None)
+        return [
+            StrategyAction(
+                StrategyActionType.ENTER_LONG,
+                timestamp=candles_so_far.iloc[-1]["timestamp"],
+                quantity=quantity,
+                reason="PATTERN_CONFIRMED",
+                metadata={
+                    "position_side": "LONG",
+                    "risk_plan": _valid_risk_plan(),
+                    "event_id": "sizing-event",
+                    "pattern_type": "STUB",
+                },
+            )
+        ]
 
 def test_strategy_cli_empty_candles_warning(monkeypatch,capsys):
     monkeypatch.setattr(strategy_postgres_runner_cli.PostgresCandleDataProvider,'from_database_url',lambda *a,**k:FakeProvider(make_candles().iloc[0:0]))
@@ -23,6 +68,35 @@ def test_pattern_cli_compatibility_alias(monkeypatch,capsys):
     out=json.loads(capsys.readouterr().out)
     assert out['strategy']['pattern']=='FAIR_VALUE_GAP'
     assert 'portfolio' in out and 'summary' in out
+
+
+def test_strategy_output_events_include_score_metadata():
+    events = strategy_postgres_runner_core._serialize_events(
+        [
+            SimpleNamespace(
+                pattern_event_id="e1",
+                timestamp=pd.Timestamp("2026-05-18T00:00:00Z"),
+                action_type="ENTER_LONG",
+                position_signal="LONG_ENTRY",
+                position_side="LONG",
+                execution_side="BUY",
+                reason="PATTERN_CONFIRMED",
+                exit_reason=None,
+                metadata={
+                    "pattern_type": "FAIR_VALUE_GAP",
+                    "pattern_direction": "BULLISH",
+                    "pattern_status": "VALID",
+                    "pattern_score": 0.75,
+                    "score_components": {"gap_quality": {"raw_score": 1.0}},
+                    "score_calibration": {"is_calibrated_probability": False},
+                },
+            )
+        ]
+    )
+
+    assert events[0]["pattern_score"] == 0.75
+    assert events[0]["score_components"]["gap_quality"]["raw_score"] == 1.0
+    assert events[0]["score_calibration"]["is_calibrated_probability"] is False
 
 
 def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
@@ -68,6 +142,92 @@ def test_build_actions_uses_canonical_pattern_action_builder(monkeypatch):
     _, actions = strategy_postgres_runner_core._build_actions(candles, "STUB")
     assert actions
     assert any(a.action_type.name == "EXIT_LONG" for a in actions)
+
+
+def test_expand_raw_actions_passes_raw_quantity_to_pattern_builder(monkeypatch):
+    candles = make_candles()
+    captured = {}
+
+    raw = StrategyAction(
+        StrategyActionType.ENTER_LONG,
+        timestamp=candles.iloc[0]["timestamp"],
+        quantity=0.02,
+        reason="PATTERN_CONFIRMED",
+        metadata={"position_side": "LONG", "risk_plan": _valid_risk_plan(), "event_id": "e1"},
+    )
+
+    def fake_builder(*args, **kwargs):
+        captured["entry_quantity"] = kwargs.get("entry_quantity")
+        return [raw]
+
+    monkeypatch.setattr(strategy_postgres_runner_core, "build_pattern_trade_actions", fake_builder)
+
+    expanded = strategy_postgres_runner_core._expand_raw_actions([raw], candles, 1)
+    assert expanded == [raw]
+    assert captured["entry_quantity"] == 0.02
+
+
+def test_expand_raw_actions_passes_actual_confirmation_candle_to_pattern_builder(monkeypatch):
+    candles = make_candles()
+    captured = {}
+    raw = StrategyAction(
+        StrategyActionType.ENTER_LONG,
+        timestamp=candles.iloc[1]["timestamp"],
+        metadata={"position_side": "LONG", "risk_plan": _valid_risk_plan(), "event_id": "e1"},
+    )
+
+    def fake_builder(*args, **kwargs):
+        captured["confirmation_close"] = float(kwargs["confirmation_candle"]["close"])
+        return [raw]
+
+    monkeypatch.setattr(strategy_postgres_runner_core, "build_pattern_trade_actions", fake_builder)
+
+    strategy_postgres_runner_core._expand_raw_actions([raw], candles, 2)
+    assert captured["confirmation_close"] == 101.0
+
+
+def test_expand_raw_actions_wires_soft_invalidation_to_builder(monkeypatch):
+    candles = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-05-18", periods=2, freq="min", tz="UTC"),
+            "open": [100.0, 99.0],
+            "high": [101.0, 100.0],
+            "low": [99.0, 98.0],
+            "close": [100.0, 98.5],
+            "volume": [1.0, 1.0],
+        }
+    )
+    raw = StrategyAction(
+        StrategyActionType.ENTER_LONG,
+        timestamp=candles.iloc[0]["timestamp"],
+        metadata={
+            "position_side": "LONG",
+            "risk_plan": RiskExitPlan(
+                direction=RiskExitDirection.LONG,
+                entry_price=100.0,
+                structural_stop=90.0,
+                atr=1.0,
+                atr_buffer_multiplier=0.0,
+                atr_buffer=0.0,
+                stop_price=90.0,
+                risk_per_unit=10.0,
+                targets=(),
+                status=RiskExitPlanStatus.VALID,
+            ),
+            "event_id": "fvg-1",
+            "pattern_type": "FAIR_VALUE_GAP",
+            "zone_mid": 99.0,
+        },
+    )
+
+    expanded = strategy_postgres_runner_core._expand_raw_actions([raw], candles, 1)
+
+    assert [action.action_type for action in expanded] == [
+        StrategyActionType.ENTER_LONG,
+        StrategyActionType.EXIT_LONG,
+    ]
+    assert expanded[-1].metadata["exit_reason"] == "SOFT_INVALIDATION"
+    assert expanded[-1].metadata["exit_metadata"]["rule"] == "close <= fvg_midpoint"
 
 
 def test_build_transaction_cost_config_from_args():
@@ -234,6 +394,71 @@ def test_strategy_cli_output_includes_sizing_and_margin_metadata(monkeypatch, ca
     assert out["executions"][0]["cash_balance_after"] == 20000
     assert out["executions"][0]["free_cash_after"] == 0
     assert out["executions"][0]["short_collateral_locked_after"] == 10000
+
+
+def test_pattern_cli_cash_fraction_uses_engine_sizing_when_no_override(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000", "--position-sizing-mode", "cash_fraction", "--position-sizing-value", "0.25"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    execution = out["executions"][0]
+    assert execution["quantity"] == 25.0
+    assert execution["metadata"]["position_sizing_source"] == "ENGINE_CONFIG"
+    assert execution["metadata"]["entry_quantity_source"] == "ENGINE_CONFIG"
+    assert execution["metadata"]["engine_sizing_allowed"] is True
+
+
+def test_pattern_cli_target_notional_uses_engine_sizing_when_no_override(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000", "--position-sizing-mode", "target_notional", "--position-sizing-value", "1000"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    execution = out["executions"][0]
+    assert execution["quantity"] == 10.0
+    assert execution["notional"] == 1000.0
+    assert execution["metadata"]["position_sizing_source"] == "ENGINE_CONFIG"
+
+
+def test_pattern_cli_quantity_override_precedes_engine_sizing(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main(["--no-persist", "--position-sizing-mode", "cash_fraction", "--position-sizing-value", "0.25", "--pattern-quantity-override", "0.02"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    execution = out["executions"][0]
+    assert execution["quantity"] == 0.02
+    assert execution["metadata"]["position_sizing_source"] == "ACTION_QUANTITY"
+    assert execution["metadata"]["entry_quantity_source"] == "ACTION_OVERRIDE"
+    assert execution["metadata"]["pattern_quantity_override"] == 0.02
 
 
 def test_build_pattern_entry_filter_config_args():

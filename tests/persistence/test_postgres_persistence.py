@@ -735,6 +735,7 @@ def test_backtest_read_model_lists_completed_runs_with_filters(monkeypatch):
                     "final_equity": Decimal("1010"),
                     "total_return": Decimal("0.01"),
                     "trade_count": 2,
+                    "metadata": {"runtime": {"total_elapsed_ms": 12.0}},
                     "created_at": t1,
                     "completed_at": t1,
                 }
@@ -761,11 +762,13 @@ def test_backtest_read_model_lists_completed_runs_with_filters(monkeypatch):
     assert rows[0].strategy_parameters == {"window": 14}
     assert rows[0].strategy_parameters_hash == "strategy-hash"
     assert rows[0].final_equity == 1010.0
+    assert rows[0].metadata == {"runtime": {"total_elapsed_ms": 12.0}}
     query, params = fake_connection.executed[0]
     assert "sc.id AS strategy_config_id" in query
     assert "sc.strategy_key" in query
     assert "sc.parameters AS strategy_parameters" in query
     assert "sc.parameters_hash AS strategy_parameters_hash" in query
+    assert "br.metadata" in query
     assert "JOIN strategy_configs sc ON sc.id = br.strategy_config_id" in query
     assert "br.candle_source = %(source)s" in query
     assert "br.symbol = %(symbol)s" in query

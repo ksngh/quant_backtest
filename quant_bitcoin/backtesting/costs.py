@@ -59,6 +59,8 @@ class TransactionCostBreakdown:
     slippage_cost: float
     total_cost: float
     effective_price: float
+    effective_slippage_bps: float = 0.0
+    volatility_bps: float | None = None
 
 
 def basis_points_to_decimal(value_bps: float) -> float:
@@ -110,10 +112,9 @@ def calculate_transaction_cost(
     _validate_inputs(side, liquidity_role, config, volatility_bps)
 
     gross_notional = float(price) * float(quantity)
+    effective_slippage_bps = _effective_slippage_bps(config, volatility_bps)
     spread_cost = gross_notional * basis_points_to_decimal(config.spread_bps)
-    slippage_cost = gross_notional * basis_points_to_decimal(
-        _effective_slippage_bps(config, volatility_bps)
-    )
+    slippage_cost = gross_notional * basis_points_to_decimal(effective_slippage_bps)
 
     fee_bps = config.maker_fee_bps if liquidity_role is LiquidityRole.MAKER else config.taker_fee_bps
     fee_cost = gross_notional * basis_points_to_decimal(fee_bps)
@@ -134,6 +135,8 @@ def calculate_transaction_cost(
         slippage_cost=slippage_cost,
         total_cost=total_cost,
         effective_price=effective_price,
+        effective_slippage_bps=effective_slippage_bps,
+        volatility_bps=volatility_bps,
     )
 
 

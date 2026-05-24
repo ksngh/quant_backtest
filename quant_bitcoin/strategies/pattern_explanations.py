@@ -16,6 +16,8 @@ def build_pattern_strategy_explanation(pattern_key: str) -> dict[str, Any]:
         "known_limitations": [
             "No live trading; historical simulation only.",
             "Execution uses canonical engine requested_price/close fallback semantics.",
+            "pattern_score is a heuristic quality filter, not a calibrated probability of profitable alpha.",
+            "Some score components may be placeholder context until validated indicator inputs or out-of-sample calibration are assigned.",
         ],
     }
     mapping: dict[str, dict[str, Any]] = {

@@ -62,6 +62,7 @@ from quant_bitcoin.patterns.order_block import (
     OrderBlockState,
     OrderBlockStatus,
     OrderBlockZoneDefinition,
+    detect_order_blocks_at_index,
     detect_order_blocks,
 )
 
@@ -71,6 +72,7 @@ from quant_bitcoin.patterns.trendline_break import (
     TrendlineBreakEvent,
     TrendlineBreakStatus,
     TrendlineType,
+    detect_trendline_breaks_at_index,
     detect_trendline_breaks,
 )
 
@@ -79,6 +81,7 @@ from quant_bitcoin.patterns.adam_and_eve import (
     AdamAndEveDirection,
     AdamAndEveEvent,
     AdamAndEveStatus,
+    detect_adam_and_eve_patterns_at_index,
     detect_adam_and_eve_patterns,
 )
 
@@ -87,6 +90,7 @@ from quant_bitcoin.patterns.diamond import (
     DiamondDirection,
     DiamondEvent,
     DiamondStatus,
+    detect_diamond_patterns_at_index,
     detect_diamond_patterns,
 )
 
@@ -95,6 +99,7 @@ from quant_bitcoin.patterns.cup_and_handle import (
     CupAndHandleDirection,
     CupAndHandleEvent,
     CupAndHandleStatus,
+    detect_cup_and_handle_patterns_at_index,
     detect_cup_and_handle_patterns,
 )
 
@@ -112,6 +117,7 @@ from quant_bitcoin.patterns.fair_value_gap import (
     PatternEvent,
     PatternStatus,
     PatternType,
+    detect_fair_value_gaps_at_index,
     detect_fair_value_gaps,
     detect_patterns,
     filter_new_events,
@@ -170,6 +176,7 @@ __all__ = [
     "PatternStatus",
     "PatternType",
     "detect_fair_value_gaps",
+    "detect_fair_value_gaps_at_index",
     "detect_patterns",
     "filter_new_events",
     "TrendlineBreakConfig",
@@ -178,21 +185,25 @@ __all__ = [
     "TrendlineBreakStatus",
     "TrendlineType",
     "detect_trendline_breaks",
+    "detect_trendline_breaks_at_index",
     "AdamAndEveConfig",
     "AdamAndEveDirection",
     "AdamAndEveEvent",
     "AdamAndEveStatus",
     "detect_adam_and_eve_patterns",
+    "detect_adam_and_eve_patterns_at_index",
     "DiamondConfig",
     "DiamondDirection",
     "DiamondEvent",
     "DiamondStatus",
     "detect_diamond_patterns",
+    "detect_diamond_patterns_at_index",
     "CupAndHandleConfig",
     "CupAndHandleDirection",
     "CupAndHandleEvent",
     "CupAndHandleStatus",
     "detect_cup_and_handle_patterns",
+    "detect_cup_and_handle_patterns_at_index",
     "OrderBlockConfig",
     "OrderBlockDirection",
     "OrderBlockEvent",
@@ -200,4 +211,5 @@ __all__ = [
     "OrderBlockStatus",
     "OrderBlockZoneDefinition",
     "detect_order_blocks",
+    "detect_order_blocks_at_index",
 ]

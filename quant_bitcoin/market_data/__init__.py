@@ -27,6 +27,10 @@ from quant_bitcoin.market_data.data_quality import (
     CandleDataQualitySeverity,
     audit_standard_candles,
 )
+from quant_bitcoin.market_data.candle_validation import (
+    CandleValidationConfig,
+    validate_standard_candles,
+)
 from quant_bitcoin.market_data.postgres_provider import PostgresCandleDataProvider
 
 __all__ = [
@@ -39,6 +43,7 @@ __all__ = [
     "CandleDataQualityIssue",
     "CandleDataQualityReport",
     "CandleDataQualitySeverity",
+    "CandleValidationConfig",
     "PostgresCandleDataProvider",
     "WEBSOCKET_INGESTION_MODE",
     "WebSocketIngestionResult",
@@ -50,4 +55,5 @@ __all__ = [
     "parse_binance_kline_message",
     "normalize_binance_klines",
     "audit_standard_candles",
+    "validate_standard_candles",
 ]

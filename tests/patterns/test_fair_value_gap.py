@@ -100,6 +100,10 @@ def test_detects_one_bullish_fair_value_gap_event() -> None:
     assert event.displacement_direction == "BULLISH"
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.pattern_score >= 0.7
+    assert event.score_components["gap_quality"]["weighted_score"] > 0
+    assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_component_sources["structure_alignment"] == "placeholder_constant"
+    assert event.score_calibration["is_calibrated_probability"] is False
     assert event.entry_reference == pytest.approx(101.0)
     assert event.stop_reference == pytest.approx(99.0)
     assert event.target_reference == pytest.approx(105.0)

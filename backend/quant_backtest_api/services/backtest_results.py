@@ -34,12 +34,19 @@ class BacktestResultsService:
         summary = self._serialize_dataclass(row.summary)
         trades = [self._serialize_trade(trade) for trade in row.trades]
         graph_points = [self._serialize_graph_point(point) for point in row.graph_points]
+        diagnostics = self._extract_research_diagnostics(
+            run=run,
+            summary=summary,
+            trades=trades,
+            graph_points=graph_points,
+        )
         return {
             "run": run,
             "strategy_config": strategy_config,
             "summary": summary,
             "trades": trades,
             "graph_points": graph_points,
+            "diagnostics": diagnostics,
             "warnings": warnings,
         }
 
@@ -210,6 +217,77 @@ class BacktestResultsService:
             if isinstance(value, (int, float)):
                 summary[key] = float(value)
         return summary or None
+
+    def _extract_research_diagnostics(
+        self,
+        *,
+        run: dict[str, Any],
+        summary: dict[str, Any],
+        trades: list[dict[str, Any]],
+        graph_points: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        diagnostics: dict[str, Any] = {
+            "schema_version": "research_diagnostics_api_v1"
+        }
+        available_sections: list[str] = []
+
+        run_metadata = run.get("metadata") if isinstance(run.get("metadata"), dict) else {}
+        run_sections = self._metadata_subset(run_metadata, ("runtime",))
+        if run_sections:
+            diagnostics["run"] = run_sections
+            available_sections.extend(f"run.{key}" for key in run_sections)
+
+        summary_metadata = (
+            summary.get("metadata") if isinstance(summary.get("metadata"), dict) else {}
+        )
+        summary_sections = self._metadata_subset(
+            summary_metadata,
+            (
+                "account_state",
+                "cost_summary",
+                "performance_metrics",
+                "position_sizing",
+                "short_economics",
+                "short_exposure_policy",
+                "trade_attribution",
+                "transaction_cost",
+            ),
+        )
+        if summary_sections:
+            diagnostics["summary"] = summary_sections
+            available_sections.extend(f"summary.{key}" for key in summary_sections)
+
+        trade_metadata_keys = self._metadata_keys(trades)
+        if trade_metadata_keys:
+            diagnostics["trade_metadata_keys"] = trade_metadata_keys
+            available_sections.append("trades.metadata")
+
+        graph_metadata_keys = self._metadata_keys(graph_points)
+        if graph_metadata_keys:
+            diagnostics["graph_metadata_keys"] = graph_metadata_keys
+            available_sections.append("graph_points.metadata")
+
+        if not available_sections:
+            return None
+        diagnostics["available_sections"] = sorted(available_sections)
+        return diagnostics
+
+    def _metadata_subset(
+        self, metadata: dict[str, Any], keys: tuple[str, ...]
+    ) -> dict[str, Any]:
+        return {
+            key: metadata[key]
+            for key in keys
+            if key in metadata and metadata[key] is not None
+        }
+
+    def _metadata_keys(self, rows: list[dict[str, Any]]) -> list[str]:
+        keys: set[str] = set()
+        for row in rows:
+            metadata = row.get("metadata")
+            if isinstance(metadata, dict):
+                keys.update(str(key) for key in metadata)
+        return sorted(keys)
 
     def _serialize_dataclass(self, value: Any) -> Any:
         if hasattr(value, "__dataclass_fields__"):

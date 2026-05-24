@@ -165,7 +165,16 @@ function tradeExecutionSide(trade: BacktestTrade): string {
 }
 
 function tradeEquity(trade: BacktestTrade): number | undefined {
-  return trade.mark_to_market_equity_after ?? valueNum(trade.metadata, "mark_to_market_equity_after");
+  const signal = tradePositionSignal(trade);
+  if (signal.includes("ENTRY")) {
+    return trade.execution_equity_after ?? valueNum(trade.metadata, "execution_equity_after");
+  }
+  return (
+    trade.mark_to_market_equity_after
+    ?? valueNum(trade.metadata, "mark_to_market_equity_after")
+    ?? trade.execution_equity_after
+    ?? valueNum(trade.metadata, "execution_equity_after")
+  );
 }
 
 function tradePnl(trade: BacktestTrade): number | undefined {

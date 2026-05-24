@@ -12,4 +12,5 @@ class BacktestRunDetailResponse(BaseModel):
     summary: dict
     trades: list[dict]
     graph_points: list[dict]
+    diagnostics: dict | None = None
     warnings: list[dict]

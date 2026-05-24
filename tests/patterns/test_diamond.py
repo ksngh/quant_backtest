@@ -134,6 +134,9 @@ def test_detects_bullish_diamond_event() -> None:
     assert event.breakout_distance_atr > 0.2
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.pattern_score >= 0.7
+    assert event.score_components["expansion"]["source"] == "observed_expansion_range_change_atr"
+    assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_calibration["is_calibrated_probability"] is False
     assert event.entry_reference == pytest.approx(112.0)
     assert event.stop_reference == pytest.approx(102.0)
     assert event.target_reference == pytest.approx(142.0)

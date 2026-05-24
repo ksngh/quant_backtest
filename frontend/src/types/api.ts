@@ -64,6 +64,15 @@ export type BacktestRunsListResponse = {
 
 export type WarningMessage = { code: string; message: string };
 
+export type BacktestResearchDiagnostics = {
+  schema_version: string;
+  available_sections: string[];
+  run?: Record<string, unknown>;
+  summary?: Record<string, unknown>;
+  trade_metadata_keys?: string[];
+  graph_metadata_keys?: string[];
+};
+
 export type BacktestTrade = {
   id: number;
   sequence: number;
@@ -161,5 +170,6 @@ export type BacktestRunDetailResponse = {
   };
   trades: BacktestTrade[];
   graph_points: BacktestGraphPoint[];
+  diagnostics?: BacktestResearchDiagnostics | null;
   warnings: WarningMessage[];
 };

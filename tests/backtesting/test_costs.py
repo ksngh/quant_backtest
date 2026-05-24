@@ -115,6 +115,8 @@ def test_volatility_adjusted_slippage_and_floor() -> None:
 
     assert base.slippage_cost == pytest.approx(0.04)
     assert adjusted.slippage_cost == pytest.approx(0.07)
+    assert adjusted.effective_slippage_bps == pytest.approx(7.0)
+    assert adjusted.volatility_bps == pytest.approx(10.0)
 
 
 def test_positive_price_and_quantity_required() -> None:

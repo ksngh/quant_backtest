@@ -119,6 +119,10 @@ def test_detects_bullish_order_block_event() -> None:
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.mitigation_depth == pytest.approx(0.0)
     assert event.pattern_score >= 0.7
+    assert event.score_components["zone_quality"]["source"] == "observed_zone_size_atr"
+    assert event.score_components["structure_confirmation"]["is_placeholder"] is True
+    assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_calibration["score_type"] == "heuristic_quality_score"
     assert event.entry_reference == pytest.approx(99.5)
     assert event.stop_reference == pytest.approx(99.0 - 0.2 * 6.5)
     assert event.risk_reward == pytest.approx(2.0)
@@ -238,7 +242,7 @@ def test_order_block_state_classification(
     events = detect_order_blocks(
         _bullish_order_block_candles(later=[later_candle]),
         symbol="BTCUSDT",
-        config=_config(),
+        config=_config(retrospective_lifecycle=True),
     )
 
     assert len(events) == 1
@@ -252,7 +256,7 @@ def test_broken_zone_is_not_emitted_as_valid_reference() -> None:
             later=[{"open": 101.0, "high": 102.0, "low": 97.0, "close": 97.5}]
         ),
         symbol="BTCUSDT",
-        config=_config(),
+        config=_config(retrospective_lifecycle=True),
     )
 
     assert events == []

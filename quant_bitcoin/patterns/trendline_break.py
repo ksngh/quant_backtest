@@ -19,7 +19,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from itertools import combinations
@@ -36,6 +36,7 @@ from quant_bitcoin.indicators.displacement_candle import (
 )
 from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_TRENDLINE_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -176,6 +177,10 @@ class TrendlineBreakEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -278,6 +283,30 @@ def detect_trendline_breaks(
             events.append(_select_best_event(evaluated))
 
     return events
+
+
+def detect_trendline_breaks_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: TrendlineBreakConfig | None = None,
+) -> list[TrendlineBreakEvent]:
+    """Return only trendline-break events confirmed at ``current_index``."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_trendline_breaks(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def _normalize_candles(
@@ -508,13 +537,14 @@ def _evaluate_candidate(
         current_index,
         expected_displacement,
     )
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         candidate=candidate,
         break_distance_atr=max(break_distance_atr, 0.0),
         volume_ratio=volume_ratio,
         displacement_confirmed=displacement_confirmed,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     if (
         pattern_status == TrendlineBreakStatus.VALID
         and pattern_score < config.minimum_pattern_score
@@ -582,6 +612,10 @@ def _evaluate_candidate(
             f"{direction.value.title()} Trendline Break detected with "
             f"{candidate.trendline_type.value} and ATR-buffered close."
         ),
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -614,6 +648,25 @@ def _calculate_pattern_score(
     displacement_confirmed: bool,
     config: TrendlineBreakConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            candidate=candidate,
+            break_distance_atr=break_distance_atr,
+            volume_ratio=volume_ratio,
+            displacement_confirmed=displacement_confirmed,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    candidate: _TrendlineCandidate,
+    break_distance_atr: float,
+    volume_ratio: float,
+    displacement_confirmed: bool,
+    config: TrendlineBreakConfig,
+) -> dict[str, Any]:
     if candidate.touch_count >= config.strong_touch_count:
         trendline_quality_score = 1.0
     elif candidate.touch_count >= config.minimum_touch_count:
@@ -641,15 +694,17 @@ def _calculate_pattern_score(
     structure_alignment_score = 0.6
     displacement_score = 1.0 if displacement_confirmed else 0.0
 
-    score = (
-        trendline_quality_score * 0.30
-        + breakout_strength_score * 0.25
-        + volume_confirmation_score * 0.20
-        + liquidity_score * 0.10
-        + structure_alignment_score * 0.10
-        + displacement_score * 0.05
+    return build_score_metadata(
+        "TRENDLINE_BREAK",
+        [
+            {"name": "trendline_quality", "raw_score": trendline_quality_score, "weight": 0.30, "source": "observed_touch_count", "description": "Number of confirmed touches supporting the trendline."},
+            {"name": "breakout_strength", "raw_score": breakout_strength_score, "weight": 0.25, "source": "observed_break_distance_atr", "description": "ATR-normalized break distance beyond the trendline."},
+            {"name": "volume_confirmation", "raw_score": volume_confirmation_score, "weight": 0.20, "source": "observed_volume_ratio", "description": "Relative volume at the break candle."},
+            {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.10, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
+            {"name": "structure_alignment", "raw_score": structure_alignment_score, "weight": 0.10, "source": "placeholder_constant", "is_placeholder": True, "description": "Reserved broader-structure alignment prior."},
+            {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation on the breakout candle."},
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _displacement_confirmed(

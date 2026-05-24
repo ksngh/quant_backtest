@@ -5,7 +5,13 @@ import socket
 import pandas as pd
 import pytest
 
-from quant_bitcoin.strategies import RsiStrategy, Signal, calculate_rsi
+from quant_bitcoin.strategies import (
+    RsiSignalMode,
+    RsiSmoothingMethod,
+    RsiStrategy,
+    Signal,
+    calculate_rsi,
+)
 from quant_bitcoin.strategies.rsi import STANDARD_CANDLE_COLUMNS
 
 from quant_bitcoin.strategies.actions import StrategyActionType
@@ -76,6 +82,23 @@ def test_calculate_rsi_consumes_standard_candle_schema():
     assert rsi.iloc[-1] == pytest.approx(75.0)
 
 
+def test_calculate_rsi_supports_wilder_smoothing_when_opted_in():
+    candles = make_candles([100, 101, 102, 101, 103, 104])
+
+    rsi = calculate_rsi(
+        candles,
+        window=3,
+        smoothing_method=RsiSmoothingMethod.WILDER,
+    )
+
+    assert pd.isna(rsi.iloc[0])
+    assert pd.isna(rsi.iloc[1])
+    assert pd.isna(rsi.iloc[2])
+    assert rsi.iloc[3] == pytest.approx(66.6666667)
+    assert rsi.iloc[4] == pytest.approx(83.3333333)
+    assert rsi.iloc[5] == pytest.approx(87.8787879)
+
+
 def test_calculate_rsi_rejects_missing_standard_candle_columns():
     candles = make_candles([100, 101, 102]).drop(columns=["volume"])
 
@@ -92,6 +115,13 @@ def test_calculate_rsi_rejects_non_numeric_close_values():
         calculate_rsi(candles, window=2)
 
 
+def test_calculate_rsi_rejects_unknown_smoothing_method():
+    candles = make_candles([100, 101, 102])
+
+    with pytest.raises(ValueError, match="smoothing method must be SIMPLE or WILDER"):
+        calculate_rsi(candles, window=2, smoothing_method="ema")
+
+
 @pytest.mark.parametrize(
     "strategy_kwargs",
     [
@@ -104,6 +134,11 @@ def test_calculate_rsi_rejects_non_numeric_close_values():
 def test_rsi_strategy_rejects_invalid_configuration(strategy_kwargs):
     with pytest.raises(ValueError):
         RsiStrategy(**strategy_kwargs)
+
+
+def test_rsi_strategy_rejects_invalid_signal_mode():
+    with pytest.raises(ValueError, match="signal mode must be LEVEL or CROSSING"):
+        RsiStrategy(signal_mode="pulse")
 
 
 def test_rsi_strategy_does_not_open_network_connections(monkeypatch):
@@ -119,6 +154,52 @@ def test_rsi_strategy_does_not_open_network_connections(monkeypatch):
     )
 
     assert signal is Signal.BUY
+
+
+def test_rsi_level_mode_preserves_repeated_threshold_signal_contract():
+    candles = make_candles([100, 101, 102, 101, 100, 99])
+
+    crossing_signal = RsiStrategy(
+        window=3,
+        buy_threshold=40,
+        sell_threshold=70,
+        signal_mode=RsiSignalMode.CROSSING,
+    ).generate_signal(candles.iloc[:5])
+    repeated_level_signal = RsiStrategy(
+        window=3,
+        buy_threshold=40,
+        sell_threshold=70,
+        signal_mode=RsiSignalMode.LEVEL,
+    ).generate_signal(candles)
+
+    assert crossing_signal is Signal.BUY
+    assert repeated_level_signal is Signal.BUY
+
+
+def test_rsi_crossing_mode_suppresses_repeated_oversold_buy_signal():
+    candles = make_candles([100, 101, 102, 101, 100, 99])
+    strategy = RsiStrategy(
+        window=3,
+        buy_threshold=40,
+        sell_threshold=70,
+        signal_mode=RsiSignalMode.CROSSING,
+    )
+
+    assert strategy.generate_signal(candles.iloc[:5]) is Signal.BUY
+    assert strategy.generate_signal(candles) is Signal.HOLD
+
+
+def test_rsi_crossing_mode_suppresses_repeated_overbought_sell_signal():
+    candles = make_candles([100, 99, 98, 99, 100, 101])
+    strategy = RsiStrategy(
+        window=3,
+        buy_threshold=30,
+        sell_threshold=60,
+        signal_mode=RsiSignalMode.CROSSING,
+    )
+
+    assert strategy.generate_signal(candles.iloc[:5]) is Signal.SELL
+    assert strategy.generate_signal(candles) is Signal.HOLD
 
 
 def test_rsi_action_strategy_emits_enter_long_when_oversold_and_flat():
@@ -137,3 +218,22 @@ def test_rsi_action_strategy_emits_exit_long_when_overbought_and_long():
     )
     assert len(actions) == 1
     assert actions[0].action_type is StrategyActionType.EXIT_LONG
+
+
+def test_rsi_action_strategy_crossing_mode_suppresses_repeated_flat_entry():
+    candles = make_candles([100, 101, 102, 101, 100, 99])
+    strategy = RsiActionStrategy(
+        window=3,
+        buy_threshold=40,
+        sell_threshold=70,
+        signal_mode=RsiSignalMode.CROSSING,
+    )
+
+    crossing_actions = strategy.evaluate(
+        candles.iloc[:5], portfolio_state={"position": 0.0}
+    )
+    repeated_actions = strategy.evaluate(candles, portfolio_state={"position": 0.0})
+
+    assert len(crossing_actions) == 1
+    assert crossing_actions[0].action_type is StrategyActionType.ENTER_LONG
+    assert repeated_actions == []

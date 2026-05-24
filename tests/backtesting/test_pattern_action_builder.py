@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.backtesting.intrabar_policy import IntrabarPolicyConfig, IntrabarSequencingMode
 from quant_bitcoin.patterns import (
     BreakEvenSettings,
     PartialExitSettings,
@@ -12,15 +13,18 @@ from quant_bitcoin.patterns import (
     TrailingStopSettings,
     create_risk_exit_plan,
 )
+from quant_bitcoin.patterns.entry_simulation import PatternEntryMode
 from quant_bitcoin.risk.exit_simulation import SoftInvalidationRule
-from quant_bitcoin.strategies.actions import StrategyActionType
+from quant_bitcoin.strategies.actions import StrategyActionType, StrategyQuantityMode
 
 
 class _Event:
-    def __init__(self, direction: str = "BULLISH") -> None:
+    def __init__(self, direction: str = "BULLISH", **overrides) -> None:
         self.event_id = "evt-1"
         self.pattern_type = "FAIR_VALUE_GAP"
         self.direction = direction
+        for key, value in overrides.items():
+            setattr(self, key, value)
 
 
 def _candles(rows: list[dict]) -> pd.DataFrame:
@@ -49,8 +53,81 @@ def test_long_event_emits_entry_and_exit() -> None:
     actions = build_pattern_trade_actions(_Event("BULLISH"), _plan("LONG"), _candles([{"high": 116.0, "low": 100.0}]), entry_action_timestamp=0, position_side="LONG")
 
     assert actions[0].action_type == StrategyActionType.ENTER_LONG
+    assert actions[0].quantity is None
+    assert actions[0].metadata["entry_quantity_source"] == "ENGINE_CONFIG"
+    assert actions[0].metadata["engine_sizing_allowed"] is True
     assert actions[-1].action_type == StrategyActionType.EXIT_LONG
     assert actions[-1].metadata["exit_reason"] == "TAKE_PROFIT"
+
+
+def test_entry_quantity_override_is_preserved() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"high": 116.0, "low": 100.0}]),
+        entry_action_timestamp=0,
+        position_side="LONG",
+        entry_quantity=0.02,
+    )
+
+    assert actions[0].quantity == pytest.approx(0.02)
+    assert actions[0].metadata["entry_quantity_source"] == "ACTION_OVERRIDE"
+    assert actions[0].metadata["engine_sizing_allowed"] is False
+    assert actions[0].metadata["raw_action_quantity"] == pytest.approx(0.02)
+    assert actions[0].metadata["pattern_quantity_override"] == pytest.approx(0.02)
+
+
+def test_market_confirmation_fill_uses_actual_confirmation_close() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH", entry_reference=95.0),
+        _plan("LONG"),
+        _candles([]),
+        entry_action_timestamp=0,
+        confirmation_candle={"timestamp": 0, "open": 98.0, "high": 101.0, "low": 94.0, "close": 103.0},
+        position_side="LONG",
+    )
+
+    assert actions[0].requested_price == pytest.approx(103.0)
+    assert actions[0].metadata["fill_price"] == pytest.approx(103.0)
+    assert actions[0].metadata["entry_reference"] == pytest.approx(100.0)
+    assert actions[0].metadata["confirmation_close"] == pytest.approx(103.0)
+    assert actions[0].metadata["fill_price_source"] == "CONFIRMATION_CLOSE"
+    assert actions[0].metadata["fill_assumption"] == "MARKET"
+
+
+def test_limit_entry_reference_fill_uses_reference_only_when_touched() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH", entry_reference=95.0),
+        _plan("LONG"),
+        _candles([{"high": 96.0, "low": 94.0, "close": 95.5}]),
+        entry_action_timestamp=0,
+        confirmation_candle={"timestamp": 0, "open": 100.0, "high": 103.0, "low": 99.0, "close": 102.0},
+        position_side="LONG",
+        entry_mode=PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
+    )
+
+    assert actions[0].action_type == StrategyActionType.ENTER_LONG
+    assert actions[0].requested_price == pytest.approx(95.0)
+    assert actions[0].metadata["fill_price_source"] == "ENTRY_REFERENCE"
+    assert actions[0].metadata["fill_assumption"] == "REFERENCE_LIMIT"
+
+
+def test_limit_entry_reference_no_fill_returns_skip_metadata() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH", entry_reference=95.0),
+        _plan("LONG"),
+        _candles([{"high": 100.0, "low": 99.0, "close": 99.5}]),
+        entry_action_timestamp=0,
+        confirmation_candle={"timestamp": 0, "open": 100.0, "high": 103.0, "low": 99.0, "close": 102.0},
+        position_side="LONG",
+        entry_mode=PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
+        max_wait_bars=1,
+    )
+
+    assert actions[0].action_type == StrategyActionType.SKIP
+    assert actions[0].reason == "ENTRY_NOT_FILLED"
+    assert actions[0].metadata["entry_status"] == "NOT_FILLED"
+    assert actions[0].metadata["reason"] == "limit price not touched within evaluated candles"
 
 
 def test_long_event_emits_partial_and_final_exits() -> None:
@@ -68,7 +145,13 @@ def test_long_event_emits_partial_and_final_exits() -> None:
         StrategyActionType.EXIT_LONG,
     ]
     assert actions[1].quantity == pytest.approx(0.4)
-    assert actions[2].quantity == pytest.approx(0.6)
+    assert actions[1].quantity_mode is StrategyQuantityMode.POSITION_RATIO
+    assert actions[1].metadata["quantity_ratio"] == pytest.approx(0.4)
+    assert actions[1].metadata["action_quantity_ratio"] == pytest.approx(0.4)
+    assert actions[2].quantity == pytest.approx(1.0)
+    assert actions[2].quantity_mode is StrategyQuantityMode.POSITION_RATIO
+    assert actions[2].metadata["quantity_ratio"] == pytest.approx(0.6)
+    assert actions[2].metadata["action_quantity_ratio"] == pytest.approx(1.0)
 
 
 def test_short_event_emits_entry_and_exit() -> None:
@@ -94,12 +177,28 @@ def test_no_exit_behavior_returns_entry_only() -> None:
     assert actions[0].action_type == StrategyActionType.ENTER_LONG
 
 
-def test_invalid_risk_plan_returns_entry_with_invalid_reason() -> None:
+def test_invalid_risk_plan_returns_skip_with_diagnostics() -> None:
     invalid_plan = _plan("LONG")
-    invalid_plan = invalid_plan.__class__(**{**invalid_plan.__dict__, "status": RiskExitPlanStatus.INVALID})
+    invalid_plan = invalid_plan.__class__(**{**invalid_plan.__dict__, "status": RiskExitPlanStatus.INVALID, "reasons": ("bad stop",)})
     actions = build_pattern_trade_actions(_Event(), invalid_plan, _candles([]), entry_action_timestamp=1, position_side="LONG")
     assert len(actions) == 1
+    assert actions[0].action_type == StrategyActionType.SKIP
     assert actions[0].reason == "RISK_PLAN_INVALID"
+    assert actions[0].quantity == 0.0
+    assert actions[0].metadata["risk_plan_status"] == "INVALID"
+    assert actions[0].metadata["risk_plan_reasons"] == ("bad stop",)
+
+
+def test_skipped_risk_plan_returns_skip_with_diagnostics() -> None:
+    skipped_plan = _plan("LONG")
+    skipped_plan = skipped_plan.__class__(**{**skipped_plan.__dict__, "status": RiskExitPlanStatus.SKIPPED, "reasons": ("weak setup",)})
+    actions = build_pattern_trade_actions(_Event(), skipped_plan, _candles([]), entry_action_timestamp=1, position_side="LONG")
+
+    assert len(actions) == 1
+    assert actions[0].action_type == StrategyActionType.SKIP
+    assert actions[0].reason == "RISK_PLAN_INVALID"
+    assert actions[0].metadata["risk_plan_status"] == "SKIPPED"
+    assert actions[0].metadata["risk_plan_reasons"] == ("weak setup",)
 
 
 def test_invalid_position_side_rejected() -> None:
@@ -137,6 +236,22 @@ def test_ambiguous_same_candle_exit_metadata_contains_precedence_policy() -> Non
     assert exit_metadata["precedence"] == "stop_before_target"
     assert exit_metadata["intrabar_precedence_policy"] == "stop_before_target"
     assert exit_metadata["ambiguous_stop_target"] is True
+
+
+def test_intrabar_target_first_policy_flows_through_builder() -> None:
+    actions = build_pattern_trade_actions(
+        _Event(),
+        _plan("LONG"),
+        _candles([{"high": 106.0, "low": 94.0, "close": 101.0}]),
+        entry_action_timestamp=123,
+        position_side="LONG",
+        intrabar_policy_config=IntrabarPolicyConfig(mode=IntrabarSequencingMode.TARGET_FIRST),
+    )
+    exit_action = actions[-1]
+
+    assert exit_action.metadata["exit_reason"] == "TAKE_PROFIT"
+    assert exit_action.metadata["exit_metadata"]["intrabar_policy"] == "TARGET_FIRST"
+    assert exit_action.metadata["exit_metadata"]["decision_outcome"] == "TARGET"
 
 
 def test_builder_does_not_mutate_future_candles_input() -> None:

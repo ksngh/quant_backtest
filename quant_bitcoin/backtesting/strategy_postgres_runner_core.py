@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import argparse
 import cProfile
-from dataclasses import asdict, is_dataclass
-from datetime import date, datetime, timezone
-from enum import Enum
+from datetime import datetime, timezone
 import json
 import os
 import pstats
 import time
 from collections.abc import Sequence
 from math import isfinite
+from urllib.parse import urlsplit, urlunsplit
 
 import pandas as pd
 
+from quant_bitcoin.backtesting.json_metadata import json_ready, metadata_hash as json_metadata_hash
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
 from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
 from quant_bitcoin.backtesting.performance_metrics import calculate_performance_metrics
+from quant_bitcoin.backtesting.pattern_invalidation import soft_invalidation_for_event
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
@@ -79,7 +80,7 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--trade-quantity", type=float, default=1.0)
     parser.add_argument(
         "--position-sizing-mode",
-        choices=["fixed_quantity", "cash_fraction", "target_notional"],
+        choices=["fixed_quantity", "cash_fraction", "target_notional", "equity_risk_fraction"],
         default="fixed_quantity",
         help="Backtest sizing mode. fixed_quantity uses --trade-quantity unless an action has quantity.",
     )
@@ -142,6 +143,183 @@ def _build_runtime_metadata(
     }
 
 
+def _build_strategy_parameters(
+    *,
+    strategy_key: str,
+    entry_filter_config: PatternEntryFilterConfig,
+    transaction_cost_config: TransactionCostConfig,
+    default_liquidity_role: LiquidityRole,
+    position_sizing: PositionSizingConfig,
+    policy_metadata: dict[str, object],
+    simulated_margin: SimulatedMarginConfig,
+    risk_free_rate: float,
+) -> dict[str, object]:
+    return {
+        "pattern": strategy_key,
+        "pattern_entry_filter": {
+            "allowed_statuses": list(entry_filter_config.allowed_statuses),
+            "minimum_pattern_score": entry_filter_config.minimum_pattern_score,
+            "minimum_risk_reward": entry_filter_config.minimum_risk_reward,
+            "quantity_override": entry_filter_config.quantity_override,
+        },
+        "transaction_cost": {
+            "maker_fee_bps": transaction_cost_config.maker_fee_bps,
+            "taker_fee_bps": transaction_cost_config.taker_fee_bps,
+            "spread_bps": transaction_cost_config.spread_bps,
+            "slippage_bps": transaction_cost_config.slippage_bps,
+            "minimum_slippage_bps": transaction_cost_config.minimum_slippage_bps,
+            "volatility_slippage_multiplier": transaction_cost_config.volatility_slippage_multiplier,
+            "liquidity_role": default_liquidity_role.value,
+        },
+        "position_sizing": position_sizing.to_metadata(),
+        "short_exposure_policy": policy_metadata["short_exposure_policy"],
+        "simulated_margin": simulated_margin.to_metadata(),
+        "risk_free_rate": risk_free_rate,
+    }
+
+
+def _build_reproducibility_metadata(
+    *,
+    args: argparse.Namespace,
+    candles: pd.DataFrame,
+    strategy_key: str,
+    strategy_name: str,
+    strategy_version: str,
+    strategy_parameters: dict[str, object],
+    engine_name: str,
+    engine_version: str,
+) -> dict[str, object]:
+    dataset = _build_dataset_identity(args, candles)
+    config = {
+        "strategy_parameters": strategy_parameters,
+        "engine": {
+            "name": engine_name,
+            "version": engine_version,
+            "starting_cash": args.starting_cash,
+            "trade_quantity": args.trade_quantity,
+        },
+    }
+    return {
+        "schema_version": "backtest_reproducibility_v1",
+        "created_by": "quant-bitcoin-strategy-backtest",
+        "dataset": dataset,
+        "strategy": {
+            "key": strategy_key,
+            "name": strategy_name,
+            "version": strategy_version,
+            "parameters_hash": _metadata_hash(strategy_parameters),
+        },
+        "engine": config["engine"],
+        "config_hashes": {
+            "dataset": _metadata_hash(dataset),
+            "strategy_parameters": _metadata_hash(strategy_parameters),
+            "engine": _metadata_hash(config["engine"]),
+            "full_config": _metadata_hash(config),
+        },
+        "random_seeds": {
+            "walk_forward": None,
+            "monte_carlo": None,
+        },
+        "environment": {
+            "database_url": _redact_sensitive_value(args.database_url),
+            "profile_enabled": bool(args.profile),
+        },
+        "sensitive_values_redacted": True,
+    }
+
+
+def _build_dataset_identity(args: argparse.Namespace, candles: pd.DataFrame) -> dict[str, object]:
+    return {
+        "source": args.source,
+        "symbol": args.symbol,
+        "interval": args.interval,
+        "requested_start_time": _json_safe(args.start_time),
+        "requested_end_time": _json_safe(args.end_time),
+        "actual_start_time": _iso_timestamp(candles.iloc[0]["timestamp"]) if not candles.empty else None,
+        "actual_end_time": _iso_timestamp(candles.iloc[-1]["timestamp"]) if not candles.empty else None,
+        "candle_count": int(len(candles)),
+        "candle_content_hash": _candle_content_hash(candles),
+        "quality": _candle_quality_summary(candles, args.interval),
+    }
+
+
+def _candle_content_hash(candles: pd.DataFrame) -> str:
+    rows = []
+    for row in candles.loc[:, ["timestamp", "open", "high", "low", "close", "volume"]].itertuples(index=False):
+        rows.append(
+            {
+                "timestamp": _iso_timestamp(row.timestamp),
+                "open": float(row.open),
+                "high": float(row.high),
+                "low": float(row.low),
+                "close": float(row.close),
+                "volume": float(row.volume),
+            }
+        )
+    return _metadata_hash({"candles": rows})
+
+
+def _candle_quality_summary(candles: pd.DataFrame, interval: str) -> dict[str, object]:
+    timestamp_count = int(len(candles))
+    duplicate_count = (
+        int(pd.to_datetime(candles["timestamp"], utc=True).duplicated().sum())
+        if "timestamp" in candles
+        else 0
+    )
+    gap_count = 0
+    expected_delta = _interval_delta(interval)
+    if expected_delta is not None and timestamp_count > 1 and "timestamp" in candles:
+        timestamps = pd.to_datetime(candles["timestamp"], utc=True)
+        gap_count = int((timestamps.diff().iloc[1:] != expected_delta).sum())
+    return {
+        "schema_version": "candle_quality_summary_v1",
+        "row_count": timestamp_count,
+        "duplicate_timestamp_count": duplicate_count,
+        "interval_gap_count": gap_count,
+        "continuity_checked": expected_delta is not None,
+    }
+
+
+def _interval_delta(interval: str) -> pd.Timedelta | None:
+    unit = str(interval)
+    try:
+        if unit.endswith("m"):
+            return pd.Timedelta(minutes=int(unit[:-1]))
+        if unit.endswith("h"):
+            return pd.Timedelta(hours=int(unit[:-1]))
+        if unit.endswith("d"):
+            return pd.Timedelta(days=int(unit[:-1]))
+    except ValueError:
+        return None
+    return None
+
+
+def _metadata_hash(value: object) -> str:
+    return json_metadata_hash(value)
+
+
+def _redact_sensitive_value(value: object) -> object:
+    if value is None:
+        return None
+    text = str(value)
+    if "://" in text:
+        return _redact_url(text)
+    lowered = text.lower()
+    if any(token in lowered for token in ("password", "secret", "token", "api_key", "apikey")):
+        return "<redacted>"
+    return text
+
+
+def _redact_url(value: str) -> str:
+    parts = urlsplit(value)
+    if "@" not in parts.netloc:
+        return value
+    host = parts.hostname or ""
+    if parts.port is not None:
+        host = f"{host}:{parts.port}"
+    return urlunsplit((parts.scheme, f"***:***@{host}", parts.path, parts.query, parts.fragment))
+
+
 def _optional_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -193,10 +371,10 @@ def _build_transaction_cost_config(args: argparse.Namespace) -> tuple[Transactio
 def _build_position_sizing_config(args: argparse.Namespace) -> PositionSizingConfig:
     mode = PositionSizingMode(args.position_sizing_mode.upper())
     policy = InsufficientFundsPolicy(args.insufficient_funds_policy.upper())
-    if mode in (PositionSizingMode.CASH_FRACTION, PositionSizingMode.TARGET_NOTIONAL) and args.position_sizing_value is None:
+    if mode in (PositionSizingMode.CASH_FRACTION, PositionSizingMode.TARGET_NOTIONAL, PositionSizingMode.EQUITY_RISK_FRACTION) and args.position_sizing_value is None:
         raise ValueError(f"{mode.value} requires --position-sizing-value")
-    if mode is PositionSizingMode.CASH_FRACTION and args.position_sizing_value is not None and args.position_sizing_value > 1.0:
-        raise ValueError("cash_fraction --position-sizing-value must be <= 1.0")
+    if mode in (PositionSizingMode.CASH_FRACTION, PositionSizingMode.EQUITY_RISK_FRACTION) and args.position_sizing_value is not None and args.position_sizing_value > 1.0:
+        raise ValueError(f"{mode.value} --position-sizing-value must be <= 1.0")
     return PositionSizingConfig(
         mode=mode,
         value=args.position_sizing_value,
@@ -322,7 +500,10 @@ def _expand_raw_actions(
                 risk_plan,
                 candles.iloc[index:],
                 entry_action_timestamp=action.timestamp,
+                confirmation_candle=candles.iloc[index - 1],
                 position_side=side,
+                entry_quantity=action.quantity,
+                soft_invalidation=soft_invalidation_for_event(event, risk_plan),
             )
         )
     return expanded
@@ -395,23 +576,7 @@ def _iso_timestamp(value: object) -> str:
 
 
 def _json_safe(value: object) -> object:
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, pd.Timestamp):
-        return _iso_timestamp(value)
-    if isinstance(value, (datetime, date)):
-        return _iso_timestamp(value)
-    if isinstance(value, Enum):
-        return _json_safe(value.value)
-    if is_dataclass(value) and not isinstance(value, type):
-        return _json_safe(asdict(value))
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    if isinstance(value, (set, frozenset)):
-        return [_json_safe(item) for item in sorted(value, key=repr)]
-    return str(value)
+    return json_ready(value)
 
 
 def _serialize_execution(execution) -> dict[str, object]:
@@ -470,7 +635,16 @@ def _serialize_events(executions: Sequence[object]) -> list[dict[str, object]]:
             "exit_reason": execution.exit_reason,
         }
         metadata = getattr(execution, "metadata", {}) or {}
-        for key in ("pattern_type", "pattern_direction", "pattern_status"):
+        for key in (
+            "pattern_type",
+            "pattern_direction",
+            "pattern_status",
+            "pattern_score",
+            "score_components",
+            "score_component_sources",
+            "score_limitations",
+            "score_calibration",
+        ):
             if key in metadata:
                 event[key] = metadata[key]
         events.append(event)
@@ -580,6 +754,27 @@ def run(
     timings["build_actions_ms"] = _ms(start_build, time.perf_counter())
     pattern_profile["actions_emitted"] = len(actions)
     pattern_profile["events_detected"] = sum(1 for a in actions if getattr(a, "metadata", None) and a.metadata.get("event_id"))
+    strategy_version = "strategy_engine_v1"
+    strategy_parameters = _build_strategy_parameters(
+        strategy_key=strategy.strategy_key,
+        entry_filter_config=entry_filter_config,
+        transaction_cost_config=transaction_cost_config,
+        default_liquidity_role=default_liquidity_role,
+        position_sizing=position_sizing,
+        policy_metadata=policy_metadata,
+        simulated_margin=simulated_margin,
+        risk_free_rate=args.risk_free_rate,
+    )
+    reproducibility_metadata = _build_reproducibility_metadata(
+        args=args,
+        candles=candles,
+        strategy_key=strategy.strategy_key,
+        strategy_name=strategy.strategy_name,
+        strategy_version=strategy_version,
+        strategy_parameters=strategy_parameters,
+        engine_name=BACKTEST_ENGINE_NAME,
+        engine_version=BACKTEST_ENGINE_VERSION,
+    )
 
     start_engine = time.perf_counter()
     result = run_strategy_backtest_engine(
@@ -620,35 +815,20 @@ def run(
             end_time=args.end_time,
             strategy_key=strategy.strategy_key.lower(),
             strategy_name=strategy.strategy_name,
-            strategy_version="strategy_engine_v1",
-            strategy_parameters={
-                "pattern": strategy.strategy_key,
-                "pattern_entry_filter": {"allowed_statuses": list(entry_filter_config.allowed_statuses), "minimum_pattern_score": entry_filter_config.minimum_pattern_score, "minimum_risk_reward": entry_filter_config.minimum_risk_reward, "quantity_override": entry_filter_config.quantity_override},
-                "transaction_cost": {
-                    "maker_fee_bps": transaction_cost_config.maker_fee_bps,
-                    "taker_fee_bps": transaction_cost_config.taker_fee_bps,
-                    "spread_bps": transaction_cost_config.spread_bps,
-                    "slippage_bps": transaction_cost_config.slippage_bps,
-                    "minimum_slippage_bps": transaction_cost_config.minimum_slippage_bps,
-                    "volatility_slippage_multiplier": transaction_cost_config.volatility_slippage_multiplier,
-                    "liquidity_role": default_liquidity_role.value,
-                },
-                "position_sizing": position_sizing.to_metadata(),
-                "short_exposure_policy": policy_metadata["short_exposure_policy"],
-                "simulated_margin": simulated_margin.to_metadata(),
-                "risk_free_rate": args.risk_free_rate,
-            },
+            strategy_version=strategy_version,
+            strategy_parameters=strategy_parameters,
             starting_cash=args.starting_cash,
             trade_quantity=args.trade_quantity,
             engine_name=BACKTEST_ENGINE_NAME,
             engine_version=BACKTEST_ENGINE_VERSION,
-            run_metadata=runtime_metadata,
+            run_metadata=runtime_metadata | {"reproducibility": reproducibility_metadata},
         )
         persisted_run_id = repository.save_completed_backtest(payload)
     timings["persist_ms"] = _ms(start_persist, time.perf_counter())
 
     start_json = time.perf_counter()
     output = _serialize_output(result, strategy.strategy_key, strategy.strategy_name)
+    output["reproducibility"] = reproducibility_metadata
     if persisted_run_id is not None:
         output["backtest_run_id"] = persisted_run_id
     if not actions:
@@ -661,6 +841,10 @@ def run(
         output["warnings"].append("invalid risk plan")
     if output["portfolio"]["ending_position"] != 0:
         output["warnings"].append("open position remains at end of backtest")
+    if output["summary"]["metadata"].get("cost_summary", {}).get("zero_transaction_cost_assumption"):
+        output["warnings"].append("zero_transaction_cost_assumption")
+    if output["summary"]["metadata"].get("short_performance", {}).get("short_close_count", 0) or output["portfolio"]["ending_position"] < 0:
+        output["warnings"].append("short_economics_simulation_only")
 
     timings["json_output_ms"] = _ms(start_json, time.perf_counter())
     timings["total_elapsed_ms"] = _ms(start_total, time.perf_counter())

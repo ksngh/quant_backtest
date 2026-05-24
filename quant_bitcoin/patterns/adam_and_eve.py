@@ -20,7 +20,7 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
@@ -36,6 +36,7 @@ from quant_bitcoin.indicators.displacement_candle import (
 )
 from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_ADAM_AND_EVE_CANDLE_COLUMNS: tuple[str, ...] = (
     "timestamp",
@@ -191,6 +192,10 @@ class AdamAndEveEvent:
     target_reference: float
     risk_reward: float | None
     reason: str
+    score_components: dict[str, Any] = field(default_factory=dict)
+    score_component_sources: dict[str, str] = field(default_factory=dict)
+    score_limitations: tuple[str, ...] = ()
+    score_calibration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -289,6 +294,30 @@ def detect_adam_and_eve_patterns(
             events.append(_select_best_event(evaluated))
 
     return events
+
+
+def detect_adam_and_eve_patterns_at_index(
+    candles: pd.DataFrame | Iterable[dict[str, Any]],
+    current_index: int,
+    *,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    config: AdamAndEveConfig | None = None,
+) -> list[AdamAndEveEvent]:
+    """Return only Adam-and-Eve events confirmed at ``current_index``."""
+
+    if current_index < 0:
+        return []
+    frame = candles if isinstance(candles, pd.DataFrame) else pd.DataFrame(list(candles))
+    if current_index >= len(frame):
+        return []
+    events = detect_adam_and_eve_patterns(
+        frame.iloc[: current_index + 1],
+        symbol=symbol,
+        timeframe=timeframe,
+        config=config,
+    )
+    return [event for event in events if event.end_index == current_index]
 
 
 def _normalize_candles(
@@ -469,7 +498,7 @@ def _evaluate_candidate(
     if config.require_displacement_breakout and not displacement_confirmed:
         return None
 
-    pattern_score = _calculate_pattern_score(
+    score_metadata = _calculate_pattern_score_metadata(
         bottom_difference_rate=bottom_difference_rate,
         adam_local_range_atr=adam_local_range_atr,
         eve_bottom_zone_duration=eve_bottom_zone_duration,
@@ -480,6 +509,7 @@ def _evaluate_candidate(
         displacement_confirmed=displacement_confirmed,
         config=config,
     )
+    pattern_score = float(score_metadata["pattern_score"])
     if pattern_status == AdamAndEveStatus.VALID and pattern_score < config.minimum_pattern_score:
         pattern_status = AdamAndEveStatus.WEAK
 
@@ -543,6 +573,10 @@ def _evaluate_candidate(
         target_reference=target_reference,
         risk_reward=risk_reward,
         reason="Bullish Adam and Eve breakout confirmed.",
+        score_components=score_metadata["score_components"],
+        score_component_sources=score_metadata["score_component_sources"],
+        score_limitations=score_metadata["score_limitations"],
+        score_calibration=score_metadata["score_calibration"],
     )
 
 
@@ -644,6 +678,33 @@ def _calculate_pattern_score(
     displacement_confirmed: bool,
     config: AdamAndEveConfig,
 ) -> float:
+    return float(
+        _calculate_pattern_score_metadata(
+            bottom_difference_rate=bottom_difference_rate,
+            adam_local_range_atr=adam_local_range_atr,
+            eve_bottom_zone_duration=eve_bottom_zone_duration,
+            eve_to_adam_duration_ratio=eve_to_adam_duration_ratio,
+            pattern_height_atr=pattern_height_atr,
+            breakout_distance_atr=breakout_distance_atr,
+            volume_ratio=volume_ratio,
+            displacement_confirmed=displacement_confirmed,
+            config=config,
+        )["pattern_score"]
+    )
+
+
+def _calculate_pattern_score_metadata(
+    *,
+    bottom_difference_rate: float,
+    adam_local_range_atr: float,
+    eve_bottom_zone_duration: int,
+    eve_to_adam_duration_ratio: float,
+    pattern_height_atr: float,
+    breakout_distance_atr: float,
+    volume_ratio: float,
+    displacement_confirmed: bool,
+    config: AdamAndEveConfig,
+) -> dict[str, Any]:
     bottom_score = max(
         0.0,
         1.0 - bottom_difference_rate / max(config.maximum_bottom_difference_rate, 1e-9),
@@ -661,17 +722,19 @@ def _calculate_pattern_score(
     volume_score = 1.0 if volume_ratio >= config.minimum_breakout_volume_ratio else 0.6
     displacement_score = 1.0 if displacement_confirmed else 0.0
 
-    score = (
-        bottom_score * 0.15
-        + adam_score * 0.15
-        + eve_score * 0.15
-        + ratio_score * 0.15
-        + height_score * 0.10
-        + breakout_score * 0.15
-        + volume_score * 0.10
-        + displacement_score * 0.05
+    return build_score_metadata(
+        "ADAM_AND_EVE_PATTERN",
+        [
+            {"name": "bottom_similarity", "raw_score": bottom_score, "weight": 0.15, "source": "observed_bottom_difference_rate", "description": "Similarity between Adam and Eve lows."},
+            {"name": "adam_sharpness", "raw_score": adam_score, "weight": 0.15, "source": "observed_adam_local_range_atr", "description": "Adam local range normalized by ATR."},
+            {"name": "eve_roundness", "raw_score": eve_score, "weight": 0.15, "source": "observed_eve_bottom_zone_duration", "description": "Duration in Eve bottom zone."},
+            {"name": "duration_ratio", "raw_score": ratio_score, "weight": 0.15, "source": "observed_eve_to_adam_duration_ratio", "description": "Relative duration between Eve and Adam structures."},
+            {"name": "height_quality", "raw_score": height_score, "weight": 0.10, "source": "observed_pattern_height_atr", "description": "Pattern height within configured ATR-normalized bounds."},
+            {"name": "breakout_strength", "raw_score": breakout_score, "weight": 0.15, "source": "observed_breakout_distance_atr", "description": "ATR-normalized neckline breakout distance."},
+            {"name": "volume_confirmation", "raw_score": volume_score, "weight": 0.10, "source": "observed_volume_ratio", "description": "Breakout candle relative volume."},
+            {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation at breakout."},
+        ],
     )
-    return round(max(0.0, min(score, 1.0)), 6)
 
 
 def _risk_reward(
