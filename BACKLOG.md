@@ -9,7 +9,8 @@ Older items are preserved in fixed 50-task segmented archives:
 
 All items below are candidate/planning pointers unless marked completed.
 
-## Recent Task Window (Tasks 151-171)
+## Recent Task Window (Tasks 151-172)
+- Completed (2026-05-24): Task 172 `FVG_ACTUAL_FILL_RISK_PLAN_ALIGNMENT` (align FVG actual fill price with risk/target simulation so take-profit cannot be a realized loss).
 - Completed (2026-05-24): Task 171 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION` (final remediation cleanup, docs, and ledgers).
 - Completed (2026-05-24): Task 170 `EXECUTION_READINESS_SAFETY_BOUNDARY_AUDIT` (audit execution readiness and live-trading blockers).
 - Completed (2026-05-24): Task 169 `BACKTEST_REPRODUCIBILITY_RUN_METADATA` (record reproducibility metadata for saved runs).

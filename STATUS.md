@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 214: Task 171 final remediation reconciliation completed (2026-05-24).
+Phase 216: Task 172 FVG actual-fill risk-plan alignment completed (2026-05-24).
 
 ## Current Step
-Task 171 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION` completed.
+Task 172 `FVG_ACTUAL_FILL_RISK_PLAN_ALIGNMENT` is complete; no new implementation task is active.
 
 ## Current Goal
-No active implementation task. Await owner assignment for the next task.
+Await the next explicitly assigned task while keeping live trading blocked.
 
 ## Current Active Task
-No active implementation task. Task 138 remains blocked pending explicit live-order approval.
+None. Task 138 remains blocked pending explicit live-order approval.
 
 ## Last Completed Step (Short)
-Completed Task 171: extracted shared JSON-safe metadata serialization/hash helpers, reconciled docs/ledgers after Tasks 152-170, created fixed 50-task archives for Tasks 101-150, reduced root ledgers to Tasks 151-171, and verified the full current suite.
+Completed Task 172: pattern action building now aligns risk/target simulation to actual entry fill price before exit simulation, preserving original entry reference metadata separately from fill-adjusted risk metadata. Verified with targeted suites, full `pytest`, and `git diff --check`.
 
 ## Recommended Next Step
-Assign or create the next specific `task.md` before any new implementation. Live execution must remain blocked unless a future owner-approved task explicitly unblocks it after the documented safety prerequisites.
+Assign or create the next non-live task explicitly before implementation. Keep Task 138 blocked until live-order approval and readiness prerequisites are resolved.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
