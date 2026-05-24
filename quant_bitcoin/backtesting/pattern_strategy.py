@@ -32,6 +32,7 @@ from typing import Any, Iterable, Literal, cast
 import pandas as pd
 
 from quant_bitcoin.backtesting.basic import NUMERIC_CANDLE_COLUMNS, STANDARD_CANDLE_COLUMNS
+from quant_bitcoin.backtesting.pattern_invalidation import soft_invalidation_for_event as canonical_soft_invalidation_for_event
 from quant_bitcoin.patterns import (
     AdamAndEveConfig,
     AdamAndEveRiskExitConfig,
@@ -498,11 +499,7 @@ def _soft_invalidation_for_event(
 ) -> SoftInvalidationRule | None:
     direction = _coerce_direction(plan.direction)
     if event.pattern_type == "FAIR_VALUE_GAP":
-        operator = "<=" if direction == RiskExitDirection.LONG else ">="
-        return SoftInvalidationRule(
-            invalidates_when=f"close {operator} fvg_midpoint",
-            reference_price=float(event.zone_mid),
-        )
+        return canonical_soft_invalidation_for_event(event, plan)
     if event.pattern_type == "TRENDLINE_BREAK":
         operator = "<=" if direction == RiskExitDirection.LONG else ">="
         return SoftInvalidationRule(

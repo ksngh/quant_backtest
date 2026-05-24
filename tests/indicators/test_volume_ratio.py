@@ -6,11 +6,14 @@ import pytest
 from quant_bitcoin.indicators.volume_ratio import (
     VOLUME_RATIO_OUTPUT_COLUMNS,
     VolumeAverageMethod,
+    VolumeInputMode,
+    VolumeRatioBaselineMode,
     VolumeRatioConfig,
     VolumeStatus,
     calculate_volume_ratio,
     calculate_volume_ratio_snapshot,
     classify_volume_status,
+    volume_ratio_timing_metadata,
 )
 
 
@@ -43,6 +46,124 @@ def test_calculates_volume_ratio_with_default_inclusive_mean_window() -> None:
     assert latest["volume_confirmation"] == True
     assert latest["volume_status"] == VolumeStatus.HIGH.value
     assert latest["is_valid"] == True
+
+
+def test_prior_only_volume_ratio_excludes_spike_from_baseline() -> None:
+    candles = _candles([100.0, 100.0, 100.0, 1000.0])
+    inclusive = calculate_volume_ratio(candles, VolumeRatioConfig(window=3)).iloc[-1]
+    prior_only = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(window=3, baseline_includes_current=False),
+    ).iloc[-1]
+
+    assert inclusive["average_volume"] == pytest.approx(400.0)
+    assert inclusive["volume_ratio"] == pytest.approx(2.5)
+    assert prior_only["average_volume"] == pytest.approx(100.0)
+    assert prior_only["volume_ratio"] == pytest.approx(10.0)
+
+
+def test_prior_only_baseline_mode_matches_compatibility_flag() -> None:
+    candles = _candles([100.0, 100.0, 100.0, 1000.0])
+
+    mode_rows = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(
+            window=3,
+            baseline_mode=VolumeRatioBaselineMode.PRIOR_ONLY,
+        ),
+    )
+    flag_rows = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(window=3, baseline_includes_current=False),
+    )
+
+    assert mode_rows.iloc[-1]["volume_ratio"] == pytest.approx(10.0)
+    assert flag_rows.iloc[-1]["volume_ratio"] == mode_rows.iloc[-1]["volume_ratio"]
+    assert mode_rows.attrs["volume_ratio_metadata"]["baseline_mode"] == "PRIOR_ONLY"
+
+
+def test_quote_volume_input_uses_quote_volume_when_available() -> None:
+    candles = _candles([10.0, 20.0])
+    candles["quote_volume"] = [1_000.0, 4_000.0]
+
+    volume_ratio = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(
+            window=2,
+            volume_input_mode=VolumeInputMode.QUOTE_VOLUME_IF_AVAILABLE,
+        ),
+    )
+    latest = volume_ratio.iloc[-1]
+
+    assert latest["volume"] == pytest.approx(4_000.0)
+    assert latest["average_volume"] == pytest.approx(2_500.0)
+    assert latest["volume_ratio"] == pytest.approx(4_000.0 / 2_500.0)
+    assert volume_ratio.attrs["volume_ratio_metadata"] == {
+        "schema_version": "volume_ratio_config_metadata_v1",
+        "baseline_mode": "CURRENT_INCLUSIVE",
+        "volume_input_mode": "QUOTE_VOLUME_IF_AVAILABLE",
+        "selected_volume_column": "quote_volume",
+        "window": 2,
+        "average_method": "MEAN",
+        "minimum_volume_ratio_for_confirmation": 1.5,
+    }
+
+
+def test_quote_volume_input_falls_back_to_base_volume_when_quote_missing() -> None:
+    candles = _candles([10.0, 20.0])
+
+    volume_ratio = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(
+            window=2,
+            volume_input_mode=VolumeInputMode.QUOTE_VOLUME_IF_AVAILABLE,
+        ),
+    )
+
+    assert volume_ratio.iloc[-1]["average_volume"] == pytest.approx(15.0)
+    assert volume_ratio.iloc[-1]["volume_ratio"] == pytest.approx(20.0 / 15.0)
+    assert (
+        volume_ratio.attrs["volume_ratio_metadata"]["selected_volume_column"]
+        == "volume"
+    )
+
+
+def test_trading_value_input_uses_close_times_base_volume() -> None:
+    candles = _candles([10.0, 20.0])
+    candles["close"] = [100.0, 200.0]
+
+    volume_ratio = calculate_volume_ratio(
+        candles,
+        VolumeRatioConfig(window=2, volume_input_mode=VolumeInputMode.TRADING_VALUE),
+    )
+
+    assert volume_ratio.iloc[-1]["volume"] == pytest.approx(4_000.0)
+    assert volume_ratio.iloc[-1]["average_volume"] == pytest.approx(2_500.0)
+    assert volume_ratio.iloc[-1]["volume_ratio"] == pytest.approx(4_000.0 / 2_500.0)
+    assert (
+        volume_ratio.attrs["volume_ratio_metadata"]["selected_volume_column"]
+        == "trading_value"
+    )
+
+
+def test_volume_ratio_timing_metadata_tracks_baseline_mode() -> None:
+    inclusive = volume_ratio_timing_metadata(VolumeRatioConfig(window=3))
+    prior_only = volume_ratio_timing_metadata(
+        VolumeRatioConfig(
+            window=3,
+            baseline_mode=VolumeRatioBaselineMode.PRIOR_ONLY,
+            volume_input_mode=VolumeInputMode.TRADING_VALUE,
+        )
+    )
+
+    assert inclusive["current_candle_included"] is True
+    assert inclusive["warmup_period"] == 3
+    assert inclusive["baseline_mode"] == "CURRENT_INCLUSIVE"
+    assert prior_only["current_candle_included"] is False
+    assert prior_only["requires_closed_candle"] is False
+    assert prior_only["warmup_period"] == 4
+    assert prior_only["baseline_mode"] == "PRIOR_ONLY"
+    assert prior_only["volume_input_mode"] == "TRADING_VALUE"
 
 
 def test_classifies_increased_normal_low_and_high_volume_statuses() -> None:
@@ -156,10 +277,19 @@ def test_rejects_missing_required_columns_and_invalid_parameters() -> None:
         VolumeRatioConfig(window=0)
     with pytest.raises(ValueError, match="average_method must be one of"):
         VolumeRatioConfig(average_method="WILD")
+    with pytest.raises(ValueError, match="baseline_mode must be one of"):
+        VolumeRatioConfig(baseline_mode="FUTURE")
+    with pytest.raises(ValueError, match="volume_input_mode must be one of"):
+        VolumeRatioConfig(volume_input_mode="DOLLAR_VOLUME")
     with pytest.raises(ValueError, match="low_volume_ratio_threshold"):
         VolumeRatioConfig(low_volume_ratio_threshold=1.6)
     with pytest.raises(ValueError, match="minimum_volume_ratio_for_confirmation"):
         VolumeRatioConfig(minimum_volume_ratio_for_confirmation=2.1)
+    with pytest.raises(ValueError, match="close column is required"):
+        calculate_volume_ratio(
+            _candles([100.0, 200.0]),
+            VolumeRatioConfig(volume_input_mode=VolumeInputMode.TRADING_VALUE),
+        )
 
 
 def test_rejects_non_numeric_volume() -> None:
@@ -189,3 +319,5 @@ def test_returns_latest_snapshot_for_output_schema_consumers() -> None:
     assert snapshot["volume_confirmation"] == True
     assert snapshot["volume_status"] == VolumeStatus.INCREASED.value
     assert snapshot["is_valid"] == True
+    assert snapshot["metadata"]["baseline_mode"] == "CURRENT_INCLUSIVE"
+    assert snapshot["metadata"]["volume_input_mode"] == "BASE_VOLUME"

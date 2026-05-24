@@ -207,14 +207,42 @@ def classify_volatility(
 
 
 def calculate_atr_snapshot(
-    candles: pd.DataFrame, config: AtrConfig | None = None
+    candles: pd.DataFrame,
+    config: AtrConfig | None = None,
+    *,
+    include_timing_metadata: bool = False,
 ) -> dict[str, Any]:
     """Return the latest ATR output row as a dictionary."""
 
+    atr_config = config or AtrConfig()
     atr_rows = calculate_atr(candles, config)
     if atr_rows.empty:
-        return {column: None for column in ATR_OUTPUT_COLUMNS}
-    return atr_rows.iloc[-1].to_dict()
+        snapshot = {column: None for column in ATR_OUTPUT_COLUMNS}
+    else:
+        snapshot = atr_rows.iloc[-1].to_dict()
+    if include_timing_metadata:
+        snapshot["timing"] = atr_timing_metadata(atr_config)
+    return snapshot
+
+
+def atr_timing_metadata(config: AtrConfig | None = None) -> dict[str, Any]:
+    """Return ATR timing semantics without changing the output frame schema."""
+
+    atr_config = config or AtrConfig()
+    smoothing_method = _coerce_smoothing_method(atr_config.smoothing_method).value
+    return {
+        "schema_version": "indicator_timing_metadata_v1",
+        "indicator": "ATR",
+        "period": int(atr_config.period),
+        "smoothing_method": smoothing_method,
+        "current_candle_included": True,
+        "requires_closed_candle": True,
+        "warmup_period": int(atr_config.period),
+        "first_valid_index": int(atr_config.period - 1),
+        "confirmation_delay": 0,
+        "baseline_mode": "CURRENT_INCLUSIVE",
+        "safe_usage": "after_close_completed_candle_signal",
+    }
 
 
 def _calculate_true_ranges(

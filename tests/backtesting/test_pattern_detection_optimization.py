@@ -4,14 +4,32 @@ import pandas as pd
 
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
+    PatternIndicatorCache,
     PatternEvaluationContext,
+    detect_adam_and_eve_at_index,
+    detect_cup_and_handle_at_index,
+    detect_diamond_at_index,
     detect_fair_value_gap_at_index,
     detect_order_block_at_index,
+    detect_trendline_break_at_index,
 )
-from quant_bitcoin.patterns.fair_value_gap import FairValueGapConfig, detect_fair_value_gaps
-from quant_bitcoin.patterns.order_block import OrderBlockConfig, detect_order_blocks
-from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy
+from quant_bitcoin.patterns import (
+    AdamAndEveConfig,
+    CupAndHandleConfig,
+    DiamondConfig,
+    FairValueGapConfig,
+    OrderBlockConfig,
+    TrendlineBreakConfig,
+    detect_adam_and_eve_patterns,
+    detect_cup_and_handle_patterns,
+    detect_diamond_patterns,
+    detect_fair_value_gaps,
+    detect_order_blocks,
+    detect_trendline_breaks,
+)
+from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy, strategy_for_pattern
 from quant_bitcoin.indicators.atr import AtrConfig
+from quant_bitcoin.indicators.pivots import PivotConfig
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig
 
 
@@ -51,6 +69,41 @@ def test_fvg_cache_builds_indicators_once() -> None:
     assert len(cache.candles) == len(candles)
     assert "atr" in cache.candles.columns
     assert "volume_ratio" in cache.candles.columns
+    assert "confirmed_index" in cache.pivot_rows.columns
+    assert cache.calculation_counts == {
+        "atr": 1,
+        "volume_ratio": 1,
+        "displacement_rows": 1,
+        "pivot_rows": 1,
+        "market_regime_rows": 0,
+    }
+
+
+def test_indicator_cache_for_fvg_alias_still_returns_general_cache() -> None:
+    cache = IndicatorCache.for_fvg(_candles(), FairValueGapConfig())
+    assert isinstance(cache, PatternIndicatorCache)
+
+
+def test_indicator_cache_visible_pivots_respect_confirmed_index() -> None:
+    candles = pd.DataFrame(
+        [
+            {"timestamp": 1, "open": 10, "high": 10, "low": 9, "close": 10, "volume": 100},
+            {"timestamp": 2, "open": 11, "high": 15, "low": 10, "close": 12, "volume": 100},
+            {"timestamp": 3, "open": 10, "high": 11, "low": 8, "close": 9, "volume": 100},
+            {"timestamp": 4, "open": 11, "high": 14, "low": 10, "close": 13, "volume": 100},
+            {"timestamp": 5, "open": 9, "high": 10, "low": 7, "close": 8, "volume": 100},
+        ]
+    )
+    config = TrendlineBreakConfig(
+        pivot_config=PivotConfig(left_window=1, right_window=1, minimum_distance_between_pivots=1)
+    )
+    cache = IndicatorCache.for_pattern(candles, config)
+
+    visible = cache.visible_pivot_rows(2)
+
+    assert not cache.pivot_rows.empty
+    assert not visible.empty
+    assert visible["confirmed_index"].max() <= 2
 
 
 def test_detect_fair_value_gaps_prefix_consistency_sanity() -> None:
@@ -160,3 +213,100 @@ def test_order_block_optimized_cache_matches_rolling_prefix_detection() -> None:
         prefix_events = detect_order_blocks(candles.iloc[: current_index + 1], config=config)
         expected = [event for event in prefix_events if event.end_index == current_index]
         assert [event.event_id for event in optimized] == [event.event_id for event in expected]
+
+
+def test_strategy_for_pattern_uses_shared_context_for_each_pattern() -> None:
+    candles = _candles()
+    for pattern_key in (
+        "FAIR_VALUE_GAP",
+        "ORDER_BLOCK",
+        "TRENDLINE_BREAK",
+        "CUP_AND_HANDLE",
+        "DIAMOND",
+        "ADAM_AND_EVE",
+    ):
+        strategy = strategy_for_pattern(pattern_key)
+        cache = IndicatorCache.for_pattern(candles, strategy.detector_config)
+        seen: set[str] = set()
+        actions = []
+
+        for current_index in range(len(candles)):
+            context = PatternEvaluationContext(
+                candles=candles,
+                current_index=current_index,
+                indicator_cache=cache,
+                seen_event_ids=seen,
+            )
+            actions.extend(strategy.evaluate_at(context))
+
+        assert len(actions) <= len(candles)
+        assert cache.calculation_counts["atr"] == 1
+        assert cache.calculation_counts["volume_ratio"] == 1
+        assert cache.calculation_counts["pivot_rows"] == 1
+
+
+def test_cached_at_index_helpers_match_rolling_prefix_for_each_pattern() -> None:
+    candles = _candles()
+    cases = [
+        (FairValueGapConfig(), detect_fair_value_gap_at_index, detect_fair_value_gaps),
+        (OrderBlockConfig(), detect_order_block_at_index, detect_order_blocks),
+        (TrendlineBreakConfig(), detect_trendline_break_at_index, detect_trendline_breaks),
+        (CupAndHandleConfig(), detect_cup_and_handle_at_index, detect_cup_and_handle_patterns),
+        (DiamondConfig(), detect_diamond_at_index, detect_diamond_patterns),
+        (AdamAndEveConfig(), detect_adam_and_eve_at_index, detect_adam_and_eve_patterns),
+    ]
+
+    for config, cached_detect, detect_all in cases:
+        cache = IndicatorCache.for_pattern(candles, config)
+        for current_index in range(len(candles)):
+            context = PatternEvaluationContext(
+                candles=candles,
+                current_index=current_index,
+                indicator_cache=cache,
+                seen_event_ids=set(),
+            )
+            cached_events = cached_detect(context, config=config)
+            prefix_events = detect_all(candles.iloc[: current_index + 1], config=config)
+            expected = [event for event in prefix_events if event.end_index == current_index]
+            assert [event.event_id for event in cached_events] == [event.event_id for event in expected]
+
+
+def test_cached_at_index_helpers_ignore_appended_future_candles() -> None:
+    candles = _candles()
+    future = pd.DataFrame(
+        [
+            {"timestamp": 41, "open": 90, "high": 130, "low": 80, "close": 125, "volume": 10000},
+            {"timestamp": 42, "open": 125, "high": 126, "low": 70, "close": 75, "volume": 12000},
+        ]
+    )
+    appended = pd.concat([candles, future], ignore_index=True)
+    current_index = 20
+    cases = [
+        (FairValueGapConfig(), detect_fair_value_gap_at_index),
+        (OrderBlockConfig(), detect_order_block_at_index),
+        (TrendlineBreakConfig(), detect_trendline_break_at_index),
+        (CupAndHandleConfig(), detect_cup_and_handle_at_index),
+        (DiamondConfig(), detect_diamond_at_index),
+        (AdamAndEveConfig(), detect_adam_and_eve_at_index),
+    ]
+
+    for config, cached_detect in cases:
+        prefix_cache = IndicatorCache.for_pattern(candles, config)
+        prefix_context = PatternEvaluationContext(
+            candles=candles,
+            current_index=current_index,
+            indicator_cache=prefix_cache,
+        )
+        prefix_events = cached_detect(prefix_context, config=config)
+
+        appended_cache = IndicatorCache.for_pattern(appended, config)
+        appended_context = PatternEvaluationContext(
+            candles=appended,
+            current_index=current_index,
+            indicator_cache=appended_cache,
+        )
+        appended_events = cached_detect(appended_context, config=config)
+
+        assert [event.event_id for event in appended_events] == [
+            event.event_id for event in prefix_events
+        ]

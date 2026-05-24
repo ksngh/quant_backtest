@@ -79,6 +79,40 @@ def _diamond_candles(*, breakout_close: float = 112.0, breakout_volume: float = 
     )
 
 
+def _ten_pivot_diamond_candles(
+    *,
+    middle_contraction_high: float = 107.0,
+    middle_contraction_low: float = 94.0,
+) -> pd.DataFrame:
+    return _candles(
+        [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0},
+            {"open": 104.0, "high": 105.0, "low": 103.0, "close": 104.0},
+            {"open": 96.0, "high": 97.0, "low": 95.0, "close": 96.0},
+            {"open": 114.0, "high": 115.0, "low": 113.0, "close": 114.0},
+            {"open": 86.0, "high": 87.0, "low": 85.0, "close": 86.0},
+            {"open": 109.0, "high": 110.0, "low": 108.0, "close": 109.0},
+            {"open": 91.0, "high": 92.0, "low": 90.0, "close": 91.0},
+            {
+                "open": middle_contraction_high - 1.0,
+                "high": middle_contraction_high,
+                "low": middle_contraction_high - 2.0,
+                "close": middle_contraction_high - 1.0,
+            },
+            {
+                "open": middle_contraction_low + 1.0,
+                "high": middle_contraction_low + 2.0,
+                "low": middle_contraction_low,
+                "close": middle_contraction_low + 1.0,
+            },
+            {"open": 103.0, "high": 104.0, "low": 102.0, "close": 103.0},
+            {"open": 99.0, "high": 100.0, "low": 98.0, "close": 99.0},
+            {"open": 101.0, "high": 102.0, "low": 100.0, "close": 101.0},
+            {"open": 112.0, "high": 114.0, "low": 111.0, "close": 113.0, "volume": 500.0},
+        ]
+    )
+
+
 def test_returns_empty_when_no_diamond_rules_match() -> None:
     candles = _candles(
         [
@@ -115,6 +149,12 @@ def test_detects_bullish_diamond_event() -> None:
     assert event.contraction_end_index == 8
     assert event.breakout_index == 10
     assert event.source_pivot_indices == (1, 2, 3, 4, 5, 6, 7, 8)
+    assert event.split_position == 4
+    assert event.expansion_pivot_count == 4
+    assert event.contraction_pivot_count == 4
+    assert event.boundary_touch_count == 4
+    assert event.boundary_deviation_atr == pytest.approx(0.0)
+    assert event.alternating_pivot_score == pytest.approx(1.0)
     assert event.upper_boundary_slope == pytest.approx(-3.0)
     assert event.upper_boundary_intercept == pytest.approx(125.0)
     assert event.lower_boundary_slope == pytest.approx(3.0)
@@ -135,6 +175,8 @@ def test_detects_bullish_diamond_event() -> None:
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.pattern_score >= 0.7
     assert event.score_components["expansion"]["source"] == "observed_expansion_range_change_atr"
+    assert event.score_components["boundary_touch"]["source"] == "observed_boundary_deviation_atr"
+    assert event.score_components["alternating_pivots"]["source"] == "observed_pivot_sequence"
     assert event.score_components["liquidity"]["is_placeholder"] is True
     assert event.score_calibration["is_calibrated_probability"] is False
     assert event.entry_reference == pytest.approx(112.0)
@@ -142,6 +184,49 @@ def test_detects_bullish_diamond_event() -> None:
     assert event.target_reference == pytest.approx(142.0)
     assert event.risk_reward == pytest.approx(3.0)
     assert event.reason
+
+
+def test_candidate_diagnostics_record_counts_and_rejections() -> None:
+    default_events = detect_diamond_patterns(
+        _diamond_candles(),
+        symbol="BTCUSDT",
+        config=_config(),
+    )
+    diagnostic_events = detect_diamond_patterns(
+        _diamond_candles(),
+        symbol="BTCUSDT",
+        config=_config(enable_candidate_diagnostics=True),
+    )
+
+    assert default_events[0].candidate_diagnostics == {}
+    diagnostics = diagnostic_events[0].candidate_diagnostics
+    assert diagnostics["schema_version"] == "chart_pattern_candidate_diagnostics_v1"
+    assert diagnostics["pattern_type"] == "DIAMOND_PATTERN"
+    assert diagnostics["candidate_count"] == 3
+    assert diagnostics["evaluated_candidate_count"] == 1
+    assert diagnostics["selected_rank"] == 1
+    assert diagnostics["max_guard_hit"] is False
+    assert diagnostics["rejected_by_reason"] == {"window_start_before_history": 2}
+
+
+def test_candidate_diagnostics_report_diamond_guard_overfit_warning() -> None:
+    events = detect_diamond_patterns(
+        _ten_pivot_diamond_candles(),
+        symbol="BTCUSDT",
+        config=_config(
+            minimum_pivot_count=8,
+            maximum_pivot_count=10,
+            max_candidate_windows_per_bar=1,
+            enable_candidate_diagnostics=True,
+        ),
+    )
+
+    diagnostics = events[0].candidate_diagnostics
+    assert diagnostics["candidate_count"] == 1
+    assert diagnostics["evaluated_candidate_count"] == 1
+    assert diagnostics["max_guard_hit"] is True
+    assert diagnostics["rejected_by_reason"]["max_candidate_guard_hit"] == 1
+    assert "max_candidate_guard_hit" in diagnostics["overfit_warnings"]
 
 
 def test_detects_bearish_diamond_event() -> None:
@@ -175,6 +260,12 @@ def test_insufficient_pivot_history_returns_empty_list() -> None:
     )
 
 
+@pytest.mark.parametrize("pivot_count", [6, 7])
+def test_six_and_seven_pivot_minimums_are_rejected_as_infeasible(pivot_count: int) -> None:
+    with pytest.raises(ValueError, match="minimum_pivot_count must be at least 8"):
+        _config(minimum_pivot_count=pivot_count, maximum_pivot_count=pivot_count)
+
+
 def test_missing_enough_pivot_highs_or_lows_returns_empty_list() -> None:
     assert (
         detect_diamond_patterns(
@@ -189,6 +280,72 @@ def test_missing_enough_pivot_highs_or_lows_returns_empty_list() -> None:
             _diamond_candles(),
             symbol="BTCUSDT",
             config=_config(minimum_pivot_count=9, maximum_pivot_count=9),
+        )
+        == []
+    )
+
+
+def test_boundary_deviation_threshold_affects_candidate_acceptance() -> None:
+    accepted = detect_diamond_patterns(
+        _ten_pivot_diamond_candles(middle_contraction_high=107.0),
+        symbol="BTCUSDT",
+        config=_config(minimum_pivot_count=10, maximum_pivot_count=10),
+    )
+    rejected = detect_diamond_patterns(
+        _ten_pivot_diamond_candles(
+            middle_contraction_high=109.0,
+            middle_contraction_low=91.0,
+        ),
+        symbol="BTCUSDT",
+        config=_config(
+            minimum_pivot_count=10,
+            maximum_pivot_count=10,
+            maximum_boundary_touch_deviation_atr=0.05,
+            minimum_contraction_range_change_rate=0.69,
+        ),
+    )
+
+    assert len(accepted) == 1
+    assert accepted[0].split_position == 4
+    assert accepted[0].expansion_pivot_count == 4
+    assert accepted[0].contraction_pivot_count == 6
+    assert accepted[0].boundary_touch_count == 6
+    assert accepted[0].boundary_deviation_atr == pytest.approx(0.0)
+    assert rejected == []
+
+
+def test_boundary_deviation_within_threshold_lowers_boundary_score() -> None:
+    events = detect_diamond_patterns(
+        _ten_pivot_diamond_candles(
+            middle_contraction_high=109.0,
+            middle_contraction_low=91.0,
+        ),
+        symbol="BTCUSDT",
+        config=_config(
+            minimum_pivot_count=10,
+            maximum_pivot_count=10,
+            maximum_boundary_touch_deviation_atr=0.5,
+            minimum_contraction_range_change_rate=0.69,
+        ),
+    )
+
+    assert len(events) == 1
+    assert events[0].boundary_deviation_atr > 0
+    assert events[0].score_components["boundary_touch"]["raw_score"] < 1.0
+
+
+def test_require_alternating_pivots_rejects_non_alternating_sequence() -> None:
+    candles = _diamond_candles()
+    candles.loc[5, "high"] = 108.0
+    candles.loc[5, "low"] = 106.0
+    candles.loc[6, "high"] = 110.0
+    candles.loc[6, "low"] = 108.0
+
+    assert (
+        detect_diamond_patterns(
+            candles,
+            symbol="BTCUSDT",
+            config=_config(require_alternating_pivots=True),
         )
         == []
     )

@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 232: Backtest analytics/reporting batch completed (2026-05-24).
+Phase 281: Pattern research batch reconciliation complete (2026-05-24).
 
 ## Current Step
-Tasks 181-187 are completed. No active implementation task is currently assigned.
+Task 225 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION_AFTER_PATTERN_RESEARCH_BATCH` is complete; no next task is currently assigned.
 
 ## Current Goal
-Keep the completed backtest analytics/reporting batch stable, with live trading still blocked unless a future explicit task and owner approval unblock it.
+Maintain the completed offline research/backtest state while preserving live-trading blocks.
 
 ## Current Active Task
-No active task.
+None assigned.
 
 ## Last Completed Step (Short)
-Completed Task 187: reconciled docs/status/backlog/history after Tasks 173-186, extracted shared frontend value helpers, confirmed no 151-200 archive is needed yet, and verified the full suite.
+Completed Task 225: archived Tasks 151-200, reduced root ledgers to Tasks 201-225, reconciled task checklist state, and recorded final pattern research batch status.
 
 ## Recommended Next Step
-Next task is undecided. Recommended candidate: add visual regression/UI tests for the read-only dashboard when a frontend component test harness is assigned.
+No implementation should proceed until a new specific `task.md` is assigned or created. Candidate follow-ups are listed in `BACKLOG.md`.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.

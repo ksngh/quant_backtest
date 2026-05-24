@@ -38,7 +38,9 @@ def _event(direction: str = "BULLISH") -> OrderBlockEvent:
         source_mode="SINGLE_CANDLE",
         source_cluster_start_index=0,
         source_cluster_end_index=0,
+        source_cluster_size=1,
         zone_definition="FULL_RANGE",
+        detector_input_type="OHLCV_HEURISTIC",
         displacement_direction=direction,
         displacement_range_atr=2.0,
         body_ratio=0.8,
@@ -49,6 +51,8 @@ def _event(direction: str = "BULLISH") -> OrderBlockEvent:
         structure_event=None,
         support_resistance_context="NO_CONTEXT",
         mitigation_depth=0.0,
+        retest_entry_eligible=False,
+        retest_wait_bars=None,
         pattern_score=0.8,
         entry_reference=100.0,
         stop_reference=93.0 if is_bullish else 107.0,
@@ -119,7 +123,10 @@ def test_structural_targets_include_caller_supplied_and_event_target_metadata() 
     assert plan.risk_plan.targets[0].source == RiskExitTargetSource.R_MULTIPLE
     assert plan.risk_plan.targets[1].source == RiskExitTargetSource.STRUCTURE
     assert plan.risk_plan.targets[1].price == pytest.approx(112.0)
-    assert plan.risk_plan.targets[1].metadata == {"rule": "nearest_actionable_structure"}
+    assert plan.risk_plan.targets[1].metadata["rule"] == "nearest_actionable_structure"
+    assert plan.risk_plan.targets[1].metadata["target_source"] == "STRUCTURE"
+    assert plan.risk_plan.target_semantics["detector_target_reference"] == pytest.approx(116.0)
+    assert plan.risk_plan.target_semantics["risk_targets"][1]["source"] == "STRUCTURE"
 
 
 def test_no_reaction_time_stop_metadata_is_represented_without_trading() -> None:

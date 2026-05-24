@@ -128,9 +128,11 @@ def _trade_timing(lifecycle: Mapping[str, Any], points: Sequence[dict[str, Any]]
     bars_to_mae = adverse_values.index(mae_price)
     bars_to_first_favorable_close = _bars_to_first_favorable_close(side, entry_price, close_values)
     entry_metadata = _record(_field(entry, "metadata"))
+    exit_metadata = _record(_field(final_exit, "metadata"))
+    nested_exit_metadata = _record(exit_metadata.get("exit_metadata"))
     reference = _metadata_number(entry, "entry_reference")
     confirmation_close = _metadata_number(entry, "confirmation_close")
-    exit_reason = _field(final_exit, "exit_reason") or _record(_field(final_exit, "metadata")).get("exit_reason")
+    exit_reason = _field(final_exit, "exit_reason") or exit_metadata.get("exit_reason")
     return {
         "entry_timestamp": entry_ts,
         "exit_timestamp": exit_ts,
@@ -150,6 +152,13 @@ def _trade_timing(lifecycle: Mapping[str, Any], points: Sequence[dict[str, Any]]
         "bars_to_first_favorable_close": bars_to_first_favorable_close,
         "bars_to_exit": len(window) - 1,
         "exit_reason": exit_reason,
+        "pattern_type": entry_metadata.get("pattern_type") or exit_metadata.get("pattern_type"),
+        "pattern_direction": entry_metadata.get("pattern_direction") or exit_metadata.get("pattern_direction"),
+        "entry_mode": entry_metadata.get("entry_mode") or exit_metadata.get("entry_mode"),
+        "target_source": exit_metadata.get("target_source") or nested_exit_metadata.get("target_source"),
+        "intrabar_policy": nested_exit_metadata.get("intrabar_policy") or exit_metadata.get("intrabar_policy"),
+        "ambiguous_stop_target": bool(nested_exit_metadata.get("ambiguous_stop_target")),
+        "stop_moved_by_break_even_or_trailing": bool(nested_exit_metadata.get("stop_moved_by_break_even_or_trailing")),
         "bars_to_stop_loss": len(window) - 1 if _exit_reason_is(exit_reason, ("HARD_STOP", "STOP_LOSS", "TRAILING_STOP", "BREAK_EVEN_STOP")) else None,
         "bars_to_take_profit": len(window) - 1 if _exit_reason_is(exit_reason, ("TAKE_PROFIT", "TARGET", "TARGET_1", "TARGET_2")) else None,
         "bars_to_soft_invalidation": len(window) - 1 if _exit_reason_is(exit_reason, ("SOFT_INVALIDATION",)) else None,

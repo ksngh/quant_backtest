@@ -117,6 +117,23 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
                 "cost_summary": {
                     "cost_to_gross_pnl_ratio": 0.12,
                     "zero_transaction_cost_assumption": False,
+                    "zero_cost_warning": None,
+                },
+                "risk_exit_audit": {
+                    "schema_version": "risk_exit_audit_v1",
+                    "intrabar_ambiguity": {
+                        "ambiguous_stop_target_count": 1,
+                        "ambiguous_stop_target_pnl_contribution_ratio": -0.25,
+                    },
+                },
+                "pattern_execution_policy": {
+                    "schema_version": "pattern_execution_policy_v1",
+                    "pattern_key": "FAIR_VALUE_GAP",
+                    "selected_entry_mode": "LIMIT_AT_PATTERN_MIDPOINT",
+                },
+                "short_economics": {
+                    "schema_version": "short_economics_research_v1",
+                    "enabled": False,
                 },
             },
             created_at=now,
@@ -138,6 +155,42 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
                     "free_cash_after": 0.0,
                     "short_proceeds_locked_after": 10000.0,
                     "short_collateral_locked_after": 10000.0,
+                    "entry_mode": "LIMIT_AT_PATTERN_MIDPOINT",
+                    "fill_assumption": "historical_limit_fill",
+                    "fill_price_source": "limit_touch",
+                    "bars_waited": 2,
+                    "entry_reference": 10000.0,
+                    "requested_price": 10000.0,
+                    "original_risk_per_unit": 100.0,
+                    "fill_adjusted_risk_per_unit": 120.0,
+                    "risk_plan_aligned_to_fill": True,
+                    "effective_slippage_bps": 21.0,
+                    "pattern_type": "FAIR_VALUE_GAP",
+                    "pattern_score": 0.8,
+                    "target_semantics": {
+                        "schema_version": "target_semantics_v1",
+                        "risk_targets": [{"name": "TP1", "price": 9900.0}],
+                    },
+                    "score_components": {
+                        "gap_quality": {
+                            "raw_score": 0.8,
+                            "weight": 0.4,
+                            "source": "observed_gap_size_atr",
+                            "is_placeholder": False,
+                            "included_in_executable_score": True,
+                        },
+                        "liquidity": {
+                            "raw_score": 1.0,
+                            "weight": 0.1,
+                            "source": "placeholder_policy",
+                            "is_placeholder": True,
+                            "included_in_executable_score": False,
+                        },
+                    },
+                    "exit_metadata": {
+                        "intrabar_policy": "STOP_FIRST_CONSERVATIVE",
+                        "ambiguous_stop_target": True,
+                    },
                 },
             ),
         ),
@@ -163,6 +216,7 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
         ),
     )
     detail = BacktestResultsService(_Repo([model])).load_run_for_graphs(1)
+    assert detail["run"]["metadata"]["reproducibility"]["database_url"] == "[REDACTED]"
     assert detail["trades"][0]["position_signal"] == "SHORT_ENTRY"
     assert detail["trades"][0]["execution_side"] == "SELL"
     assert detail["trades"][0]["free_cash_after"] == 0.0
@@ -175,11 +229,26 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
     assert detail["diagnostics"]["summary"]["cost_summary"] == {
         "cost_to_gross_pnl_ratio": 0.12,
         "zero_transaction_cost_assumption": False,
+        "zero_cost_warning": None,
     }
+    assert detail["diagnostics"]["summary"]["short_economics"]["schema_version"] == "short_economics_research_v1"
+    assert detail["trades"][0]["metadata"]["risk_plan_aligned_to_fill"] is True
+    assert detail["trades"][0]["metadata"]["effective_slippage_bps"] == 21.0
     assert detail["diagnostics"]["summary"]["performance_diagnostics"]["schema_version"] == "backtest_performance_diagnostics_v1"
     assert detail["diagnostics"]["summary"]["timing_diagnostics"]["schema_version"] == "trade_timing_diagnostics_v1"
     assert detail["diagnostics"]["summary"]["risk_exit_audit"]["schema_version"] == "risk_exit_audit_v1"
+    assert detail["diagnostics"]["summary"]["risk_exit_audit"]["intrabar_ambiguity"]["ambiguous_stop_target_count"] == 1
     assert detail["diagnostics"]["summary"]["score_calibration"]["schema_version"] == "pattern_score_calibration_v1"
+    schema_index = detail["diagnostics"]["summary"]["metadata_schema_index"]
+    assert schema_index["schema_version"] == "backtest_metadata_schema_index_v1"
+    assert schema_index["contracts"]["pattern_execution_policy"]["observed_schema"] == "pattern_execution_policy_v1"
+    assert schema_index["contracts"]["target_semantics"]["observed_schema"] == "target_semantics_v1"
+    assert schema_index["contracts"]["score_components"]["component_count"] == 2
+    assert schema_index["contracts"]["score_components"]["placeholder_component_count"] == 1
+    assert schema_index["contracts"]["risk_exit_audit"]["expected_schema"] == "risk_exit_audit_v2"
+    assert schema_index["contracts"]["risk_exit_audit"]["compatible_saved_schemas"] == ["risk_exit_audit_v1"]
+    assert schema_index["contracts"]["risk_exit_audit"]["observed_schema"] == "risk_exit_audit_v1"
+    assert schema_index["contracts"]["intrabar_policy"]["observed_schema"] == "intrabar_policy_v1"
     assert detail["research_report"]["schema_version"] == "backtest_research_report_v1"
     assert detail["research_report"]["data_summary"]["trade_rows"] == 1
     assert detail["research_report"]["reproducibility"]["database_url"] == "[REDACTED]"
@@ -190,6 +259,8 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
     assert "summary.timing_diagnostics" in detail["diagnostics"]["available_sections"]
     assert "summary.risk_exit_audit" in detail["diagnostics"]["available_sections"]
     assert "summary.score_calibration" in detail["diagnostics"]["available_sections"]
+    assert "summary.metadata_schema_index" in detail["diagnostics"]["available_sections"]
+    assert "summary.short_economics" in detail["diagnostics"]["available_sections"]
 
 
 def test_detail_serialization_exposes_legacy_timing_diagnostics_from_saved_rows():
@@ -353,3 +424,6 @@ def test_detail_serialization_returns_partial_legacy_performance_diagnostics():
     assert detail["diagnostics"]["summary"]["performance_diagnostics"]["schema_version"] == "backtest_performance_diagnostics_v1"
     assert "performance_metrics metadata missing" in detail["diagnostics"]["summary"]["performance_diagnostics"]["warnings"]
     assert detail["diagnostics"]["summary"]["performance_diagnostics"]["inference_strength"] == "PARTIAL"
+    schema_index = detail["diagnostics"]["summary"]["metadata_schema_index"]
+    assert schema_index["contracts"]["pattern_execution_policy"]["status"] == "missing"
+    assert schema_index["contracts"]["score_components"]["status"] == "missing"

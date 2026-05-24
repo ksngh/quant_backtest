@@ -142,6 +142,8 @@ def create_trendline_break_risk_exit_plan(
         atr=event.atr,
         config=planner_config.to_risk_exit_config(),
         structural_targets=targets,
+        detector_target_reference=event.target_reference,
+        atr_metadata=getattr(event, "atr_metadata", {}),
     )
 
     return TrendlineBreakRiskExitPlan(

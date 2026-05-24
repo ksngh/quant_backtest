@@ -95,8 +95,10 @@ The strategy engine maps semantic actions into simulated cashflow sides:
 Short actions are backtest simulation semantics only. They do not imply spot
 paper/testnet/live short support and do not call exchange order/account
 endpoints. Default simulated shorts are cash-bounded; explicit simulated margin
-is opt-in, backtest-only, and models initial margin only. Borrow fees, futures
-funding, maintenance margin, and liquidation remain unsupported.
+is opt-in, backtest-only, and models initial margin only by default. Optional
+`ShortEconomicsConfig` settings can add research-only borrow/funding carrying
+costs and diagnostic maintenance/liquidation flags. Those diagnostics never
+submit orders, fetch exchange account data, or force-close positions.
 
 The engine records both cash-balance fields (`cash_after`, `ending_cash`) and
 account-state metadata (`free_cash_after`, `margin_used_after`,

@@ -21,21 +21,26 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
 )
-from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
+from quant_bitcoin.indicators.pivots import (
+    PivotConfig,
+    PivotType,
+    detect_pivots,
+    pivot_strength_diagnostics,
+)
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
@@ -70,7 +75,7 @@ class DiamondStatus(Enum):
 class DiamondConfig:
     """Configuration for deterministic Diamond Pattern detection."""
 
-    minimum_pivot_count: int = 6
+    minimum_pivot_count: int = 8
     maximum_pivot_count: int = 10
     max_recent_pivots: int = 120
     max_candidate_windows_per_bar: int = 250
@@ -92,15 +97,17 @@ class DiamondConfig:
     liquidity_pass: bool | None = None
     spread_pass: bool | None = None
     require_displacement_breakout: bool = False
+    require_alternating_pivots: bool = False
     minimum_pattern_score: float = 0.7
     pivot_config: PivotConfig | None = None
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    enable_candidate_diagnostics: bool = False
 
     def __post_init__(self) -> None:
-        if self.minimum_pivot_count < 6:
-            raise ValueError("minimum_pivot_count must be at least 6")
+        if self.minimum_pivot_count < 8:
+            raise ValueError("minimum_pivot_count must be at least 8 for feasible expansion/contraction split")
         if self.maximum_pivot_count < self.minimum_pivot_count:
             raise ValueError(
                 "maximum_pivot_count must be greater than or equal to minimum_pivot_count"
@@ -183,6 +190,12 @@ class DiamondEvent:
     liquidity_pass: bool | None
     spread_pass: bool | None
     displacement_confirmed: bool
+    split_position: int
+    expansion_pivot_count: int
+    contraction_pivot_count: int
+    boundary_touch_count: int
+    boundary_deviation_atr: float
+    alternating_pivot_score: float
     pattern_score: float
     entry_reference: float
     stop_reference: float
@@ -193,6 +206,11 @@ class DiamondEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    executable_pattern_score: float | None = None
+    diagnostic_pattern_score: float | None = None
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
+    pivot_metadata: dict[str, Any] = field(default_factory=dict)
+    candidate_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -213,6 +231,17 @@ class _DiamondCandidate:
     upper_boundary_intercept: float
     lower_boundary_slope: float
     lower_boundary_intercept: float
+    boundary_touch_count: int
+    boundary_deviation_atr: float
+    alternating_pivot_score: float
+
+
+@dataclass(frozen=True)
+class _DiamondCandidateBuildResult:
+    candidates: list[_DiamondCandidate]
+    candidate_count: int
+    max_guard_hit: bool
+    rejected_by_reason: dict[str, int] = field(default_factory=dict)
 
 
 def detect_diamond_patterns(
@@ -242,7 +271,7 @@ def detect_diamond_patterns(
         diamond_config.atr_config,
     )
     volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
+        candle_frame,
         diamond_config.volume_ratio_config,
     )
     enriched = candle_frame.copy()
@@ -250,7 +279,7 @@ def detect_diamond_patterns(
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
 
     pivot_rows = detect_pivots(
-        enriched[["symbol", "timestamp", "open", "high", "low", "close"]],
+        enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr"]],
         diamond_config.pivot_config,
     )
     pivot_rows = pivot_rows[pivot_rows["is_confirmed"] == True]
@@ -286,10 +315,10 @@ def detect_diamond_patterns(
             visible_pivots = visible_pivots.nlargest(
                 diamond_config.max_recent_pivots, "pivot_index"
             )
-        candidates = _build_candidates(visible_pivots, enriched, breakout_index, diamond_config)
+        build_result = _build_candidates(visible_pivots, enriched, breakout_index, diamond_config)
         evaluated = [
             event
-            for candidate in candidates
+            for candidate in build_result.candidates
             if (
                 event := _evaluate_candidate(
                     candidate,
@@ -304,7 +333,23 @@ def detect_diamond_patterns(
             is not None
         ]
         if evaluated:
-            events.append(_select_best_event(evaluated))
+            selected = _select_best_event(evaluated)
+            if diamond_config.enable_candidate_diagnostics:
+                selected = replace(
+                    selected,
+                    candidate_diagnostics=_candidate_diagnostics(
+                        pattern_type="DIAMOND_PATTERN",
+                        visible_pivot_count=len(visible_pivots),
+                        bars_observed=breakout_index + 1,
+                        candidate_count=build_result.candidate_count,
+                        evaluated_candidate_count=len(build_result.candidates),
+                        accepted_candidate_count=len(evaluated),
+                        selected_rank=1,
+                        max_guard_hit=build_result.max_guard_hit,
+                        rejected_by_reason=build_result.rejected_by_reason,
+                    ),
+                )
+            events.append(selected)
 
     return events
 
@@ -382,26 +427,86 @@ def _build_candidates(
     candles: pd.DataFrame,
     breakout_index: int,
     config: DiamondConfig,
-) -> list[_DiamondCandidate]:
+) -> _DiamondCandidateBuildResult:
     if len(visible_pivots) < config.minimum_pivot_count:
-        return []
+        return _DiamondCandidateBuildResult([], 0, False)
 
     records = list(visible_pivots.sort_values("pivot_index").to_dict("records"))
     candidates: list[_DiamondCandidate] = []
     window_count = 0
+    rejected_by_reason: dict[str, int] = {}
     for end in range(config.minimum_pivot_count, len(records) + 1):
         for count in range(config.minimum_pivot_count, config.maximum_pivot_count + 1):
             window_count += 1
             if window_count > config.max_candidate_windows_per_bar:
-                return candidates
+                return _DiamondCandidateBuildResult(
+                    candidates,
+                    window_count - 1,
+                    True,
+                    rejected_by_reason,
+                )
             start = end - count
             if start < 0:
+                rejected_by_reason["window_start_before_history"] = (
+                    rejected_by_reason.get("window_start_before_history", 0) + 1
+                )
                 continue
             window = tuple(records[start:end])
             candidate = _evaluate_pivot_window(window, candles, breakout_index, config)
             if candidate is not None:
                 candidates.append(candidate)
-    return candidates
+            else:
+                rejected_by_reason["pivot_window_rule_rejected"] = (
+                    rejected_by_reason.get("pivot_window_rule_rejected", 0) + 1
+                )
+    return _DiamondCandidateBuildResult(candidates, window_count, False, rejected_by_reason)
+
+
+def _candidate_diagnostics(
+    *,
+    pattern_type: str,
+    visible_pivot_count: int,
+    bars_observed: int,
+    candidate_count: int,
+    evaluated_candidate_count: int,
+    accepted_candidate_count: int,
+    selected_rank: int | None,
+    max_guard_hit: bool,
+    rejected_by_reason: dict[str, int],
+) -> dict[str, Any]:
+    pivot_density = candidate_count / max(visible_pivot_count, 1)
+    bar_density = candidate_count / max(bars_observed, 1)
+    rejection_counts = dict(rejected_by_reason)
+    rejected_by_rule = max(evaluated_candidate_count - accepted_candidate_count, 0)
+    if rejected_by_rule:
+        rejection_counts["candidate_rule_rejected"] = (
+            rejection_counts.get("candidate_rule_rejected", 0) + rejected_by_rule
+        )
+    if max_guard_hit:
+        rejection_counts["max_candidate_guard_hit"] = 1
+
+    warnings: list[str] = []
+    if max_guard_hit:
+        warnings.append("max_candidate_guard_hit")
+    if pivot_density >= 2.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_pivot_density")
+    if bar_density >= 1.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_bar_density")
+
+    return {
+        "schema_version": "chart_pattern_candidate_diagnostics_v1",
+        "pattern_type": pattern_type,
+        "candidate_count": candidate_count,
+        "evaluated_candidate_count": evaluated_candidate_count,
+        "rejected_by_reason": rejection_counts,
+        "selected_rank": selected_rank,
+        "max_guard_hit": max_guard_hit,
+        "visible_pivot_count": visible_pivot_count,
+        "bars_observed": bars_observed,
+        "candidate_to_pivot_ratio": pivot_density,
+        "candidate_to_bar_ratio": bar_density,
+        "overfit_warnings": warnings,
+    }
 
 
 def _evaluate_pivot_window(
@@ -420,6 +525,8 @@ def _evaluate_pivot_window(
     highs = _filter_pivots(pivots, {PivotType.PIVOT_HIGH.value, PivotType.BOTH.value})
     lows = _filter_pivots(pivots, {PivotType.PIVOT_LOW.value, PivotType.BOTH.value})
     if len(highs) < 3 or len(lows) < 3:
+        return None
+    if config.require_alternating_pivots and _alternating_pivot_score(pivots) < 1.0:
         return None
 
     atr = _optional_float(candles.iloc[pivot_indices[-1]]["atr"])
@@ -482,6 +589,21 @@ def _evaluate_pivot_window(
         if contraction_range_change_rate < config.minimum_contraction_range_change_rate:
             continue
 
+        boundary_touch_count, boundary_deviation_atr = _boundary_touch_metrics(
+            contraction,
+            contraction_highs,
+            contraction_lows,
+            contraction_high_slope,
+            upper_intercept,
+            contraction_low_slope,
+            lower_intercept,
+            candles,
+            config.maximum_boundary_touch_deviation_atr,
+        )
+        if boundary_touch_count == 0:
+            continue
+        if boundary_deviation_atr > config.maximum_boundary_touch_deviation_atr:
+            continue
         split_candidates.append(
             _DiamondCandidate(
                 pivots=pivots,
@@ -500,6 +622,9 @@ def _evaluate_pivot_window(
                 upper_boundary_intercept=upper_intercept,
                 lower_boundary_slope=contraction_low_slope,
                 lower_boundary_intercept=lower_intercept,
+                boundary_touch_count=boundary_touch_count,
+                boundary_deviation_atr=boundary_deviation_atr,
+                alternating_pivot_score=_alternating_pivot_score(pivots),
             )
         )
 
@@ -644,6 +769,12 @@ def _evaluate_candidate(
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
         displacement_confirmed=displacement_confirmed,
+        split_position=candidate.split_position,
+        expansion_pivot_count=candidate.split_position,
+        contraction_pivot_count=len(candidate.pivots) - candidate.split_position,
+        boundary_touch_count=candidate.boundary_touch_count,
+        boundary_deviation_atr=candidate.boundary_deviation_atr,
+        alternating_pivot_score=candidate.alternating_pivot_score,
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
@@ -654,6 +785,15 @@ def _evaluate_candidate(
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        executable_pattern_score=score_metadata["executable_pattern_score"],
+        diagnostic_pattern_score=score_metadata["diagnostic_pattern_score"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
+        pivot_metadata=pivot_strength_diagnostics(
+            candidate.pivots,
+            config.pivot_config,
+            current_index=breakout_index,
+            candle_count=len(candles),
+        ),
     )
 
 
@@ -717,6 +857,10 @@ def _calculate_pattern_score_metadata(
     volume_score = 1.0 if volume_ratio >= config.minimum_breakout_volume_ratio else 0.6
     displacement_score = 1.0 if displacement_confirmed else 0.0
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
+    boundary_score = max(
+        0.0,
+        1.0 - candidate.boundary_deviation_atr / max(config.maximum_boundary_touch_deviation_atr, 1e-9),
+    )
 
     return build_score_metadata(
         "DIAMOND_PATTERN",
@@ -727,9 +871,72 @@ def _calculate_pattern_score_metadata(
             {"name": "breakout_strength", "raw_score": breakout_score, "weight": 0.20, "source": "observed_breakout_distance_atr", "description": "ATR-normalized boundary breakout distance."},
             {"name": "volume_confirmation", "raw_score": volume_score, "weight": 0.15, "source": "observed_volume_ratio", "description": "Breakout candle relative volume."},
             {"name": "liquidity", "raw_score": liquidity_score, "weight": 0.05, "source": "placeholder_policy" if not config.require_liquidity_pass else "required_external_liquidity_flag", "is_placeholder": not config.require_liquidity_pass, "description": "Liquidity is a policy prior unless required externally by the caller."},
+            {"name": "boundary_touch", "raw_score": boundary_score, "weight": 0.03, "source": "observed_boundary_deviation_atr", "description": "Contraction pivots must touch fitted boundaries within configured ATR deviation."},
+            {"name": "alternating_pivots", "raw_score": candidate.alternating_pivot_score, "weight": 0.02, "source": "observed_pivot_sequence", "description": "Share of adjacent pivots alternating between highs and lows."},
             {"name": "displacement", "raw_score": displacement_score, "weight": 0.05, "source": "observed_displacement_candle", "description": "Directional displacement confirmation at breakout."},
         ],
     )
+
+
+def _boundary_touch_metrics(
+    contraction: tuple[dict[str, Any], ...],
+    contraction_highs: list[dict[str, Any]],
+    contraction_lows: list[dict[str, Any]],
+    upper_slope: float,
+    upper_intercept: float,
+    lower_slope: float,
+    lower_intercept: float,
+    candles: pd.DataFrame,
+    maximum_deviation_atr: float,
+) -> tuple[int, float]:
+    high_indices = {int(pivot["pivot_index"]) for pivot in contraction_highs}
+    low_indices = {int(pivot["pivot_index"]) for pivot in contraction_lows}
+    deviations: list[float] = []
+    for pivot in contraction:
+        pivot_index = int(pivot["pivot_index"])
+        atr = _optional_float(candles.iloc[pivot_index]["atr"])
+        if atr is None or atr <= 0:
+            continue
+        price = float(pivot["price"])
+        if pivot_index in high_indices:
+            deviations.append(abs(price - _line_value(upper_slope, upper_intercept, pivot_index)) / atr)
+        if pivot_index in low_indices:
+            deviations.append(abs(price - _line_value(lower_slope, lower_intercept, pivot_index)) / atr)
+    if not deviations:
+        return 0, float("inf")
+    return (
+        sum(1 for deviation in deviations if deviation <= maximum_deviation_atr),
+        max(deviations),
+    )
+
+
+def _alternating_pivot_score(pivots: tuple[dict[str, Any], ...]) -> float:
+    if len(pivots) < 2:
+        return 0.0
+    transitions = 0
+    alternating = 0
+    previous = _primary_pivot_side(pivots[0])
+    for pivot in pivots[1:]:
+        current = _primary_pivot_side(pivot)
+        if previous is None or current is None:
+            previous = current
+            continue
+        transitions += 1
+        if current != previous:
+            alternating += 1
+        previous = current
+    if transitions == 0:
+        return 0.0
+    return alternating / transitions
+
+
+def _primary_pivot_side(pivot: dict[str, Any]) -> str | None:
+    pivot_type = str(pivot.get("pivot_type", ""))
+    if pivot_type == PivotType.PIVOT_HIGH.value:
+        return "HIGH"
+    if pivot_type == PivotType.PIVOT_LOW.value:
+        return "LOW"
+    return None
 
 
 def _risk_reward(

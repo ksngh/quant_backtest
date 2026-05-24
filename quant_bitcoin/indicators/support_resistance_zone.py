@@ -183,6 +183,135 @@ def detect_support_resistance_zones(
     return pd.DataFrame(all_zones, columns=SUPPORT_RESISTANCE_ZONE_OUTPUT_COLUMNS)
 
 
+def support_resistance_proximity_feature(
+    pivots: pd.DataFrame,
+    *,
+    current_index: int,
+    price: float | int,
+    direction: str,
+    atr: float | int | None = None,
+    config: SupportResistanceZoneConfig | None = None,
+) -> dict[str, Any]:
+    """Return a no-lookahead support/resistance proximity score feature.
+
+    Only pivots whose confirmation is available at ``current_index`` are used.
+    The function is a research/backtest feature helper; it does not make
+    trading decisions or access external systems.
+    """
+
+    zone_config = config or SupportResistanceZoneConfig()
+    price_value = _required_positive_float(price, "price")
+    atr_value = _optional_positive_float(atr, "atr")
+    if current_index < 0:
+        raise ValueError("current_index must be non-negative")
+    if pivots.empty:
+        return _missing_proximity_feature(
+            current_index=current_index,
+            price=price_value,
+            direction=direction,
+            reason="no_pivots",
+            config=zone_config,
+        )
+    if atr_value is None:
+        return _missing_proximity_feature(
+            current_index=current_index,
+            price=price_value,
+            direction=direction,
+            reason="missing_atr",
+            config=zone_config,
+        )
+
+    visible_pivots = _visible_confirmed_pivots(pivots, current_index)
+    if visible_pivots.empty:
+        return _missing_proximity_feature(
+            current_index=current_index,
+            price=price_value,
+            direction=direction,
+            reason="no_confirmed_pivots_at_signal_time",
+            config=zone_config,
+        )
+
+    zones = detect_support_resistance_zones(
+        visible_pivots,
+        current_close=price_value,
+        atr=atr_value,
+        timestamp=None,
+        config=zone_config,
+    )
+    if zones.empty:
+        return _missing_proximity_feature(
+            current_index=current_index,
+            price=price_value,
+            direction=direction,
+            reason="no_confirmed_zone_at_signal_time",
+            config=zone_config,
+            visible_pivots=visible_pivots,
+        )
+
+    expected_zone_type = _expected_zone_type(direction)
+    candidates = zones[
+        (zones["is_valid"] == True)  # noqa: E712 - explicit pandas comparison
+        & (zones["is_broken"] == False)  # noqa: E712
+        & (zones["zone_type"].isin([expected_zone_type, ZoneType.MIXED.value]))
+    ].copy()
+    if candidates.empty:
+        return _missing_proximity_feature(
+            current_index=current_index,
+            price=price_value,
+            direction=direction,
+            reason="no_active_directional_zone_at_signal_time",
+            config=zone_config,
+            visible_pivots=visible_pivots,
+        )
+
+    candidates["distance_to_zone"] = candidates.apply(
+        lambda zone: _distance_to_zone(
+            price_value,
+            float(zone["zone_low"]),
+            float(zone["zone_high"]),
+        ),
+        axis=1,
+    )
+    candidates["distance_atr"] = candidates["distance_to_zone"] / atr_value
+    selected = candidates.sort_values(
+        ["distance_atr", "zone_type", "touch_count"], ascending=[True, True, False]
+    ).iloc[0]
+    distance_atr = float(selected["distance_atr"])
+    raw_score = max(0.0, min(1.0, 1.0 - distance_atr))
+    context_side = "SUPPORT" if expected_zone_type == ZoneType.SUPPORT.value else "RESISTANCE"
+    context_prefix = "NEAR" if raw_score > 0 else "AWAY_FROM"
+    return {
+        "feature_available": True,
+        "source": "observed_support_resistance_proximity",
+        "context": f"{context_prefix}_{context_side}",
+        "score": round(raw_score, 6),
+        "current_index": int(current_index),
+        "price": float(price_value),
+        "direction": str(direction),
+        "expected_zone_type": expected_zone_type,
+        "zone_type": str(selected["zone_type"]),
+        "zone_status": str(selected["zone_status"]),
+        "zone_low": float(selected["zone_low"]),
+        "zone_high": float(selected["zone_high"]),
+        "center_price": float(selected["center_price"]),
+        "distance_to_zone": float(selected["distance_to_zone"]),
+        "distance_atr": distance_atr,
+        "touch_count": int(selected["touch_count"]),
+        "pivot_indices": tuple(int(value) for value in selected["pivot_indices"]),
+        "feature_window_pivots": int(len(visible_pivots)),
+        "confirmation_rule": "confirmed_index <= current_index and pivot_index < current_index",
+        "latest_confirmed_index": _latest_confirmed_index(visible_pivots),
+        "confirmation_delay_bars": _confirmation_delay_bars(
+            visible_pivots, current_index
+        ),
+        "zone_config": {
+            "lookback_pivot_count": int(zone_config.lookback_pivot_count),
+            "minimum_touch_count": int(zone_config.minimum_touch_count),
+            "zone_width_atr_multiplier": float(zone_config.zone_width_atr_multiplier),
+        },
+    }
+
+
 class ZonePivotType(Enum):
     """Pivot types consumed by zone detection."""
 
@@ -454,6 +583,92 @@ def _validate_pivots(pivots: pd.DataFrame) -> None:
         )
 
 
+def _visible_confirmed_pivots(pivots: pd.DataFrame, current_index: int) -> pd.DataFrame:
+    visible = pivots.copy()
+    if "is_confirmed" in visible:
+        visible = visible[visible["is_confirmed"] == True]  # noqa: E712
+    if "confirmed_index" in visible:
+        visible = visible[pd.to_numeric(visible["confirmed_index"]) <= current_index]
+    visible = visible[pd.to_numeric(visible["pivot_index"]) < current_index]
+    visible = visible[
+        visible["pivot_type"].isin(
+            [ZonePivotType.PIVOT_HIGH.value, ZonePivotType.PIVOT_LOW.value]
+        )
+    ]
+    if visible.empty:
+        return visible
+    return visible.sort_values(["pivot_index", "confirmed_timestamp"]).reset_index(drop=True)
+
+
+def _expected_zone_type(direction: str) -> str:
+    normalized = str(direction).upper()
+    if normalized in {"BULLISH", "LONG", "BUY"}:
+        return ZoneType.SUPPORT.value
+    if normalized in {"BEARISH", "SHORT", "SELL"}:
+        return ZoneType.RESISTANCE.value
+    raise ValueError("direction must be bullish/long or bearish/short")
+
+
+def _distance_to_zone(price: float, zone_low: float, zone_high: float) -> float:
+    if zone_low <= price <= zone_high:
+        return 0.0
+    if price < zone_low:
+        return zone_low - price
+    return price - zone_high
+
+
+def _missing_proximity_feature(
+    *,
+    current_index: int,
+    price: float,
+    direction: str,
+    reason: str,
+    config: SupportResistanceZoneConfig,
+    visible_pivots: pd.DataFrame | None = None,
+) -> dict[str, Any]:
+    visible_count = 0 if visible_pivots is None else int(len(visible_pivots))
+    return {
+        "feature_available": False,
+        "source": "missing_context",
+        "context": "MISSING_CONTEXT",
+        "score": 0.0,
+        "missing_context_reason": reason,
+        "current_index": int(current_index),
+        "price": float(price),
+        "direction": str(direction),
+        "feature_window_pivots": visible_count,
+        "confirmation_rule": "confirmed_index <= current_index and pivot_index < current_index",
+        "latest_confirmed_index": (
+            None if visible_pivots is None else _latest_confirmed_index(visible_pivots)
+        ),
+        "confirmation_delay_bars": (
+            None
+            if visible_pivots is None
+            else _confirmation_delay_bars(visible_pivots, current_index)
+        ),
+        "zone_config": {
+            "lookback_pivot_count": int(config.lookback_pivot_count),
+            "minimum_touch_count": int(config.minimum_touch_count),
+            "zone_width_atr_multiplier": float(config.zone_width_atr_multiplier),
+        },
+    }
+
+
+def _latest_confirmed_index(pivots: pd.DataFrame) -> int | None:
+    if pivots.empty or "confirmed_index" not in pivots:
+        return None
+    return int(pd.to_numeric(pivots["confirmed_index"]).max())
+
+
+def _confirmation_delay_bars(
+    pivots: pd.DataFrame, current_index: int
+) -> int | None:
+    latest = _latest_confirmed_index(pivots)
+    if latest is None:
+        return None
+    return int(current_index - latest)
+
+
 def _optional_float(value: float | int | None, field_name: str) -> float | None:
     if value is None:
         return None
@@ -474,6 +689,13 @@ def _optional_positive_float(
         return None
     if result <= 0:
         raise ValueError(f"{field_name} must be greater than 0 when provided")
+    return result
+
+
+def _required_positive_float(value: float | int, field_name: str) -> float:
+    result = _optional_positive_float(value, field_name)
+    if result is None:
+        raise ValueError(f"{field_name} must be provided")
     return result
 
 

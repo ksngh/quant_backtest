@@ -6,16 +6,19 @@ import pandas as pd
 import pytest
 
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig
+from quant_bitcoin.backtesting.strategy_models import StrategyExecution
 from quant_bitcoin.backtesting.walk_forward import (
     WalkForwardConfig,
     aggregate_fold_metrics,
     build_pattern_action_builder,
+    calculate_regime_stratified_attribution,
     generate_walk_forward_folds,
     monte_carlo_trade_return_bootstrap,
     run_walk_forward_validation,
 )
 from quant_bitcoin.backtesting import walk_forward_cli
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+from quant_bitcoin.strategies.patterns import PatternEntryFilterConfig
 
 
 def _candles(periods: int = 8) -> pd.DataFrame:
@@ -66,6 +69,23 @@ def _pattern_fixture(pattern: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _execution(timestamp, *, net_pnl=1.0, entry_mode="MARKET_ON_CONFIRMATION_CLOSE") -> StrategyExecution:
+    return StrategyExecution(
+        timestamp=timestamp,
+        side="SELL",
+        action_type=StrategyActionType.EXIT_LONG.value,
+        price=101.0,
+        quantity=1.0,
+        notional=101.0,
+        cash_after=10001.0,
+        position_after=0.0,
+        equity_after=10001.0,
+        net_pnl=net_pnl,
+        realized_r_multiple=net_pnl,
+        metadata={"entry_mode": entry_mode},
+    )
+
+
 def test_generate_walk_forward_folds_uses_deterministic_utc_boundaries() -> None:
     folds = generate_walk_forward_folds(
         start="2026-01-01T00:00:00Z",
@@ -106,6 +126,40 @@ def test_monte_carlo_bootstrap_is_deterministic_for_seed() -> None:
     assert first["distribution"]["count"] == 5
     with pytest.raises(ValueError, match="iterations"):
         monte_carlo_trade_return_bootstrap([1.0], iterations=0)
+
+
+def test_regime_stratified_attribution_groups_by_supplied_metadata() -> None:
+    ts = pd.Timestamp("2026-01-01T00:00:00Z")
+    payload = calculate_regime_stratified_attribution(
+        [_execution(ts, net_pnl=2.0)],
+        regime_by_timestamp={
+            ts: {
+                "market_regime": "TRENDING",
+                "volatility_regime": "HIGH",
+                "liquidity_regime": "NORMAL",
+                "spread_regime": "TIGHT",
+                "session_tag": "ASIA",
+                "weekday_tag": "WEEKDAY",
+            }
+        },
+    )
+
+    market = payload["by_dimension"]["market_regime"]["TRENDING"]
+    assert market["completed_trade_count"] == 1
+    assert market["expectancy"] == 2.0
+    assert payload["by_dimension"]["entry_mode"]["MARKET_ON_CONFIRMATION_CLOSE"]["average_r"] == 2.0
+
+
+def test_sparse_stratum_warning_triggered() -> None:
+    ts = pd.Timestamp("2026-01-01T00:00:00Z")
+    payload = calculate_regime_stratified_attribution(
+        [_execution(ts, net_pnl=1.0)],
+        regime_by_timestamp={ts: {"market_regime": "RANGE"}},
+        minimum_trades_per_stratum=2,
+    )
+
+    assert payload["by_dimension"]["market_regime"]["RANGE"]["status"] == "SPARSE"
+    assert any("market_regime=RANGE" in warning for warning in payload["warnings"])
 
 
 def test_run_walk_forward_validation_with_synthetic_actions() -> None:
@@ -152,7 +206,13 @@ def test_pattern_action_builder_uses_train_plus_current_test_prefix() -> None:
         end=candles.iloc[-1]["timestamp"] + pd.Timedelta(minutes=1),
         config=WalkForwardConfig("20min", "4min", "4min"),
     )[0]
-    builder = build_pattern_action_builder(pattern="FAIR_VALUE_GAP")
+    builder = build_pattern_action_builder(
+        pattern="FAIR_VALUE_GAP",
+        entry_filter_config=PatternEntryFilterConfig(
+            allowed_statuses=("VALID", "WEAK"),
+            minimum_pattern_score=0.0,
+        ),
+    )
 
     assert builder(train, candles.iloc[20:22], fold) == []
     actions = builder(train, candles.iloc[20:24], fold)
@@ -166,7 +226,13 @@ def test_walk_forward_validation_runs_pattern_fixture_without_no_fills() -> None
     payload = run_walk_forward_validation(
         _pattern_fixture("FAIR_VALUE_GAP"),
         config=WalkForwardConfig("20min", "4min", "4min"),
-        action_builder=build_pattern_action_builder(pattern="FAIR_VALUE_GAP"),
+        action_builder=build_pattern_action_builder(
+            pattern="FAIR_VALUE_GAP",
+            entry_filter_config=PatternEntryFilterConfig(
+                allowed_statuses=("VALID", "WEAK"),
+                minimum_pattern_score=0.0,
+            ),
+        ),
         engine_config=StrategyEngineConfig(starting_cash=10000.0),
         strategy_parameters={"strategy": "pattern", "pattern": "FAIR_VALUE_GAP"},
     )
@@ -175,6 +241,34 @@ def test_walk_forward_validation_runs_pattern_fixture_without_no_fills() -> None
     assert payload["folds"][0]["action_count"] >= 1
     assert "trade_attribution" in payload["folds"][0]["diagnostics"]
     assert payload["aggregate"]["expectancy"]["count"] == 0
+
+
+def test_pattern_wfo_emits_oos_expectancy_by_regime_when_enabled() -> None:
+    payload = run_walk_forward_validation(
+        _pattern_fixture("FAIR_VALUE_GAP").assign(symbol="BTCUSDT"),
+        config=WalkForwardConfig(
+            "20min",
+            "4min",
+            "4min",
+            regime_stratification_enabled=True,
+            minimum_trades_per_stratum=2,
+        ),
+        action_builder=build_pattern_action_builder(
+            pattern="FAIR_VALUE_GAP",
+            entry_filter_config=PatternEntryFilterConfig(
+                allowed_statuses=("VALID", "WEAK"),
+                minimum_pattern_score=0.0,
+            ),
+        ),
+        engine_config=StrategyEngineConfig(starting_cash=10000.0),
+        strategy_parameters={"strategy": "pattern", "pattern": "FAIR_VALUE_GAP"},
+    )
+
+    stratification = payload["folds"][0]["diagnostics"]["regime_stratification"]
+    assert stratification["schema_version"] == "walk_forward_regime_stratification_v1"
+    assert "market_regime" in stratification["by_dimension"]
+    assert payload["aggregate"]["regime_stratification"]["schema_version"] == "walk_forward_regime_stratification_aggregate_v1"
+    assert payload["aggregate"]["in_sample_out_of_sample_stability"]["patterns"]["FAIR_VALUE_GAP"]["out_of_sample_fold_count"] == 1
 
 
 def test_walk_forward_cli_outputs_pattern_json_for_fvg_and_order_block(tmp_path, capsys) -> None:
@@ -198,7 +292,12 @@ def test_walk_forward_cli_outputs_pattern_json_for_fvg_and_order_block(tmp_path,
                 pattern,
                 "--min-pattern-score",
                 "0",
+                "--allowed-pattern-statuses",
+                "VALID,WEAK",
                 "--monte-carlo-iterations",
+                "2",
+                "--enable-regime-stratification",
+                "--min-trades-per-stratum",
                 "2",
             ]
         )
@@ -208,6 +307,7 @@ def test_walk_forward_cli_outputs_pattern_json_for_fvg_and_order_block(tmp_path,
         assert payload["folds"][0]["strategy_parameters"]["strategy"] == "pattern"
         assert payload["folds"][0]["strategy_parameters"]["pattern"] == pattern
         assert payload["folds"][0]["status"] == "OK"
+        assert "regime_stratification" in payload["folds"][0]["diagnostics"]
 
 
 def test_walk_forward_cli_outputs_deterministic_json(tmp_path, capsys) -> None:

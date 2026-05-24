@@ -47,6 +47,13 @@ def _event(direction: str = "BULLISH") -> PatternEvent:
         target_reference=119.0 if is_bullish else 91.0,
         risk_reward=2.0,
         reason="test event",
+        atr_metadata={
+            "schema_version": "indicator_timing_metadata_v1",
+            "indicator": "ATR",
+            "period": 2,
+            "smoothing_method": "SMA",
+            "current_candle_included": True,
+        },
     )
 
 
@@ -59,6 +66,8 @@ def test_bullish_fvg_low_stop_with_atr_buffer() -> None:
     assert plan.risk_plan.atr_buffer == pytest.approx(2.0)
     assert plan.risk_plan.stop_price == pytest.approx(98.0)
     assert plan.risk_plan.risk_per_unit == pytest.approx(7.0)
+    assert plan.risk_plan.atr_metadata["period"] == 2
+    assert plan.risk_plan.atr_metadata["smoothing_method"] == "SMA"
 
 
 def test_bearish_fvg_high_stop_with_atr_buffer() -> None:
@@ -104,7 +113,10 @@ def test_targets_include_r_multiple_fvg_boundary_and_structure_candidates() -> N
     assert plan.risk_plan.targets[0].price == pytest.approx(112.0)
     assert plan.risk_plan.targets[1].source == RiskExitTargetSource.STRUCTURE
     assert plan.risk_plan.targets[1].price == pytest.approx(110.0)
-    assert plan.risk_plan.targets[1].metadata == {"rule": "nearest_actionable_structure"}
+    assert plan.risk_plan.targets[1].metadata["rule"] == "nearest_actionable_structure"
+    assert plan.risk_plan.targets[1].metadata["target_source"] == "STRUCTURE"
+    assert plan.risk_plan.target_semantics["detector_target_reference"] == pytest.approx(119.0)
+    assert plan.risk_plan.target_semantics["structural_targets"][0]["price"] == pytest.approx(110.0)
 
 
 def test_missing_liquidity_targets_are_optional_and_not_fabricated() -> None:

@@ -19,6 +19,8 @@ from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
 from quant_bitcoin.backtesting.cost_profiles import COST_PROFILES, break_even_cost_bps, cost_profile, manual_cost_overrides_present
 from quant_bitcoin.backtesting.performance_metrics import calculate_performance_metrics
 from quant_bitcoin.backtesting.pattern_invalidation import soft_invalidation_for_event
+from quant_bitcoin.backtesting.retest_opportunity import build_fvg_ob_retest_opportunity_report
+from quant_bitcoin.backtesting.trendline_forensics import build_trendline_false_breakout_forensics
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
@@ -36,7 +38,12 @@ from quant_bitcoin.backtesting.sizing import (
     ShortExposureMode,
     SimulatedMarginConfig,
 )
-from quant_bitcoin.indicators.market_regime import MarketRegimeConfig, calculate_market_regime
+from quant_bitcoin.indicators.market_regime import (
+    MarketRegimeConfig,
+    PatternRegimeThresholdConfig,
+    PatternRegimeThresholdOverride,
+    calculate_market_regime,
+)
 from quant_bitcoin.backtesting.strategy_persistence_adapter import (
     build_strategy_engine_persistence_payload,
 )
@@ -50,7 +57,7 @@ from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 from quant_bitcoin.strategies.pattern_execution_policy import policy_for_pattern, validate_pattern_entry_mode
 from quant_bitcoin.strategies.pattern_explanations import build_pattern_strategy_explanation
-from quant_bitcoin.strategies.patterns import FairValueGapStrategy, OrderBlockStrategy, PatternEntryFilterConfig, strategy_for_pattern
+from quant_bitcoin.strategies.patterns import PatternEntryFilterConfig, strategy_for_pattern
 
 DEFAULT_DATABASE_URL = "postgresql://quant_bitcoin:quant_bitcoin_dev@localhost:5432/quant_bitcoin"
 DEFAULT_SOURCE = "binance_spot"
@@ -92,6 +99,7 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
         help="FVG-only historical entry mode. Default preserves market-on-confirmation behavior.",
     )
     parser.add_argument("--fvg-entry-custom-price", type=_positive_finite_float, default=None)
+    parser.add_argument("--pattern-entry-custom-price", type=_positive_finite_float, default=None)
     parser.add_argument("--fvg-entry-max-wait-bars", type=int, default=None)
     parser.add_argument(
         "--fvg-entry-expire-status",
@@ -103,6 +111,11 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
         "--compare-fvg-entry-modes",
         action="store_true",
         help="Run read-only FVG entry-mode comparison diagnostics in the JSON output without changing persistence behavior.",
+    )
+    parser.add_argument(
+        "--compare-pattern-entry-modes",
+        action="store_true",
+        help="Run read-only pattern entry-mode comparison diagnostics for the selected pattern.",
     )
     parser.add_argument("--start-time", type=_optional_timestamp, default=None)
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
@@ -141,12 +154,21 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--volatility-slippage-multiplier", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--cost-profile", choices=sorted(COST_PROFILES), default=None)
     parser.add_argument("--allow-cost-profile-overrides", action="store_true")
+    parser.add_argument("--strict-cost-mode", action="store_true")
+    parser.add_argument("--cost-sensitivity-report", action="store_true")
     parser.add_argument("--liquidity-role", type=_liquidity_role, default=LiquidityRole.TAKER.value)
     parser.add_argument("--risk-free-rate", type=_finite_float, default=0.0)
     parser.add_argument("--enforce-candle-continuity", action="store_true")
     parser.add_argument("--enable-market-regime", action="store_true")
     parser.add_argument("--market-regime-window", type=int, default=20)
     parser.add_argument("--market-regime-min-trading-value", type=_non_negative_finite_float, default=1_000_000.0)
+    parser.add_argument("--enable-pattern-regime-thresholds", action="store_true")
+    parser.add_argument("--regime-min-volume-ratio", type=_non_negative_finite_float, default=None)
+    parser.add_argument("--regime-breakout-atr-multiplier", type=_non_negative_finite_float, default=None)
+    parser.add_argument("--regime-min-pattern-score", type=_score_threshold, default=None)
+    parser.add_argument("--high-vol-breakout-atr-multiplier", type=_non_negative_finite_float, default=None)
+    parser.add_argument("--block-low-liquidity-pattern-entries", action="store_true")
+    parser.add_argument("--block-wide-spread-pattern-entries", action="store_true")
     parser.add_argument("--max-account-drawdown", type=_positive_finite_float, default=None)
     parser.add_argument("--max-consecutive-losses", type=int, default=None)
     parser.add_argument("--max-daily-loss", type=_positive_finite_float, default=None)
@@ -196,6 +218,7 @@ def _build_strategy_parameters(
     pattern_execution_policy: dict[str, object] | None = None,
     workflow_settings: dict[str, object] | None = None,
     cost_profile_metadata: dict[str, object] | None = None,
+    pattern_regime_thresholds: PatternRegimeThresholdConfig | None = None,
 ) -> dict[str, object]:
     return {
         "pattern": strategy_key,
@@ -222,6 +245,11 @@ def _build_strategy_parameters(
             None,
         ),
         "pattern_execution_policy": pattern_execution_policy,
+        "pattern_regime_thresholds": (
+            pattern_regime_thresholds.to_metadata()
+            if pattern_regime_thresholds is not None
+            else {"schema_version": "pattern_regime_thresholds_v1", "enabled": False}
+        ),
         "workflow_settings": workflow_settings,
         "short_exposure_policy": policy_metadata["short_exposure_policy"],
         "simulated_margin": simulated_margin.to_metadata(),
@@ -398,6 +426,13 @@ def _finite_float(value: str) -> float:
     return parsed
 
 
+def _score_threshold(value: str) -> float:
+    parsed = _non_negative_finite_float(value)
+    if parsed > 1:
+        raise argparse.ArgumentTypeError("score threshold must be between 0 and 1")
+    return parsed
+
+
 def _liquidity_role(value: str) -> str:
     normalized = value.strip().upper()
     if normalized not in {LiquidityRole.MAKER.value, LiquidityRole.TAKER.value}:
@@ -527,7 +562,7 @@ def _build_market_regime_config(args: argparse.Namespace) -> MarketRegimeConfig:
 
 
 def _market_regime_by_timestamp(candles: pd.DataFrame, args: argparse.Namespace) -> dict[object, dict[str, object]] | None:
-    if not args.enable_market_regime:
+    if not args.enable_market_regime and not _build_pattern_regime_threshold_config(args).enabled:
         return None
     frame = candles.copy(deep=True)
     if "symbol" not in frame.columns:
@@ -556,6 +591,7 @@ def _market_regime_by_timestamp(candles: pd.DataFrame, args: argparse.Namespace)
 
 
 def _workflow_settings_metadata(args: argparse.Namespace, guardrails: BacktestGuardrailConfig) -> dict[str, object]:
+    regime_thresholds = _build_pattern_regime_threshold_config(args)
     return {
         "schema_version": "canonical_cli_workflow_settings_v1",
         "enforce_candle_continuity": bool(args.enforce_candle_continuity),
@@ -565,6 +601,7 @@ def _workflow_settings_metadata(args: argparse.Namespace, guardrails: BacktestGu
             "window": args.market_regime_window,
             "minimum_average_trading_value": args.market_regime_min_trading_value,
         },
+        "pattern_regime_thresholds": regime_thresholds.to_metadata(),
         "guardrails": guardrails.to_metadata(),
     }
 
@@ -584,12 +621,61 @@ def _build_pattern_entry_filter_config(args: argparse.Namespace) -> PatternEntry
         minimum_pattern_score=args.min_pattern_score,
         minimum_risk_reward=args.min_risk_reward,
         quantity_override=args.pattern_quantity_override,
+        regime_threshold_config=_build_pattern_regime_threshold_config(args),
+    )
+
+
+def _build_pattern_regime_threshold_config(
+    args: argparse.Namespace,
+) -> PatternRegimeThresholdConfig:
+    enabled = bool(args.enable_pattern_regime_thresholds)
+    default_thresholds = PatternRegimeThresholdOverride(
+        minimum_volume_ratio=args.regime_min_volume_ratio,
+        breakout_atr_multiplier=args.regime_breakout_atr_multiplier,
+        minimum_pattern_score=args.regime_min_pattern_score,
+    )
+    volatility_overrides = None
+    if args.high_vol_breakout_atr_multiplier is not None:
+        volatility_overrides = {
+            "HIGH": PatternRegimeThresholdOverride(
+                breakout_atr_multiplier=args.high_vol_breakout_atr_multiplier
+            )
+        }
+        enabled = True
+    liquidity_overrides = None
+    if args.block_low_liquidity_pattern_entries:
+        liquidity_overrides = {
+            "LOW": PatternRegimeThresholdOverride(
+                block_entry=True,
+                block_reason="LOW_LIQUIDITY_REGIME_BLOCK",
+            ),
+            "UNTRADABLE": PatternRegimeThresholdOverride(
+                block_entry=True,
+                block_reason="UNTRADABLE_LIQUIDITY_REGIME_BLOCK",
+            ),
+        }
+        enabled = True
+    spread_overrides = None
+    if args.block_wide_spread_pattern_entries:
+        spread_overrides = {
+            "WIDE": PatternRegimeThresholdOverride(
+                block_entry=True,
+                block_reason="WIDE_SPREAD_REGIME_BLOCK",
+            )
+        }
+        enabled = True
+    return PatternRegimeThresholdConfig(
+        enabled=enabled,
+        default_thresholds=default_thresholds,
+        volatility_regime_overrides=volatility_overrides,
+        liquidity_regime_overrides=liquidity_overrides,
+        spread_regime_overrides=spread_overrides,
     )
 
 
 def _selected_fvg_entry_mode(args: argparse.Namespace) -> PatternEntryMode:
     mode = PatternEntryMode(str(args.fvg_entry_mode).upper())
-    custom_price = getattr(args, "fvg_entry_custom_price", None)
+    custom_price = _selected_entry_custom_price(args)
     if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE and custom_price is None:
         raise ValueError("limit_at_custom_price requires --fvg-entry-custom-price")
     if mode is not PatternEntryMode.LIMIT_AT_CUSTOM_PRICE and custom_price is not None:
@@ -604,13 +690,21 @@ def _selected_pattern_entry_mode(args: argparse.Namespace, strategy_key: str) ->
         mode = _selected_fvg_entry_mode(args)
     else:
         mode = policy_for_pattern(strategy_key).default_entry_mode
-    custom_price = getattr(args, "fvg_entry_custom_price", None)
+    custom_price = _selected_entry_custom_price(args)
     if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE and custom_price is None:
         raise ValueError("limit_at_custom_price requires --fvg-entry-custom-price")
     if mode is not PatternEntryMode.LIMIT_AT_CUSTOM_PRICE and custom_price is not None:
         raise ValueError("--fvg-entry-custom-price requires --pattern-entry-mode limit_at_custom_price")
     validate_pattern_entry_mode(strategy_key, mode)
     return mode
+
+
+def _selected_entry_custom_price(args: argparse.Namespace) -> float | None:
+    pattern_custom_price = getattr(args, "pattern_entry_custom_price", None)
+    fvg_custom_price = getattr(args, "fvg_entry_custom_price", None)
+    if pattern_custom_price is not None and fvg_custom_price is not None and pattern_custom_price != fvg_custom_price:
+        raise ValueError("--pattern-entry-custom-price and --fvg-entry-custom-price cannot disagree")
+    return pattern_custom_price if pattern_custom_price is not None else fvg_custom_price
 
 
 def _selected_fvg_entry_config(args: argparse.Namespace) -> PatternEntryConfig:
@@ -640,14 +734,18 @@ def _build_fvg_entry_metadata(
 
 def _fvg_entry_economic_interpretation(mode: PatternEntryMode) -> str:
     if mode in (PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE, PatternEntryMode.MARKET_ON_NEXT_OPEN):
-        return "momentum_continuation_after_confirmation"
+        return "chase_momentum_after_confirmation"
     if mode in (
         PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
         PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
         PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY,
+        PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY,
+        PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY,
         PatternEntryMode.LIMIT_AT_CUSTOM_PRICE,
     ):
         return "imbalance_retest_or_rebalancing_entry"
+    if mode == PatternEntryMode.LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT:
+        return "order_block_618_retracement_retest"
     return "unknown"
 
 
@@ -664,9 +762,10 @@ def _build_actions(
 ):
     strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     actions: list[StrategyAction] = []
+    use_cached_context = hasattr(strategy, "detector_config") and hasattr(strategy, "evaluate_at")
     cache = (
         IndicatorCache.for_pattern(candles, strategy.detector_config)
-        if isinstance(strategy, (FairValueGapStrategy, OrderBlockStrategy))
+        if use_cached_context
         else None
     )
     seen_event_ids = set()
@@ -681,7 +780,7 @@ def _build_actions(
                     seen_event_ids=seen_event_ids,
                 )
             )
-            if isinstance(strategy, (FairValueGapStrategy, OrderBlockStrategy))
+            if use_cached_context
             else strategy.evaluate(candles.iloc[:index])
         )
         actions.extend(
@@ -690,8 +789,8 @@ def _build_actions(
                 candles,
                 index,
                 pattern_entry_mode=pattern_entry_mode or (fvg_entry_mode if strategy.strategy_key == "FAIR_VALUE_GAP" else None),
-                fvg_entry_config=fvg_entry_config if strategy.strategy_key == "FAIR_VALUE_GAP" else None,
-                fvg_entry_custom_price=fvg_entry_custom_price if strategy.strategy_key == "FAIR_VALUE_GAP" else None,
+                fvg_entry_config=fvg_entry_config,
+                fvg_entry_custom_price=fvg_entry_custom_price,
                 pattern_policy_metadata=pattern_policy_metadata,
             )
         )
@@ -978,6 +1077,8 @@ def _build_fvg_entry_mode_diagnostics(
     actions: Sequence[StrategyAction],
     result,
     mode: PatternEntryMode,
+    *,
+    pattern_key: str = "FAIR_VALUE_GAP",
 ) -> dict[str, object]:
     entry_actions = [
         action
@@ -997,12 +1098,17 @@ def _build_fvg_entry_mode_diagnostics(
         for action in [*entry_actions, *missed_actions]
         if isinstance((action.metadata or {}).get("bars_waited"), (int, float))
     ]
+    entry_reference_distances = _numeric_metadata_values([*entry_actions, *missed_actions], "entry_reference_distance")
+    zone_mid_distances = _numeric_zone_distances([*entry_actions, *missed_actions], "from_zone_mid")
     trade_metrics = ((result.summary.metadata or {}).get("trade_attribution") or {}).get("trade_metrics", {})
     timing_aggregate = ((result.summary.metadata or {}).get("timing_diagnostics") or {}).get("aggregate", {})
     return {
         "schema_version": "fvg_entry_mode_diagnostics_v1",
+        "pattern_key": pattern_key,
         "selected_entry_mode": mode.value,
         "economic_interpretation": _fvg_entry_economic_interpretation(mode),
+        "entry_mode_hypothesis": _entry_mode_hypothesis(pattern_key, mode),
+        "entry_style": "CHASE_OR_MOMENTUM" if mode in (PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE, PatternEntryMode.MARKET_ON_NEXT_OPEN) else "RETEST_LIMIT",
         "candidate_event_count": evaluated_count,
         "filled_entry_count": len(entry_actions),
         "missed_trade_count": len(missed_actions),
@@ -1015,6 +1121,8 @@ def _build_fvg_entry_mode_diagnostics(
         "average_mfe_r": timing_aggregate.get("average_mfe_r"),
         "average_mae_r": timing_aggregate.get("average_mae_r"),
         "average_bars_waited": None if not bars_waited_values else sum(bars_waited_values) / len(bars_waited_values),
+        "average_entry_reference_distance": _average(entry_reference_distances),
+        "average_zone_mid_distance": _average(zone_mid_distances),
         "entry_not_filled_reasons": sorted({str((action.metadata or {}).get("reason")) for action in missed_actions if (action.metadata or {}).get("reason")}),
     }
 
@@ -1041,6 +1149,9 @@ def _build_fvg_entry_mode_comparison(
         PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
         PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
         PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY,
+        PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY,
+        PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY,
+        PatternEntryMode.LIMIT_AT_CUSTOM_PRICE,
     ):
         _, actions = _build_actions(
             candles,
@@ -1051,12 +1162,74 @@ def _build_fvg_entry_mode_comparison(
             fvg_entry_custom_price=custom_price if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE else None,
         )
         result = run_strategy_backtest_engine(candles, actions, config=engine_config)
-        modes[mode.value] = _build_fvg_entry_mode_diagnostics(actions, result, mode)
+        modes[mode.value] = _build_fvg_entry_mode_diagnostics(actions, result, mode, pattern_key=strategy_key)
     return {
         "schema_version": "fvg_entry_mode_comparison_v1",
         "comparison_scope": "read_only_backtest_research",
         "modes": modes,
     }
+
+
+def _build_pattern_entry_mode_comparison(
+    candles: pd.DataFrame,
+    strategy_key: str,
+    entry_filter_config: PatternEntryFilterConfig,
+    entry_config: PatternEntryConfig,
+    custom_price: float | None,
+    engine_config: StrategyEngineConfig,
+) -> dict[str, object]:
+    policy = policy_for_pattern(strategy_key)
+    modes: dict[str, object] = {}
+    for mode in policy.allowed_entry_modes:
+        _, actions = _build_actions(
+            candles,
+            strategy_key,
+            entry_filter_config,
+            pattern_entry_mode=mode,
+            fvg_entry_config=entry_config,
+            fvg_entry_custom_price=custom_price if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE else None,
+            pattern_policy_metadata=policy.to_metadata(selected_entry_mode=mode),
+        )
+        result = run_strategy_backtest_engine(candles, actions, config=engine_config)
+        modes[mode.value] = _build_fvg_entry_mode_diagnostics(actions, result, mode, pattern_key=strategy_key)
+    return {
+        "schema_version": "pattern_entry_mode_comparison_v1",
+        "comparison_scope": "read_only_backtest_research",
+        "pattern_key": strategy_key,
+        "modes": modes,
+    }
+
+
+def _numeric_metadata_values(actions: Sequence[StrategyAction], key: str) -> list[float]:
+    values: list[float] = []
+    for action in actions:
+        policy = (action.metadata or {}).get("pattern_entry_policy") or {}
+        value = policy.get(key)
+        if isinstance(value, (int, float)):
+            values.append(float(value))
+    return values
+
+
+def _numeric_zone_distances(actions: Sequence[StrategyAction], key: str) -> list[float]:
+    values: list[float] = []
+    for action in actions:
+        policy = (action.metadata or {}).get("pattern_entry_policy") or {}
+        zone_distance = policy.get("zone_distance") or {}
+        value = zone_distance.get(key) if isinstance(zone_distance, dict) else None
+        if isinstance(value, (int, float)):
+            values.append(float(value))
+    return values
+
+
+def _average(values: Sequence[float]) -> float | None:
+    return None if not values else sum(values) / len(values)
+
+
+def _entry_mode_hypothesis(pattern_key: str, mode: PatternEntryMode) -> str:
+    try:
+        return policy_for_pattern(pattern_key).mode_hypotheses.get(mode, "unspecified")
+    except ValueError:
+        return "unspecified"
 
 
 def run(
@@ -1068,11 +1241,12 @@ def run(
     args = build_parser(prog, include_strategy).parse_args(argv)
     strategy_key = _select_strategy_key(args)
     pattern_entry_mode = _selected_pattern_entry_mode(args, strategy_key)
+    pattern_entry_custom_price = _selected_entry_custom_price(args)
     fvg_entry_config = _selected_fvg_entry_config(args)
     fvg_entry_metadata = _build_fvg_entry_metadata(
         pattern_entry_mode,
         fvg_entry_config,
-        args.fvg_entry_custom_price,
+        pattern_entry_custom_price,
     )
     pattern_execution_policy = validate_pattern_entry_mode(strategy_key, pattern_entry_mode).to_metadata(
         selected_entry_mode=pattern_entry_mode
@@ -1135,13 +1309,14 @@ def run(
     if profiler is not None:
         profiler.enable()
     entry_filter_config = _build_pattern_entry_filter_config(args)
+    pattern_regime_thresholds = _build_pattern_regime_threshold_config(args)
     strategy, actions = _build_actions(
         candles,
         strategy_key,
         entry_filter_config,
         pattern_entry_mode=pattern_entry_mode,
         fvg_entry_config=fvg_entry_config,
-        fvg_entry_custom_price=args.fvg_entry_custom_price,
+        fvg_entry_custom_price=pattern_entry_custom_price,
         pattern_policy_metadata=pattern_execution_policy,
     )
     if profiler is not None:
@@ -1163,6 +1338,7 @@ def run(
         pattern_execution_policy=pattern_execution_policy,
         workflow_settings=workflow_settings,
         cost_profile_metadata=_cost_profile_metadata(args, transaction_cost_config),
+        pattern_regime_thresholds=pattern_regime_thresholds,
     )
     reproducibility_metadata = _build_reproducibility_metadata(
         args=args,
@@ -1189,6 +1365,9 @@ def run(
         enforce_candle_continuity=args.enforce_candle_continuity,
         guardrails=guardrails,
         market_regime_by_timestamp=_market_regime_by_timestamp(candles, args),
+        pattern_regime_thresholds=pattern_regime_thresholds,
+        strict_zero_cost_1m_pattern_runs=args.strict_cost_mode,
+        include_cost_sensitivity_report=args.cost_sensitivity_report,
     )
     result = run_strategy_backtest_engine(candles, actions, config=engine_config)
     timings["run_engine_ms"] = _ms(start_engine, time.perf_counter())
@@ -1232,16 +1411,37 @@ def run(
     output["summary"]["metadata"]["pattern_execution_policy"] = pattern_execution_policy
     output["summary"]["metadata"]["workflow_settings"] = workflow_settings
     output["summary"]["metadata"]["cost_profile"] = _cost_profile_metadata(args, transaction_cost_config, result)
-    fvg_entry_diagnostics = _build_fvg_entry_mode_diagnostics(actions, result, pattern_entry_mode)
+    retest_opportunity = build_fvg_ob_retest_opportunity_report(
+        actions,
+        candles,
+        regime_by_timestamp=engine_config.market_regime_by_timestamp,
+    )
+    output["diagnostics"]["fvg_ob_retest_opportunity"] = retest_opportunity
+    output["summary"]["metadata"]["fvg_ob_retest_opportunity"] = retest_opportunity
+    trendline_forensics = build_trendline_false_breakout_forensics(actions, candles)
+    output["diagnostics"]["trendline_false_breakout_forensics"] = trendline_forensics
+    output["summary"]["metadata"]["trendline_false_breakout_forensics"] = trendline_forensics
+    fvg_entry_diagnostics = _build_fvg_entry_mode_diagnostics(actions, result, pattern_entry_mode, pattern_key=strategy.strategy_key)
     output["diagnostics"]["fvg_entry_mode"] = fvg_entry_diagnostics
     output["summary"]["metadata"]["fvg_entry_mode"] = fvg_entry_diagnostics
+    output["diagnostics"]["pattern_entry_mode"] = fvg_entry_diagnostics
+    output["summary"]["metadata"]["pattern_entry_mode"] = fvg_entry_diagnostics
     if args.compare_fvg_entry_modes:
         output["diagnostics"]["fvg_entry_mode_comparison"] = _build_fvg_entry_mode_comparison(
             candles,
             strategy.strategy_key,
             entry_filter_config,
             fvg_entry_config,
-            args.fvg_entry_custom_price,
+            pattern_entry_custom_price,
+            engine_config,
+        )
+    if args.compare_pattern_entry_modes:
+        output["diagnostics"]["pattern_entry_mode_comparison"] = _build_pattern_entry_mode_comparison(
+            candles,
+            strategy.strategy_key,
+            entry_filter_config,
+            fvg_entry_config,
+            pattern_entry_custom_price,
             engine_config,
         )
     if persisted_run_id is not None:

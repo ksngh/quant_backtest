@@ -39,6 +39,27 @@ Canonical record fields:
 Notes:
 - `metadata` stores pattern-specific values such as zone geometry, pivot sets, or reason text.
 - Required identity and timing fields are normalized across pattern types.
+- `target_reference` is detector-level research output. It must not be treated
+  as a measured-move target by backtest reports unless the pattern risk planner
+  explicitly classifies it that way.
+
+## Target Semantics
+
+Risk/exit planning records `target_semantics_v1` metadata so reporting can keep
+target concepts separate:
+
+- `detector_target_reference`: the raw detector/event target reference.
+- `r_multiple_targets`: generated R-based targets from entry and risk per unit.
+- `structural_targets`: supplied or pattern-derived structure/liquidity targets.
+- `measured_targets`: measured-move targets such as neckline plus height.
+- `risk_targets`: the final executable target sequence with source `R_MULTIPLE`,
+  `STRUCTURE`, or `MEASURED`.
+
+`combine_targets()` keeps deterministic precedence: TP1 starts from the first
+R-multiple target, TP2 is replaced by the nearest actionable structural target
+when present, and TP3 is replaced by the nearest actionable measured target when
+present. Fill alignment may recalculate prices/R multiples but must preserve
+target source semantics.
 
 ## Forward label schema
 

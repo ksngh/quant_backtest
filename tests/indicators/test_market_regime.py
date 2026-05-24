@@ -7,6 +7,8 @@ from quant_bitcoin.indicators import (
     MARKET_REGIME_OUTPUT_COLUMNS,
     LiquidityRegime,
     MarketRegimeConfig,
+    PatternRegimeThresholdConfig,
+    PatternRegimeThresholdOverride,
     RegimeVolatility,
     TrendRegime,
     calculate_market_regime,
@@ -16,6 +18,8 @@ from quant_bitcoin.indicators import (
     classify_trend_regime,
     classify_utc_session,
     classify_weekday_tag,
+    evaluate_pattern_regime_thresholds,
+    market_regime_timing_metadata,
 )
 
 
@@ -132,6 +136,69 @@ def test_snapshot_and_classifiers_are_stable() -> None:
     assert classify_trend_regime(-0.02, _config()) == TrendRegime.DOWNTREND.value
 
 
+def test_market_regime_prior_only_percentile_zscore_excludes_current_spike() -> None:
+    candles = _candles(
+        [100.0, 100.0, 100.0, 100.0],
+        volumes=[1000.0, 1000.0, 1000.0, 10000.0],
+    )
+
+    inclusive = calculate_market_regime(
+        candles,
+        MarketRegimeConfig(
+            volatility_window=2,
+            trend_window=2,
+            liquidity_window=3,
+            mean_reversion_window=2,
+            require_full_window=True,
+        ),
+    ).iloc[-1]
+    prior_only = calculate_market_regime(
+        candles,
+        MarketRegimeConfig(
+            volatility_window=2,
+            trend_window=2,
+            liquidity_window=3,
+            mean_reversion_window=2,
+            require_full_window=True,
+            percentile_zscore_include_current=False,
+        ),
+    ).iloc[-1]
+
+    assert inclusive["trading_value_percentile"] == pytest.approx(1.0)
+    assert inclusive["liquidity_zscore"] == pytest.approx(1.41421356237)
+    assert prior_only["trading_value_percentile"] == pytest.approx(1.0)
+    assert prior_only["liquidity_zscore"] == pytest.approx(0.0)
+
+
+def test_market_regime_timing_metadata_exposes_prior_only_baseline() -> None:
+    metadata = market_regime_timing_metadata(
+        MarketRegimeConfig(
+            volatility_window=2,
+            trend_window=3,
+            liquidity_window=4,
+            mean_reversion_window=5,
+            percentile_zscore_include_current=False,
+        )
+    )
+    snapshot = calculate_market_regime_snapshot(
+        _candles([100.0, 101.0, 102.0, 103.0, 104.0]),
+        MarketRegimeConfig(
+            volatility_window=2,
+            trend_window=3,
+            liquidity_window=4,
+            mean_reversion_window=5,
+            percentile_zscore_include_current=False,
+        ),
+        include_timing_metadata=True,
+    )
+
+    assert metadata["warmup_period"] == 5
+    assert metadata["confirmation_delay"] == 0
+    assert metadata["percentile_zscore_current_candle_included"] is False
+    assert metadata["baseline_mode"] == "PRIOR_ONLY_PERCENTILE_ZSCORE"
+    assert snapshot["timing"] == metadata
+
+
 def test_utc_session_and_weekday_tags_are_deterministic() -> None:
     assert classify_utc_session("2026-05-22T01:00:00Z") == "ASIA"
     assert classify_utc_session("2026-05-22T09:00:00Z") == "EU"
@@ -140,3 +207,68 @@ def test_utc_session_and_weekday_tags_are_deterministic() -> None:
     assert classify_utc_session("2026-05-22T22:00:00Z") == "OFF_HOURS"
     assert classify_weekday_tag("2026-05-22T18:00:00Z") == "WEEKDAY"
     assert classify_weekday_tag("2026-05-24T18:00:00Z") == "WEEKEND"
+
+
+def test_pattern_regime_threshold_override_applies_for_specified_market_regime() -> None:
+    decision = evaluate_pattern_regime_thresholds(
+        {"pattern_score": 0.8, "volume_ratio": 1.8, "break_distance_atr": 0.7},
+        {"market_regime": "HIGH_VOL_UPTREND", "volatility_regime": "HIGH"},
+        PatternRegimeThresholdConfig(
+            enabled=True,
+            default_thresholds=PatternRegimeThresholdOverride(
+                breakout_atr_multiplier=0.2
+            ),
+            market_regime_overrides={
+                "HIGH_VOL_UPTREND": PatternRegimeThresholdOverride(
+                    breakout_atr_multiplier=0.8
+                )
+            },
+        ),
+    )
+
+    assert decision["enabled"] is True
+    assert decision["applied_thresholds"]["breakout_atr_multiplier"] == 0.8
+    assert decision["matched_overrides"] == ("market_regime:HIGH_VOL_UPTREND",)
+    assert decision["blocked"] is True
+    assert decision["block_reason"] == "REGIME_BREAKOUT_ATR_BELOW_MINIMUM"
+
+
+def test_pattern_regime_threshold_missing_regime_falls_back_to_default() -> None:
+    decision = evaluate_pattern_regime_thresholds(
+        {"pattern_score": 0.7, "volume_ratio": 1.4},
+        {},
+        PatternRegimeThresholdConfig(
+            enabled=True,
+            default_thresholds=PatternRegimeThresholdOverride(
+                minimum_pattern_score=0.6,
+                minimum_volume_ratio=1.2,
+            ),
+            volatility_regime_overrides={
+                "HIGH": PatternRegimeThresholdOverride(minimum_pattern_score=0.9)
+            },
+        ),
+    )
+
+    assert decision["applied_thresholds"]["minimum_pattern_score"] == 0.6
+    assert decision["matched_overrides"] == ()
+    assert decision["blocked"] is False
+
+
+def test_pattern_regime_threshold_blocks_low_liquidity_entries() -> None:
+    decision = evaluate_pattern_regime_thresholds(
+        {"pattern_score": 0.9, "volume_ratio": 2.0},
+        {"liquidity_regime": "LOW"},
+        PatternRegimeThresholdConfig(
+            enabled=True,
+            liquidity_regime_overrides={
+                "LOW": PatternRegimeThresholdOverride(
+                    block_entry=True,
+                    block_reason="LOW_LIQUIDITY_REGIME_BLOCK",
+                )
+            },
+        ),
+    )
+
+    assert decision["blocked"] is True
+    assert decision["block_reason"] == "LOW_LIQUIDITY_REGIME_BLOCK"
+    assert decision["matched_overrides"] == ("liquidity_regime:LOW",)

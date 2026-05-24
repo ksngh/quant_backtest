@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--spread-bps", type=float, default=0.0)
     parser.add_argument("--slippage-bps", type=float, default=0.0)
     parser.add_argument("--interval", default="1m")
+    parser.add_argument("--enable-regime-stratification", action="store_true")
+    parser.add_argument("--min-trades-per-stratum", type=int, default=1)
     parser.add_argument("--monte-carlo-seed", type=int, default=0)
     parser.add_argument("--monte-carlo-iterations", type=int, default=100)
     args = parser.parse_args(argv)
@@ -68,7 +70,13 @@ def main(argv: list[str] | None = None) -> int:
     }
     payload = run_walk_forward_validation(
         candles,
-        config=WalkForwardConfig(args.train_window, args.test_window, args.step_size),
+        config=WalkForwardConfig(
+            args.train_window,
+            args.test_window,
+            args.step_size,
+            regime_stratification_enabled=args.enable_regime_stratification,
+            minimum_trades_per_stratum=args.min_trades_per_stratum,
+        ),
         action_builder=_action_builder(args),
         engine_config=_engine_config(args),
         strategy_parameters=strategy_parameters,

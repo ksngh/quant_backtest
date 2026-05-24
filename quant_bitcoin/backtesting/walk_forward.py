@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from random import Random
 from statistics import mean, median
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
 from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.indicators.market_regime import calculate_market_regime
 from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode
 from quant_bitcoin.risk.exit_plan import RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
@@ -21,11 +22,15 @@ class WalkForwardConfig:
     train_window: pd.Timedelta | str
     test_window: pd.Timedelta | str
     step_size: pd.Timedelta | str
+    regime_stratification_enabled: bool = False
+    minimum_trades_per_stratum: int = 1
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "train_window", _timedelta(self.train_window, "train_window"))
         object.__setattr__(self, "test_window", _timedelta(self.test_window, "test_window"))
         object.__setattr__(self, "step_size", _timedelta(self.step_size, "step_size"))
+        if self.minimum_trades_per_stratum < 1:
+            raise ValueError("minimum_trades_per_stratum must be at least 1")
 
 
 @dataclass(frozen=True)
@@ -91,6 +96,10 @@ def run_walk_forward_validation(
     frame = _normalized_candles(candles)
     if frame.empty:
         raise ValueError("candles must not be empty")
+    regime_by_timestamp = (
+        _regime_by_timestamp(frame) if config.regime_stratification_enabled else None
+    )
+    engine_cfg = _engine_config_with_regime(engine_config, regime_by_timestamp)
     folds = generate_walk_forward_folds(
         start=frame.iloc[0]["timestamp"],
         end=frame.iloc[-1]["timestamp"] + _minimum_timestamp_step(frame),
@@ -105,8 +114,15 @@ def run_walk_forward_validation(
             continue
         try:
             actions = tuple(action_builder(train, test, fold))
-            result = run_strategy_backtest_engine(test, list(actions), config=engine_config)
+            result = run_strategy_backtest_engine(test, list(actions), config=engine_cfg)
             status = "NO_FILLS" if result.summary.trade_count == 0 else "OK"
+            diagnostics = _fold_diagnostics(result.summary.metadata)
+            if regime_by_timestamp is not None:
+                diagnostics["regime_stratification"] = calculate_regime_stratified_attribution(
+                    result.executions,
+                    regime_by_timestamp=regime_by_timestamp,
+                    minimum_trades_per_stratum=config.minimum_trades_per_stratum,
+                )
             fold_results.append(
                 {
                     **fold.to_metadata(),
@@ -123,7 +139,7 @@ def run_walk_forward_validation(
                         "final_equity": result.summary.final_equity,
                         "expectancy": _expectancy(result.summary.metadata),
                     },
-                    "diagnostics": _fold_diagnostics(result.summary.metadata),
+                    "diagnostics": diagnostics,
                 }
             )
         except Exception as exc:  # pragma: no cover - exercised through failure count behavior
@@ -134,9 +150,112 @@ def run_walk_forward_validation(
             "train_window": str(config.train_window),
             "test_window": str(config.test_window),
             "step_size": str(config.step_size),
+            "regime_stratification_enabled": config.regime_stratification_enabled,
+            "minimum_trades_per_stratum": config.minimum_trades_per_stratum,
         },
         "folds": fold_results,
         "aggregate": aggregate_fold_metrics(fold_results),
+    }
+
+
+REGIME_STRATIFICATION_DIMENSIONS: tuple[str, ...] = (
+    "market_regime",
+    "volatility_regime",
+    "liquidity_regime",
+    "spread_regime",
+    "session_tag",
+    "weekday_tag",
+    "entry_mode",
+)
+
+
+def calculate_regime_stratified_attribution(
+    executions: Sequence[Any],
+    *,
+    regime_by_timestamp: Mapping[Any, Mapping[str, Any]] | None = None,
+    minimum_trades_per_stratum: int = 1,
+) -> dict[str, Any]:
+    if minimum_trades_per_stratum < 1:
+        raise ValueError("minimum_trades_per_stratum must be at least 1")
+    regime_map = regime_by_timestamp or {}
+    by_dimension: dict[str, dict[str, dict[str, Any]]] = {
+        dimension: {} for dimension in REGIME_STRATIFICATION_DIMENSIONS
+    }
+    for execution in executions:
+        metadata = getattr(execution, "metadata", {}) or {}
+        timestamp = _timestamp(getattr(execution, "timestamp"))
+        regime = regime_map.get(timestamp, {})
+        values = {
+            "market_regime": regime.get("market_regime", "UNKNOWN"),
+            "volatility_regime": regime.get("volatility_regime", "UNKNOWN"),
+            "liquidity_regime": regime.get("liquidity_regime", "UNKNOWN"),
+            "spread_regime": regime.get("spread_regime", "UNKNOWN"),
+            "session_tag": regime.get("session_tag", "UNKNOWN"),
+            "weekday_tag": regime.get("weekday_tag", "UNKNOWN"),
+            "entry_mode": metadata.get("entry_mode", "UNKNOWN"),
+        }
+        for dimension, value in values.items():
+            bucket = by_dimension[dimension].setdefault(
+                str(value),
+                {
+                    "execution_count": 0,
+                    "completed_trade_count": 0,
+                    "net_pnl_values": [],
+                    "r_values": [],
+                    "win_count": 0,
+                },
+            )
+            _append_execution_metrics(bucket, execution)
+
+    warnings: list[str] = []
+    finalized: dict[str, dict[str, dict[str, Any]]] = {}
+    for dimension, buckets in by_dimension.items():
+        finalized[dimension] = {}
+        for value, bucket in sorted(buckets.items()):
+            completed = int(bucket["completed_trade_count"])
+            status = "SPARSE" if completed < minimum_trades_per_stratum else "OK"
+            if status == "SPARSE":
+                warnings.append(
+                    f"{dimension}={value} has {completed} completed trades; "
+                    f"minimum_trades_per_stratum={minimum_trades_per_stratum}"
+                )
+            finalized[dimension][value] = _finalize_stratum(bucket, status=status)
+    return {
+        "schema_version": "walk_forward_regime_stratification_v1",
+        "minimum_trades_per_stratum": minimum_trades_per_stratum,
+        "dimensions": REGIME_STRATIFICATION_DIMENSIONS,
+        "by_dimension": finalized,
+        "warnings": warnings,
+    }
+
+
+def _append_execution_metrics(bucket: dict[str, Any], execution: Any) -> None:
+    bucket["execution_count"] += 1
+    net_pnl = getattr(execution, "net_pnl", None)
+    if net_pnl is None:
+        return
+    pnl = float(net_pnl)
+    bucket["completed_trade_count"] += 1
+    bucket["net_pnl_values"].append(pnl)
+    if pnl > 0:
+        bucket["win_count"] += 1
+    r_multiple = getattr(execution, "realized_r_multiple", None)
+    if r_multiple is not None:
+        bucket["r_values"].append(float(r_multiple))
+
+
+def _finalize_stratum(bucket: dict[str, Any], *, status: str) -> dict[str, Any]:
+    pnl_values = tuple(float(value) for value in bucket["net_pnl_values"])
+    r_values = tuple(float(value) for value in bucket["r_values"])
+    completed = int(bucket["completed_trade_count"])
+    return {
+        "status": status,
+        "execution_count": int(bucket["execution_count"]),
+        "completed_trade_count": completed,
+        "net_pnl": sum(pnl_values) if pnl_values else 0.0,
+        "expectancy": None if not pnl_values else sum(pnl_values) / len(pnl_values),
+        "average_r": None if not r_values else sum(r_values) / len(r_values),
+        "hit_rate": None if completed == 0 else int(bucket["win_count"]) / completed,
     }
 
 
@@ -211,6 +330,7 @@ def build_pattern_action_builder(
 def aggregate_fold_metrics(fold_results: Sequence[dict[str, object]]) -> dict[str, object]:
     failures = [fold for fold in fold_results if str(fold.get("status")) not in {"OK", "NO_FILLS"}]
     no_fill_count = len([fold for fold in fold_results if fold.get("status") == "NO_FILLS"])
+    regime = _aggregate_regime_stratification(fold_results)
     return {
         "fold_count": len(fold_results),
         "failure_count": len(failures),
@@ -222,6 +342,8 @@ def aggregate_fold_metrics(fold_results: Sequence[dict[str, object]]) -> dict[st
         "trade_count": _distribution(_summary_values(fold_results, "trade_count")),
         "max_drawdown": _distribution(_summary_values(fold_results, "max_drawdown")),
         "pattern_fold_stability": _pattern_fold_stability(fold_results),
+        "regime_stratification": regime,
+        "in_sample_out_of_sample_stability": _in_sample_out_of_sample_stability(fold_results),
     }
 
 
@@ -361,6 +483,112 @@ def _pattern_fold_stability(fold_results: Sequence[dict[str, object]]) -> dict[s
     }
 
 
+def _aggregate_regime_stratification(fold_results: Sequence[dict[str, object]]) -> dict[str, object] | None:
+    combined: dict[str, dict[str, dict[str, Any]]] = {
+        dimension: {} for dimension in REGIME_STRATIFICATION_DIMENSIONS
+    }
+    minimum = None
+    found = False
+    warnings: list[str] = []
+    for fold in fold_results:
+        diagnostics = fold.get("diagnostics")
+        if not isinstance(diagnostics, dict):
+            continue
+        stratification = diagnostics.get("regime_stratification")
+        if not isinstance(stratification, dict):
+            continue
+        found = True
+        minimum = stratification.get("minimum_trades_per_stratum", minimum)
+        warnings.extend(str(value) for value in stratification.get("warnings", ()))
+        by_dimension = stratification.get("by_dimension")
+        if not isinstance(by_dimension, dict):
+            continue
+        for dimension, strata in by_dimension.items():
+            if not isinstance(strata, dict):
+                continue
+            for stratum, metrics in strata.items():
+                if not isinstance(metrics, dict):
+                    continue
+                bucket = combined.setdefault(str(dimension), {}).setdefault(
+                    str(stratum),
+                    {
+                        "execution_count": 0,
+                        "completed_trade_count": 0,
+                        "net_pnl_values": [],
+                        "r_values": [],
+                        "win_count": 0,
+                    },
+                )
+                _merge_stratum_metrics(bucket, metrics)
+    if not found:
+        return None
+    min_trades = int(minimum or 1)
+    finalized: dict[str, dict[str, dict[str, Any]]] = {}
+    for dimension, strata in combined.items():
+        finalized[dimension] = {}
+        for stratum, bucket in sorted(strata.items()):
+            completed = int(bucket["completed_trade_count"])
+            status = "SPARSE" if completed < min_trades else "OK"
+            finalized[dimension][stratum] = _finalize_stratum(bucket, status=status)
+    return {
+        "schema_version": "walk_forward_regime_stratification_aggregate_v1",
+        "minimum_trades_per_stratum": min_trades,
+        "by_dimension": finalized,
+        "warnings": tuple(sorted(set(warnings))),
+    }
+
+
+def _merge_stratum_metrics(bucket: dict[str, Any], metrics: Mapping[str, Any]) -> None:
+    completed = int(metrics.get("completed_trade_count") or 0)
+    net_pnl = float(metrics.get("net_pnl") or 0.0)
+    average_r = metrics.get("average_r")
+    hit_rate = metrics.get("hit_rate")
+    bucket["execution_count"] += int(metrics.get("execution_count") or 0)
+    bucket["completed_trade_count"] += completed
+    if completed > 0:
+        bucket["net_pnl_values"].extend([net_pnl / completed] * completed)
+        if average_r is not None:
+            bucket["r_values"].extend([float(average_r)] * completed)
+        if hit_rate is not None:
+            bucket["win_count"] += int(round(float(hit_rate) * completed))
+
+
+def _in_sample_out_of_sample_stability(fold_results: Sequence[dict[str, object]]) -> dict[str, object]:
+    patterns: dict[str, dict[str, int]] = {}
+    for fold in fold_results:
+        strategy_parameters = fold.get("strategy_parameters")
+        pattern = None
+        if isinstance(strategy_parameters, dict):
+            pattern = strategy_parameters.get("pattern")
+        if pattern is None:
+            continue
+        entry = patterns.setdefault(
+            str(pattern),
+            {
+                "in_sample_fold_count": 0,
+                "out_of_sample_fold_count": 0,
+                "out_of_sample_active_fold_count": 0,
+                "out_of_sample_completed_trade_count": 0,
+            },
+        )
+        if int(fold.get("train_candle_count") or 0) > 0:
+            entry["in_sample_fold_count"] += 1
+        entry["out_of_sample_fold_count"] += 1
+        summary = fold.get("summary")
+        trade_count = int(summary.get("trade_count") or 0) if isinstance(summary, dict) else 0
+        if trade_count > 0:
+            entry["out_of_sample_active_fold_count"] += 1
+            entry["out_of_sample_completed_trade_count"] += trade_count
+    for entry in patterns.values():
+        total = entry["out_of_sample_fold_count"]
+        entry["out_of_sample_active_fold_ratio"] = 0 if total == 0 else entry["out_of_sample_active_fold_count"] / total
+    return {
+        "schema_version": "walk_forward_pattern_is_oos_stability_v1",
+        "patterns": patterns,
+        "pattern_count": len(patterns),
+    }
+
+
 def _pattern_entry_mode(value: PatternEntryMode | str) -> PatternEntryMode:
     if isinstance(value, PatternEntryMode):
         return value
@@ -407,6 +635,38 @@ def _failed_fold(fold: WalkForwardFold, train: pd.DataFrame, test: pd.DataFrame,
         "test_candle_count": len(test),
         "action_count": 0,
     }
+
+
+def _engine_config_with_regime(
+    engine_config: StrategyEngineConfig | None,
+    regime_by_timestamp: dict[Any, dict[str, Any]] | None,
+) -> StrategyEngineConfig | None:
+    if regime_by_timestamp is None:
+        return engine_config
+    if engine_config is None:
+        return StrategyEngineConfig(market_regime_by_timestamp=regime_by_timestamp)
+    if engine_config.market_regime_by_timestamp is not None:
+        return engine_config
+    return replace(engine_config, market_regime_by_timestamp=regime_by_timestamp)
+
+
+def _regime_by_timestamp(frame: pd.DataFrame) -> dict[Any, dict[str, Any]]:
+    regime_frame = frame.copy(deep=True)
+    if "symbol" not in regime_frame.columns:
+        regime_frame["symbol"] = "UNKNOWN"
+    rows = calculate_market_regime(regime_frame)
+    mapping: dict[Any, dict[str, Any]] = {}
+    for _, row in rows.iterrows():
+        timestamp = _timestamp(row["timestamp"])
+        mapping[timestamp] = {
+            "market_regime": row.get("market_regime"),
+            "volatility_regime": row.get("volatility_regime"),
+            "liquidity_regime": row.get("liquidity_regime"),
+            "spread_regime": row.get("spread_regime"),
+            "session_tag": row.get("session_tag"),
+            "weekday_tag": row.get("weekday_tag"),
+        }
+    return mapping
 
 
 def _normalized_candles(candles: pd.DataFrame) -> pd.DataFrame:

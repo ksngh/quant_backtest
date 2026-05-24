@@ -34,6 +34,26 @@ def test_policy_metadata_serializes_selected_entry_mode() -> None:
     assert metadata["schema_version"] == "pattern_execution_policy_v1"
     assert metadata["selected_entry_mode"] == "LIMIT_AT_PATTERN_MIDPOINT"
     assert "LIMIT_AT_PATTERN_MIDPOINT" in metadata["allowed_entry_modes"]
+    assert metadata["selected_entry_hypothesis"] == "RETEST_ORDER_BLOCK_MIDPOINT"
+
+
+def test_fvg_and_order_block_define_canonical_experiment_modes() -> None:
+    fvg = policy_for_pattern("FAIR_VALUE_GAP").to_metadata()
+    order_block = policy_for_pattern("ORDER_BLOCK").to_metadata()
+
+    assert "LIMIT_AT_PATTERN_NEAR_BOUNDARY" in fvg["allowed_entry_modes"]
+    assert "LIMIT_AT_PATTERN_FAR_BOUNDARY" in fvg["allowed_entry_modes"]
+    assert fvg["selected_entry_hypothesis"] == "CHASE_MOMENTUM_CONFIRMATION_CLOSE"
+    assert "LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT" in order_block["allowed_entry_modes"]
+    assert "LIMIT_AT_CUSTOM_PRICE" in order_block["allowed_entry_modes"]
+
+
+def test_adam_and_eve_allows_neckline_retest_entry_mode_metadata() -> None:
+    policy = validate_pattern_entry_mode("ADAM_AND_EVE", PatternEntryMode.LIMIT_AT_NECKLINE_RETEST)
+    metadata = policy.to_metadata(selected_entry_mode=PatternEntryMode.LIMIT_AT_NECKLINE_RETEST)
+
+    assert "LIMIT_AT_NECKLINE_RETEST" in metadata["allowed_entry_modes"]
+    assert metadata["selected_entry_hypothesis"] == "BROKEN_NECKLINE_RETEST"
 
 
 def test_policy_module_has_no_execution_client_imports() -> None:

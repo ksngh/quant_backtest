@@ -50,6 +50,17 @@ def _event() -> CupAndHandleEvent:
         liquidity_pass=None,
         spread_pass=None,
         displacement_confirmed=True,
+        prior_uptrend_method="LOCAL",
+        prior_uptrend_strength=0.05,
+        neckline_retest_status="NOT_REQUESTED",
+        neckline_retest_wait_bars=None,
+        breakout_follow_through_bars=0,
+        handle_quality={
+            "handle_depth_ratio": 0.3,
+            "handle_duration": 4.0,
+            "handle_low_above_cup_midpoint": 1.0,
+        },
+        detector_target_reference_semantics="detector target_reference = breakout entry_reference + cup_depth; risk planner may rebuild measured targets from neckline/cup_depth.",
         pattern_score=0.8,
         entry_reference=103.0,
         stop_reference=94.0,
@@ -82,7 +93,13 @@ def test_measured_target_equals_neckline_plus_cup_depth() -> None:
     assert plan.risk_plan.targets[0].source == RiskExitTargetSource.R_MULTIPLE
     assert plan.risk_plan.targets[2].source == RiskExitTargetSource.MEASURED
     assert plan.risk_plan.targets[2].price == pytest.approx(120.0)
-    assert plan.risk_plan.targets[2].metadata == {"rule": "nearest_actionable_measured"}
+    assert plan.risk_plan.targets[2].metadata["rule"] == "nearest_actionable_measured"
+    assert plan.risk_plan.targets[2].metadata["target_source"] == "MEASURED"
+    semantics = plan.risk_plan.target_semantics
+    assert semantics["schema_version"] == "target_semantics_v1"
+    assert semantics["detector_target_reference"] == pytest.approx(123.0)
+    assert semantics["measured_targets"][0]["price"] == pytest.approx(120.0)
+    assert semantics["risk_targets"][2]["source"] == "MEASURED"
 
 
 def test_neckline_soft_exit_metadata_is_present() -> None:
@@ -100,6 +117,7 @@ def test_nearest_structure_target_is_used_when_supplied() -> None:
     assert plan.structural_targets == pytest.approx((114.0, 130.0))
     assert plan.risk_plan.targets[1].source == RiskExitTargetSource.STRUCTURE
     assert plan.risk_plan.targets[1].price == pytest.approx(114.0)
+    assert plan.risk_plan.target_semantics["structural_targets"][0]["price"] == pytest.approx(114.0)
 
 
 def test_minimum_profit_filter_can_skip_poor_risk_reward_plan() -> None:

@@ -1,6 +1,7 @@
 # Execution Readiness Safety Audit
 
 Task 170 audit date: 2026-05-24.
+Task 224 pattern boundary re-audit date: 2026-05-24.
 
 ## Verdict
 
@@ -18,6 +19,24 @@ Current execution support is limited to:
 
 No current backend or frontend API exposes order submission controls. Strategy,
 backtest, and market-data code must remain separate from execution clients.
+
+## Task 224 Pattern Research Boundary Re-Audit
+
+Pattern research code remains **backtest/paper-only**. The Task 224 audit
+covered `quant_bitcoin/strategies/` and `quant_bitcoin/backtesting/` and found
+no direct imports from `quant_bitcoin.execution`, no embedded Binance order
+endpoint strings, and no testnet credential environment keys in those strategy
+or backtesting modules.
+
+Pattern strategy, detector, score, risk, cost, walk-forward, report, and
+diagnostic outputs are research artifacts. They may describe simulated order
+intent, simulated fills, stop/target policies, costs, and paper/live readiness
+gaps, but they must not submit orders, sign requests, read API secrets, or call
+exchange order/account endpoints.
+
+This boundary is covered by `tests/safety/test_pattern_live_boundary.py`, which
+statically checks the audited modules for execution-client imports, signed-order
+endpoint constants, testnet credential keys, and signed-request helper usage.
 
 ## Current Safety Boundary
 
@@ -43,6 +62,7 @@ The following capabilities are missing or incomplete for real execution:
 | Live enablement | No live client enabled | Non-default explicit live mode with startup readiness checks |
 | Kill switch | Not implemented for live mode | Runtime kill switch that fails closed before request signing |
 | Max notional | Not implemented for live mode | Per-order and daily notional caps |
+| Pattern strategy boundary | Backtest/paper-only; no execution-client imports in strategy/backtesting modules | Keep strategy/backtest modules isolated from execution clients and prove this in PR safety tests |
 | Stale data | Not implemented for live mode | Candle age and clock-skew checks before intent submission |
 | Duplicate orders | Deterministic client IDs exist | Live duplicate client-order-id/idempotency policy |
 | Order book/fill model | Backtest/paper approximations only | Pre-trade liquidity and expected-fill checks |

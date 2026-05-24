@@ -130,6 +130,8 @@ def create_diamond_risk_exit_plan(
         atr=event.atr,
         config=planner_config.to_risk_exit_config(),
         measured_targets=(measured_target,),
+        detector_target_reference=event.target_reference,
+        atr_metadata=getattr(event, "atr_metadata", {}),
     )
 
     return DiamondRiskExitPlan(

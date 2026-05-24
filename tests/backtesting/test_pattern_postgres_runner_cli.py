@@ -56,7 +56,7 @@ class _SizingStubStrategy:
                     "position_side": "LONG",
                     "risk_plan": _valid_risk_plan(),
                     "event_id": "sizing-event",
-                    "pattern_type": "FAIR_VALUE_GAP",
+                    "pattern_type": self.strategy_key,
                     "entry_reference": 100.5,
                     "zone_mid": 100.5,
                     "zone_low": 99.5,
@@ -242,6 +242,8 @@ def test_expand_raw_actions_wires_soft_invalidation_to_builder(monkeypatch):
             "event_id": "fvg-1",
             "pattern_type": "FAIR_VALUE_GAP",
             "zone_mid": 99.0,
+            "zone_low": 98.0,
+            "zone_high": 101.0,
         },
     )
 
@@ -252,7 +254,8 @@ def test_expand_raw_actions_wires_soft_invalidation_to_builder(monkeypatch):
         StrategyActionType.EXIT_LONG,
     ]
     assert expanded[-1].metadata["exit_reason"] == "SOFT_INVALIDATION"
-    assert expanded[-1].metadata["exit_metadata"]["rule"] == "close <= fvg_midpoint"
+    assert expanded[-1].metadata["exit_metadata"]["rule"] == "fvg_midpoint_reaction_failure"
+    assert expanded[-1].metadata["exit_metadata"]["favorable_close_condition"] == "close > fvg_midpoint"
 
 
 def test_build_transaction_cost_config_from_args():
@@ -611,8 +614,39 @@ def test_fvg_entry_mode_comparison_output_contains_modes(monkeypatch, capsys):
     assert comparison["schema_version"] == "fvg_entry_mode_comparison_v1"
     assert "MARKET_ON_CONFIRMATION_CLOSE" in comparison["modes"]
     assert "LIMIT_AT_PATTERN_MIDPOINT" in comparison["modes"]
-    assert comparison["modes"]["MARKET_ON_CONFIRMATION_CLOSE"]["economic_interpretation"] == "momentum_continuation_after_confirmation"
+    assert comparison["modes"]["MARKET_ON_CONFIRMATION_CLOSE"]["economic_interpretation"] == "chase_momentum_after_confirmation"
     assert comparison["modes"]["LIMIT_AT_PATTERN_MIDPOINT"]["economic_interpretation"] == "imbalance_retest_or_rebalancing_entry"
+    assert "LIMIT_AT_PATTERN_NEAR_BOUNDARY" in comparison["modes"]
+    assert "LIMIT_AT_PATTERN_FAR_BOUNDARY" in comparison["modes"]
+
+
+def test_order_block_entry_mode_comparison_output_contains_618_mode(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _OrderBlockEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "ORDER_BLOCK",
+        "--compare-pattern-entry-modes",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+    comparison = out["diagnostics"]["pattern_entry_mode_comparison"]
+
+    assert comparison["schema_version"] == "pattern_entry_mode_comparison_v1"
+    assert comparison["pattern_key"] == "ORDER_BLOCK"
+    assert "LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT" in comparison["modes"]
+    assert comparison["modes"]["MARKET_ON_CONFIRMATION_CLOSE"]["entry_style"] == "CHASE_OR_MOMENTUM"
+    assert comparison["modes"]["LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT"]["entry_mode_hypothesis"] == "RETEST_ORDER_BLOCK_618_RETRACEMENT"
 
 
 def test_pattern_entry_mode_rejects_unsupported_combination_before_provider_load() -> None:

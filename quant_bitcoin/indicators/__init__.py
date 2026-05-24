@@ -9,6 +9,7 @@ from quant_bitcoin.indicators.atr import (
     calculate_atr_snapshot,
     calculate_true_range,
     classify_volatility,
+    atr_timing_metadata,
 )
 
 from quant_bitcoin.indicators.displacement_candle import (
@@ -27,6 +28,8 @@ from quant_bitcoin.indicators.pivots import (
     PivotConfig,
     PivotType,
     detect_pivots,
+    pivot_timing_metadata,
+    pivot_strength_diagnostics,
     remove_close_duplicate_pivots,
 )
 
@@ -34,11 +37,14 @@ from quant_bitcoin.indicators.volume_ratio import (
     REQUIRED_VOLUME_RATIO_COLUMNS,
     VOLUME_RATIO_OUTPUT_COLUMNS,
     VolumeAverageMethod,
+    VolumeInputMode,
+    VolumeRatioBaselineMode,
     VolumeRatioConfig,
     VolumeStatus,
     calculate_volume_ratio,
     calculate_volume_ratio_snapshot,
     classify_volume_status,
+    volume_ratio_timing_metadata,
 )
 
 from quant_bitcoin.indicators.support_resistance_zone import (
@@ -50,6 +56,7 @@ from quant_bitcoin.indicators.support_resistance_zone import (
     detect_support_resistance_zones,
     merge_overlapping_zones,
     merge_support_resistance_overlaps,
+    support_resistance_proximity_feature,
     update_zone_status,
 )
 
@@ -61,12 +68,15 @@ from quant_bitcoin.indicators.swing_structure import (
     classify_low,
     classify_market_status,
     classify_swing_structure,
+    swing_structure_alignment_feature,
 )
 from quant_bitcoin.indicators.market_regime import (
     MARKET_REGIME_OUTPUT_COLUMNS,
     REQUIRED_MARKET_REGIME_COLUMNS,
     LiquidityRegime,
     MarketRegimeConfig,
+    PatternRegimeThresholdConfig,
+    PatternRegimeThresholdOverride,
     MeanReversionRegime,
     RegimeVolatility,
     SpreadRegime,
@@ -81,6 +91,8 @@ from quant_bitcoin.indicators.market_regime import (
     classify_utc_session,
     classify_weekday_tag,
     combine_market_regime,
+    evaluate_pattern_regime_thresholds,
+    market_regime_timing_metadata,
 )
 
 __all__ = [
@@ -92,6 +104,7 @@ __all__ = [
     "calculate_atr_snapshot",
     "calculate_true_range",
     "classify_volatility",
+    "atr_timing_metadata",
     "DISPLACEMENT_CANDLE_OUTPUT_COLUMNS",
     "REQUIRED_DISPLACEMENT_CANDLE_COLUMNS",
     "DisplacementCandleConfig",
@@ -104,15 +117,20 @@ __all__ = [
     "PivotConfig",
     "PivotType",
     "detect_pivots",
+    "pivot_timing_metadata",
+    "pivot_strength_diagnostics",
     "remove_close_duplicate_pivots",
     "REQUIRED_VOLUME_RATIO_COLUMNS",
     "VOLUME_RATIO_OUTPUT_COLUMNS",
     "VolumeAverageMethod",
+    "VolumeInputMode",
+    "VolumeRatioBaselineMode",
     "VolumeRatioConfig",
     "VolumeStatus",
     "calculate_volume_ratio",
     "calculate_volume_ratio_snapshot",
     "classify_volume_status",
+    "volume_ratio_timing_metadata",
     "REQUIRED_SUPPORT_RESISTANCE_PIVOT_COLUMNS",
     "SUPPORT_RESISTANCE_ZONE_OUTPUT_COLUMNS",
     "SupportResistanceZoneConfig",
@@ -121,8 +139,10 @@ __all__ = [
     "detect_support_resistance_zones",
     "merge_overlapping_zones",
     "merge_support_resistance_overlaps",
+    "support_resistance_proximity_feature",
     "update_zone_status",
     "classify_swing_structure",
+    "swing_structure_alignment_feature",
     "classify_market_status",
     "classify_low",
     "classify_high",
@@ -133,6 +153,8 @@ __all__ = [
     "REQUIRED_MARKET_REGIME_COLUMNS",
     "LiquidityRegime",
     "MarketRegimeConfig",
+    "PatternRegimeThresholdConfig",
+    "PatternRegimeThresholdOverride",
     "MeanReversionRegime",
     "RegimeVolatility",
     "SpreadRegime",
@@ -147,4 +169,6 @@ __all__ = [
     "classify_utc_session",
     "classify_weekday_tag",
     "combine_market_regime",
+    "evaluate_pattern_regime_thresholds",
+    "market_regime_timing_metadata",
 ]

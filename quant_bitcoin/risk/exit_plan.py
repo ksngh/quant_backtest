@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from math import isfinite
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 class RiskExitDirection(Enum):
@@ -36,6 +36,9 @@ class RiskExitTargetSource(Enum):
     R_MULTIPLE = "R_MULTIPLE"
     STRUCTURE = "STRUCTURE"
     MEASURED = "MEASURED"
+
+
+TARGET_SEMANTICS_SCHEMA_VERSION = "target_semantics_v1"
 
 
 @dataclass(frozen=True)
@@ -174,6 +177,8 @@ class RiskExitPlan:
     break_even: BreakEvenSettings = field(default_factory=BreakEvenSettings)
     trailing_stop: TrailingStopSettings = field(default_factory=TrailingStopSettings)
     partial_exits: tuple[PartialExitSettings, ...] = ()
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
+    target_semantics: dict[str, Any] = field(default_factory=dict)
 
 
 def create_risk_exit_plan(
@@ -185,17 +190,26 @@ def create_risk_exit_plan(
     config: RiskExitConfig | None = None,
     structural_targets: Iterable[float | int] | None = None,
     measured_targets: Iterable[float | int] | None = None,
+    detector_target_reference: float | int | None = None,
+    atr_metadata: Mapping[str, Any] | None = None,
 ) -> RiskExitPlan:
     """Create a deterministic reusable risk/exit plan.
 
     Pattern-specific callers are responsible for deriving ``entry_price``,
-    ``structural_stop``, structural targets, and measured targets from their own
-    events. This function only validates supplied values, applies the ATR stop
-    buffer, calculates R-based targets, combines optional caller-supplied
-    targets, and records skip/invalid reasons.
+    ``structural_stop``, detector target references, structural targets, and
+    measured targets from their own events. This function only validates
+    supplied values, applies the ATR stop buffer, calculates R-based targets,
+    combines optional caller-supplied targets, and records skip/invalid reasons.
+    Target precedence is deterministic: TP1 starts as the nearest configured
+    R-multiple target, TP2 is replaced by the nearest actionable structure
+    target when supplied, and TP3 is replaced by the nearest actionable measured
+    target when supplied. Detector ``target_reference`` is preserved separately
+    in ``target_semantics`` and is not treated as a measured target unless the
+    caller explicitly passes it through ``measured_targets``.
     """
 
     risk_config = config or RiskExitConfig()
+    plan_atr_metadata = dict(atr_metadata or {})
     plan_direction = _coerce_direction(direction)
     reasons: list[str] = []
 
@@ -218,6 +232,8 @@ def create_risk_exit_plan(
             atr_value,
             risk_config,
             tuple(reasons),
+            plan_atr_metadata,
+            detector_target_reference=detector_target_reference,
         )
 
     assert entry is not None
@@ -255,6 +271,17 @@ def create_risk_exit_plan(
             break_even=risk_config.break_even,
             trailing_stop=risk_config.trailing_stop,
             partial_exits=risk_config.partial_exits,
+            atr_metadata=plan_atr_metadata,
+            target_semantics=target_semantics_metadata(
+                direction=plan_direction,
+                entry_price=entry,
+                risk_per_unit=risk_per_unit if isfinite(risk_per_unit) else None,
+                detector_target_reference=detector_target_reference,
+                r_multiple_targets=(),
+                structural_targets=structural_targets,
+                measured_targets=measured_targets,
+                risk_targets=(),
+            ),
         )
 
     try:
@@ -290,9 +317,30 @@ def create_risk_exit_plan(
             break_even=risk_config.break_even,
             trailing_stop=risk_config.trailing_stop,
             partial_exits=risk_config.partial_exits,
+            atr_metadata=plan_atr_metadata,
+            target_semantics=target_semantics_metadata(
+                direction=plan_direction,
+                entry_price=entry,
+                risk_per_unit=risk_per_unit,
+                detector_target_reference=detector_target_reference,
+                r_multiple_targets=(),
+                structural_targets=structural_targets,
+                measured_targets=measured_targets,
+                risk_targets=(),
+            ),
         )
 
     status = RiskExitPlanStatus.VALID
+    target_semantics = target_semantics_metadata(
+        direction=plan_direction,
+        entry_price=entry,
+        risk_per_unit=risk_per_unit,
+        detector_target_reference=detector_target_reference,
+        r_multiple_targets=r_targets,
+        structural_targets=structural_targets,
+        measured_targets=measured_targets,
+        risk_targets=targets,
+    )
     if targets:
         first_target_r = targets[0].r_multiple
         if first_target_r is not None and first_target_r < risk_config.minimum_first_target_r:
@@ -322,6 +370,8 @@ def create_risk_exit_plan(
         break_even=risk_config.break_even,
         trailing_stop=risk_config.trailing_stop,
         partial_exits=risk_config.partial_exits,
+        atr_metadata=plan_atr_metadata,
+        target_semantics=target_semantics,
     )
 
 
@@ -352,7 +402,12 @@ def calculate_r_multiple_targets(
                 price=price,
                 source=RiskExitTargetSource.R_MULTIPLE,
                 r_multiple=multiple,
-                metadata={"rule": "r_multiple"},
+                metadata={
+                    "rule": "r_multiple",
+                    "target_source": RiskExitTargetSource.R_MULTIPLE.value,
+                    "target_role": "r_multiple_target",
+                    "r_multiple": multiple,
+                },
             )
         )
     return tuple(targets)
@@ -373,7 +428,9 @@ def combine_targets(
     actionable structural target when supplied, and TP3 from the nearest
     actionable measured target when supplied. Missing optional targets fall back
     to the matching R-multiple targets, preserving source metadata for every
-    target.
+    target. Detector-level ``target_reference`` values are intentionally not
+    consumed here unless a pattern planner explicitly classifies them as
+    structural or measured inputs before calling this function.
     """
 
     if not r_targets:
@@ -399,7 +456,11 @@ def combine_targets(
                 structural_target,
                 risk_per_unit,
             ),
-            metadata={"rule": "nearest_actionable_structure"},
+            metadata={
+                "rule": "nearest_actionable_structure",
+                "target_source": RiskExitTargetSource.STRUCTURE.value,
+                "target_role": "structural_target",
+            },
         )
 
     measured_target = _nearest_actionable_target(
@@ -418,10 +479,58 @@ def combine_targets(
                 measured_target,
                 risk_per_unit,
             ),
-            metadata={"rule": "nearest_actionable_measured"},
+            metadata={
+                "rule": "nearest_actionable_measured",
+                "target_source": RiskExitTargetSource.MEASURED.value,
+                "target_role": "measured_target",
+            },
         )
 
     return tuple(combined)
+
+
+def target_semantics_metadata(
+    *,
+    direction: RiskExitDirection | str,
+    entry_price: float | int | None,
+    risk_per_unit: float | int | None,
+    detector_target_reference: float | int | None,
+    r_multiple_targets: Iterable[RiskExitTarget],
+    structural_targets: Iterable[float | int] | None,
+    measured_targets: Iterable[float | int] | None,
+    risk_targets: Iterable[RiskExitTarget],
+) -> dict[str, Any]:
+    """Build reporting metadata that keeps target concepts separate."""
+
+    plan_direction = _coerce_direction(direction)
+    entry = _optional_float(entry_price)
+    risk = _optional_float(risk_per_unit)
+    return {
+        "schema_version": TARGET_SEMANTICS_SCHEMA_VERSION,
+        "detector_target_reference": _optional_float(detector_target_reference),
+        "risk_targets": tuple(_target_metadata(target) for target in risk_targets),
+        "measured_targets": tuple(
+            _candidate_target_metadata(
+                plan_direction,
+                entry,
+                risk,
+                target,
+                RiskExitTargetSource.MEASURED,
+            )
+            for target in measured_targets or ()
+        ),
+        "structural_targets": tuple(
+            _candidate_target_metadata(
+                plan_direction,
+                entry,
+                risk,
+                target,
+                RiskExitTargetSource.STRUCTURE,
+            )
+            for target in structural_targets or ()
+        ),
+        "r_multiple_targets": tuple(_target_metadata(target) for target in r_multiple_targets),
+    }
 
 
 def _invalid_plan(
@@ -431,6 +540,8 @@ def _invalid_plan(
     atr: float | None,
     config: RiskExitConfig,
     reasons: tuple[str, ...],
+    atr_metadata: Mapping[str, Any] | None = None,
+    detector_target_reference: float | int | None = None,
 ) -> RiskExitPlan:
     return RiskExitPlan(
         direction=direction,
@@ -449,6 +560,17 @@ def _invalid_plan(
         break_even=config.break_even,
         trailing_stop=config.trailing_stop,
         partial_exits=config.partial_exits,
+        atr_metadata=dict(atr_metadata or {}),
+        target_semantics=target_semantics_metadata(
+            direction=direction,
+            entry_price=entry_price,
+            risk_per_unit=None,
+            detector_target_reference=detector_target_reference,
+            r_multiple_targets=(),
+            structural_targets=(),
+            measured_targets=(),
+            risk_targets=(),
+        ),
     )
 
 
@@ -535,6 +657,43 @@ def _nearest_actionable_target(
     if direction == RiskExitDirection.LONG:
         return min(actionable)
     return max(actionable)
+
+
+def _target_metadata(target: RiskExitTarget) -> dict[str, Any]:
+    source = _coerce_target_source(target.source)
+    return {
+        "name": target.name,
+        "price": target.price,
+        "source": source.value,
+        "r_multiple": target.r_multiple,
+        "metadata": dict(target.metadata),
+    }
+
+
+def _candidate_target_metadata(
+    direction: RiskExitDirection,
+    entry_price: float | None,
+    risk_per_unit: float | None,
+    target_price: float | int,
+    source: RiskExitTargetSource,
+) -> dict[str, Any]:
+    price = _optional_float(target_price)
+    actionable = False
+    r_multiple = None
+    if price is not None and entry_price is not None and risk_per_unit is not None and risk_per_unit > 0:
+        actionable = (
+            price > entry_price
+            if direction == RiskExitDirection.LONG
+            else price < entry_price
+        )
+        if actionable:
+            r_multiple = _target_r_multiple(direction, entry_price, price, risk_per_unit)
+    return {
+        "price": price,
+        "source": source.value,
+        "actionable": actionable,
+        "r_multiple": r_multiple,
+    }
 
 
 def _target_r_multiple(

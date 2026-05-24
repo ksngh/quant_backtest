@@ -41,6 +41,52 @@ def test_long_trade_reports_positive_mfe_and_mae_from_ohlc_path() -> None:
     assert trade["bars_to_time_stop"] == 2
 
 
+def test_timing_diagnostics_carries_exit_attribution_metadata() -> None:
+    diagnostics = calculate_trade_timing_diagnostics(
+        (
+            _execution(
+                "t0",
+                "ENTER_LONG",
+                100.0,
+                metadata={
+                    "risk_per_unit": 5.0,
+                    "pattern_type": "CUP_AND_HANDLE",
+                    "pattern_direction": "BULLISH",
+                    "entry_mode": "MARKET_ON_CONFIRMATION_CLOSE",
+                },
+            ),
+            _execution(
+                "t1",
+                "EXIT_LONG",
+                105.0,
+                metadata={
+                    "realized_r_multiple": 1.0,
+                    "exit_reason": "TAKE_PROFIT",
+                    "target_source": "MEASURED",
+                    "exit_metadata": {
+                        "target_source": "MEASURED",
+                        "intrabar_policy": "TARGET_FIRST",
+                        "ambiguous_stop_target": True,
+                        "stop_moved_by_break_even_or_trailing": True,
+                    },
+                },
+            ),
+        ),
+        (
+            {"timestamp": "t0", "high": 100.0, "low": 100.0, "close": 100.0},
+            {"timestamp": "t1", "high": 106.0, "low": 99.0, "close": 105.0},
+        ),
+    )
+
+    trade = diagnostics["trades"][0]
+    assert trade["pattern_type"] == "CUP_AND_HANDLE"
+    assert trade["entry_mode"] == "MARKET_ON_CONFIRMATION_CLOSE"
+    assert trade["target_source"] == "MEASURED"
+    assert trade["intrabar_policy"] == "TARGET_FIRST"
+    assert trade["ambiguous_stop_target"] is True
+    assert trade["stop_moved_by_break_even_or_trailing"] is True
+
+
 def test_short_trade_reports_positive_mfe_when_low_prints_after_entry() -> None:
     diagnostics = calculate_trade_timing_diagnostics(
         (

@@ -7,7 +7,7 @@ place orders, or make trading decisions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from statistics import mean, pstdev
 from typing import Any
@@ -89,6 +89,153 @@ class MeanReversionRegime(Enum):
 
 
 @dataclass(frozen=True)
+class PatternRegimeThresholdOverride:
+    """Optional pattern entry thresholds for one regime bucket."""
+
+    minimum_volume_ratio: float | None = None
+    breakout_atr_multiplier: float | None = None
+    minimum_pattern_score: float | None = None
+    block_entry: bool = False
+    block_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        for name in (
+            "minimum_volume_ratio",
+            "breakout_atr_multiplier",
+            "minimum_pattern_score",
+        ):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                raise ValueError(f"{name} must be non-negative when supplied")
+        if self.minimum_pattern_score is not None and self.minimum_pattern_score > 1:
+            raise ValueError("minimum_pattern_score must be between 0 and 1")
+
+    def merged_with(
+        self, other: "PatternRegimeThresholdOverride"
+    ) -> "PatternRegimeThresholdOverride":
+        return PatternRegimeThresholdOverride(
+            minimum_volume_ratio=(
+                other.minimum_volume_ratio
+                if other.minimum_volume_ratio is not None
+                else self.minimum_volume_ratio
+            ),
+            breakout_atr_multiplier=(
+                other.breakout_atr_multiplier
+                if other.breakout_atr_multiplier is not None
+                else self.breakout_atr_multiplier
+            ),
+            minimum_pattern_score=(
+                other.minimum_pattern_score
+                if other.minimum_pattern_score is not None
+                else self.minimum_pattern_score
+            ),
+            block_entry=self.block_entry or other.block_entry,
+            block_reason=other.block_reason or self.block_reason,
+        )
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "minimum_volume_ratio": self.minimum_volume_ratio,
+            "breakout_atr_multiplier": self.breakout_atr_multiplier,
+            "minimum_pattern_score": self.minimum_pattern_score,
+            "block_entry": self.block_entry,
+            "block_reason": self.block_reason,
+        }
+
+
+@dataclass(frozen=True)
+class PatternRegimeThresholdConfig:
+    """Opt-in pattern threshold layer keyed by OHLCV-derived regime metadata."""
+
+    enabled: bool = False
+    default_thresholds: PatternRegimeThresholdOverride = field(
+        default_factory=PatternRegimeThresholdOverride
+    )
+    market_regime_overrides: dict[str, PatternRegimeThresholdOverride] | None = None
+    volatility_regime_overrides: dict[str, PatternRegimeThresholdOverride] | None = None
+    liquidity_regime_overrides: dict[str, PatternRegimeThresholdOverride] | None = None
+    spread_regime_overrides: dict[str, PatternRegimeThresholdOverride] | None = None
+    trend_regime_overrides: dict[str, PatternRegimeThresholdOverride] | None = None
+
+    def __post_init__(self) -> None:
+        for name in (
+            "market_regime_overrides",
+            "volatility_regime_overrides",
+            "liquidity_regime_overrides",
+            "spread_regime_overrides",
+            "trend_regime_overrides",
+        ):
+            mapping = getattr(self, name)
+            if mapping is not None and not isinstance(mapping, dict):
+                raise ValueError(f"{name} must be a dictionary when supplied")
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "schema_version": "pattern_regime_thresholds_v1",
+            "enabled": self.enabled,
+            "default_thresholds": self.default_thresholds.to_metadata(),
+            "market_regime_overrides": _override_mapping_metadata(
+                self.market_regime_overrides
+            ),
+            "volatility_regime_overrides": _override_mapping_metadata(
+                self.volatility_regime_overrides
+            ),
+            "liquidity_regime_overrides": _override_mapping_metadata(
+                self.liquidity_regime_overrides
+            ),
+            "spread_regime_overrides": _override_mapping_metadata(
+                self.spread_regime_overrides
+            ),
+            "trend_regime_overrides": _override_mapping_metadata(
+                self.trend_regime_overrides
+            ),
+        }
+
+
+def evaluate_pattern_regime_thresholds(
+    action_metadata: dict[str, Any] | None,
+    regime_context: dict[str, Any] | None,
+    config: PatternRegimeThresholdConfig | None,
+) -> dict[str, Any]:
+    """Evaluate opt-in regime-conditioned pattern entry thresholds."""
+
+    if config is None:
+        return {
+            "schema_version": "pattern_regime_thresholds_v1",
+            "enabled": False,
+            "blocked": False,
+            "block_reason": None,
+            "applied_thresholds": {},
+            "matched_overrides": (),
+            "violations": (),
+        }
+    metadata = action_metadata or {}
+    context = regime_context or {}
+    thresholds, matched = _resolved_pattern_regime_thresholds(context, config)
+    applied = thresholds.to_metadata()
+    violations = _pattern_threshold_violations(metadata, thresholds)
+    blocked = bool(config.enabled and (thresholds.block_entry or violations))
+    block_reason = None
+    if blocked:
+        block_reason = thresholds.block_reason or (
+            violations[0] if violations else "REGIME_ENTRY_BLOCKED"
+        )
+    return {
+        "schema_version": "pattern_regime_thresholds_v1",
+        "enabled": bool(config.enabled),
+        "blocked": blocked,
+        "block_reason": block_reason,
+        "applied_thresholds": applied,
+        "matched_overrides": tuple(matched),
+        "violations": tuple(violations),
+        "regime_context": {
+            key: value for key, value in context.items() if value is not None
+        },
+        "default_behavior_preserved": not config.enabled,
+    }
+
+
+@dataclass(frozen=True)
 class MarketRegimeConfig:
     """Configuration for deterministic OHLCV-derived regime labels."""
 
@@ -105,6 +252,7 @@ class MarketRegimeConfig:
     mean_reversion_zscore_threshold: float = 1.0
     use_quote_volume_if_available: bool = True
     require_full_window: bool = True
+    percentile_zscore_include_current: bool = True
 
     def __post_init__(self) -> None:
         for name in (
@@ -183,9 +331,27 @@ def calculate_market_regime(
         average_trading_value = _rolling_mean(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
         spread_proxy = ((high or 0.0) - (low or 0.0)) / close if close and close > 0 else None
         spread_values = _spread_proxy_values(high_values, low_values, close_values)
-        trading_value_percentile = _rolling_percentile_rank(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
-        liquidity_zscore = _rolling_zscore(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
-        range_spread_proxy_percentile = _rolling_percentile_rank(spread_values, position, regime_config.liquidity_window, regime_config.require_full_window)
+        trading_value_percentile = _rolling_percentile_rank(
+            trading_values,
+            position,
+            regime_config.liquidity_window,
+            regime_config.require_full_window,
+            include_current=regime_config.percentile_zscore_include_current,
+        )
+        liquidity_zscore = _rolling_zscore(
+            trading_values,
+            position,
+            regime_config.liquidity_window,
+            regime_config.require_full_window,
+            include_current=regime_config.percentile_zscore_include_current,
+        )
+        range_spread_proxy_percentile = _rolling_percentile_rank(
+            spread_values,
+            position,
+            regime_config.liquidity_window,
+            regime_config.require_full_window,
+            include_current=regime_config.percentile_zscore_include_current,
+        )
         wick_dominance_proxy = _wick_dominance_proxy(open_price, high, low, close)
         session_tag = classify_utc_session(candle["timestamp"])
         weekday_tag = classify_weekday_tag(candle["timestamp"])
@@ -242,11 +408,126 @@ def calculate_market_regime(
 def calculate_market_regime_snapshot(
     candles: pd.DataFrame,
     config: MarketRegimeConfig | None = None,
+    *,
+    include_timing_metadata: bool = False,
 ) -> dict[str, Any]:
+    regime_config = config or MarketRegimeConfig()
     rows = calculate_market_regime(candles, config)
     if rows.empty:
-        return {column: None for column in MARKET_REGIME_OUTPUT_COLUMNS}
-    return rows.iloc[-1].to_dict()
+        snapshot = {column: None for column in MARKET_REGIME_OUTPUT_COLUMNS}
+    else:
+        snapshot = rows.iloc[-1].to_dict()
+    if include_timing_metadata:
+        snapshot["timing"] = market_regime_timing_metadata(regime_config)
+    return snapshot
+
+
+def market_regime_timing_metadata(
+    config: MarketRegimeConfig | None = None,
+) -> dict[str, Any]:
+    """Return Market Regime timing semantics without changing output columns."""
+
+    regime_config = config or MarketRegimeConfig()
+    includes_current = bool(regime_config.percentile_zscore_include_current)
+    return {
+        "schema_version": "indicator_timing_metadata_v1",
+        "indicator": "MARKET_REGIME",
+        "current_candle_included": True,
+        "requires_closed_candle": True,
+        "warmup_period": int(
+            max(
+                regime_config.volatility_window,
+                regime_config.trend_window,
+                regime_config.liquidity_window,
+                regime_config.mean_reversion_window,
+            )
+        ),
+        "confirmation_delay": 0,
+        "baseline_mode": (
+            "CURRENT_INCLUSIVE_PERCENTILE_ZSCORE"
+            if includes_current
+            else "PRIOR_ONLY_PERCENTILE_ZSCORE"
+        ),
+        "percentile_zscore_current_candle_included": includes_current,
+        "safe_usage": "after_close_completed_candle_signal",
+    }
+
+
+def _resolved_pattern_regime_thresholds(
+    regime_context: dict[str, Any],
+    config: PatternRegimeThresholdConfig,
+) -> tuple[PatternRegimeThresholdOverride, list[str]]:
+    thresholds = config.default_thresholds
+    matched: list[str] = []
+    for context_key, mapping in (
+        ("market_regime", config.market_regime_overrides),
+        ("volatility_regime", config.volatility_regime_overrides),
+        ("liquidity_regime", config.liquidity_regime_overrides),
+        ("spread_regime", config.spread_regime_overrides),
+        ("trend_regime", config.trend_regime_overrides),
+    ):
+        if not mapping:
+            continue
+        value = regime_context.get(context_key)
+        if value is None:
+            continue
+        override = mapping.get(str(value).upper())
+        if override is None:
+            override = mapping.get(str(value))
+        if override is None:
+            continue
+        thresholds = thresholds.merged_with(override)
+        matched.append(f"{context_key}:{value}")
+    return thresholds, matched
+
+
+def _pattern_threshold_violations(
+    metadata: dict[str, Any],
+    thresholds: PatternRegimeThresholdOverride,
+) -> list[str]:
+    violations: list[str] = []
+    if thresholds.minimum_volume_ratio is not None:
+        volume_ratio = _metadata_float(metadata.get("volume_ratio"))
+        if volume_ratio is None or volume_ratio < thresholds.minimum_volume_ratio:
+            violations.append("REGIME_VOLUME_RATIO_BELOW_MINIMUM")
+    if thresholds.minimum_pattern_score is not None:
+        score = _metadata_float(
+            metadata.get("executable_pattern_score", metadata.get("pattern_score"))
+        )
+        if score is None or score < thresholds.minimum_pattern_score:
+            violations.append("REGIME_PATTERN_SCORE_BELOW_MINIMUM")
+    if thresholds.breakout_atr_multiplier is not None:
+        breakout_value = _first_metadata_float(
+            metadata,
+            ("break_distance_atr", "displacement_range_atr", "gap_size_atr"),
+        )
+        if breakout_value is None or breakout_value < thresholds.breakout_atr_multiplier:
+            violations.append("REGIME_BREAKOUT_ATR_BELOW_MINIMUM")
+    return violations
+
+
+def _first_metadata_float(
+    metadata: dict[str, Any], keys: tuple[str, ...]
+) -> float | None:
+    for key in keys:
+        value = _metadata_float(metadata.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _metadata_float(value: Any) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
+
+
+def _override_mapping_metadata(
+    mapping: dict[str, PatternRegimeThresholdOverride] | None,
+) -> dict[str, dict[str, Any]]:
+    if not mapping:
+        return {}
+    return {str(key): value.to_metadata() for key, value in mapping.items()}
 
 
 def classify_regime_volatility(
@@ -439,8 +720,16 @@ def _rolling_percentile_rank(
     position: int,
     window: int,
     require_full_window: bool,
+    *,
+    include_current: bool = True,
 ) -> float | None:
-    window_values = _window(values, position, window, require_full_window)
+    window_values = _window(
+        values,
+        position,
+        window,
+        require_full_window,
+        include_current=include_current,
+    )
     current = values[position]
     if window_values is None or current is None:
         return None
@@ -453,8 +742,16 @@ def _rolling_zscore(
     position: int,
     window: int,
     require_full_window: bool,
+    *,
+    include_current: bool = True,
 ) -> float | None:
-    window_values = _window(values, position, window, require_full_window)
+    window_values = _window(
+        values,
+        position,
+        window,
+        require_full_window,
+        include_current=include_current,
+    )
     current = values[position]
     if window_values is None or current is None:
         return None
@@ -528,8 +825,11 @@ def _window(
     position: int,
     window: int,
     require_full_window: bool,
+    *,
+    include_current: bool = True,
 ) -> list[float] | None:
-    raw_values = values[max(0, position + 1 - window) : position + 1]
+    end_position = position + 1 if include_current else position
+    raw_values = values[max(0, end_position - window) : end_position]
     if require_full_window and len(raw_values) < window:
         return None
     if any(value is None for value in raw_values):

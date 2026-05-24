@@ -10,6 +10,7 @@ from quant_bitcoin.indicators.swing_structure import (
     classify_low,
     classify_market_status,
     classify_swing_structure,
+    swing_structure_alignment_feature,
 )
 
 
@@ -346,3 +347,57 @@ def test_contract_output_columns_and_market_status_helper_are_stable() -> None:
         [SwingLabel.HL.value],
         MarketStructureStatus.UNKNOWN.value,
     ) == MarketStructureStatus.UPTREND.value
+
+
+def test_swing_alignment_uses_only_pivots_confirmed_before_event_index() -> None:
+    pivots = _pivots(
+        [
+            {
+                "pivot_type": PivotType.PIVOT_HIGH.value,
+                "price": 100.0,
+                "pivot_index": 0,
+                "confirmed_index": 1,
+            },
+            {
+                "pivot_type": PivotType.PIVOT_LOW.value,
+                "price": 80.0,
+                "pivot_index": 1,
+                "confirmed_index": 2,
+            },
+            {
+                "pivot_type": PivotType.PIVOT_HIGH.value,
+                "price": 110.0,
+                "pivot_index": 2,
+                "confirmed_index": 3,
+            },
+            {
+                "pivot_type": PivotType.PIVOT_LOW.value,
+                "price": 90.0,
+                "pivot_index": 3,
+                "confirmed_index": 4,
+            },
+            {
+                "pivot_type": PivotType.PIVOT_HIGH.value,
+                "price": 70.0,
+                "pivot_index": 6,
+                "confirmed_index": 8,
+            },
+            {
+                "pivot_type": PivotType.PIVOT_LOW.value,
+                "price": 60.0,
+                "pivot_index": 7,
+                "confirmed_index": 9,
+            },
+        ]
+    )
+
+    feature = swing_structure_alignment_feature(
+        pivots,
+        current_index=5,
+        direction="BULLISH",
+    )
+
+    assert feature["source"] == "observed_swing_structure_alignment"
+    assert feature["context"] == "BULLISH_STRUCTURE_ALIGNED"
+    assert feature["market_structure_status"] == MarketStructureStatus.UPTREND.value
+    assert feature["feature_window_pivots"] == 4

@@ -6,6 +6,7 @@ from quant_bitcoin.indicators.support_resistance_zone import (
     ZoneStatus,
     ZoneType,
     detect_support_resistance_zones,
+    support_resistance_proximity_feature,
 )
 
 
@@ -213,3 +214,32 @@ def test_rejects_malformed_pivot_input_and_invalid_config() -> None:
 
     with pytest.raises(ValueError, match="minimum_touch_count"):
         SupportResistanceZoneConfig(minimum_touch_count=0)
+
+
+def test_support_proximity_uses_only_zones_confirmed_before_event_index() -> None:
+    pivots = _pivots(
+        [
+            ("PIVOT_LOW", 100.0, True),
+            ("PIVOT_HIGH", 130.0, True),
+            ("PIVOT_LOW", 101.0, True),
+            ("PIVOT_HIGH", 140.0, True),
+            ("PIVOT_LOW", 80.0, True),
+            ("PIVOT_LOW", 80.5, True),
+        ]
+    )
+    pivots["confirmed_index"] = [1, 2, 3, 4, 8, 9]
+
+    feature = support_resistance_proximity_feature(
+        pivots,
+        current_index=5,
+        price=101.0,
+        direction="BULLISH",
+        atr=4.0,
+        config=SupportResistanceZoneConfig(merge_overlapping_zones=False),
+    )
+
+    assert feature["source"] == "observed_support_resistance_proximity"
+    assert feature["context"] == "NEAR_SUPPORT"
+    assert feature["pivot_indices"] == (0, 2)
+    assert feature["latest_confirmed_index"] == 4
+    assert feature["confirmation_delay_bars"] == 1

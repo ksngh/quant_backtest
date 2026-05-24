@@ -12,7 +12,10 @@ from quant_bitcoin.persistence.postgres import (
     BacktestRunReadModel,
     PostgresBacktestResultRepository,
 )
-from backend.quant_backtest_api.services.research_report import build_backtest_research_report
+from backend.quant_backtest_api.services.research_report import (
+    build_backtest_research_report,
+    redact_sensitive,
+)
 
 
 class BacktestResultsService:
@@ -45,7 +48,7 @@ class BacktestResultsService:
             trades=trades,
             graph_points=graph_points,
         )
-        response = {
+        response = redact_sensitive({
             "run": run,
             "strategy_config": strategy_config,
             "summary": summary,
@@ -53,14 +56,14 @@ class BacktestResultsService:
             "graph_points": graph_points,
             "diagnostics": diagnostics,
             "warnings": warnings,
-        }
+        })
         response["research_report"] = build_backtest_research_report(
-            run=run,
-            strategy_config=strategy_config,
-            summary=summary,
-            trades=trades,
-            graph_points=graph_points,
-            diagnostics=diagnostics,
+            run=response["run"],
+            strategy_config=response["strategy_config"],
+            summary=response["summary"],
+            trades=response["trades"],
+            graph_points=response["graph_points"],
+            diagnostics=response["diagnostics"],
             warnings=warnings,
         )
         return response
@@ -77,7 +80,7 @@ class BacktestResultsService:
     def _serialize_list_item(self, item: Any) -> dict[str, Any]:
         data = self._serialize_dataclass(item)
         runtime_summary = self._extract_runtime_summary(data.get("metadata"))
-        return {
+        return redact_sensitive({
             "id": data["id"],
             "run_key": data["run_key"],
             "strategy": {
@@ -104,7 +107,7 @@ class BacktestResultsService:
             "runtime": runtime_summary,
             "created_at": data["created_at"],
             "completed_at": data["completed_at"],
-        }
+        })
 
     def _serialize_run(self, run: Any) -> dict[str, Any]:
         data = self._serialize_dataclass(run)
@@ -294,6 +297,9 @@ class BacktestResultsService:
                 trades,
                 graph_points,
             )
+        metadata_schema_index = self._metadata_schema_index(summary_metadata, trades)
+        if metadata_schema_index:
+            summary_sections["metadata_schema_index"] = metadata_schema_index
         if summary_sections:
             diagnostics["summary"] = summary_sections
             available_sections.extend(f"summary.{key}" for key in summary_sections)
@@ -329,6 +335,126 @@ class BacktestResultsService:
             if isinstance(metadata, dict):
                 keys.update(str(key) for key in metadata)
         return sorted(keys)
+
+    def _metadata_schema_index(
+        self,
+        summary_metadata: dict[str, Any],
+        trades: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        contracts = {
+            "pattern_execution_policy": self._schema_contract(
+                expected_schema="pattern_execution_policy_v1",
+                location="summary.metadata.pattern_execution_policy",
+                value=summary_metadata.get("pattern_execution_policy"),
+            ),
+            "target_semantics": self._schema_contract(
+                expected_schema="target_semantics_v1",
+                location="trades.metadata.target_semantics",
+                value=self._first_trade_metadata_record(trades, "target_semantics"),
+            ),
+            "score_components": self._score_components_contract(trades),
+            "risk_exit_audit": self._schema_contract(
+                expected_schema="risk_exit_audit_v2",
+                location="summary.metadata.risk_exit_audit",
+                value=summary_metadata.get("risk_exit_audit"),
+                compatible_saved_schemas=("risk_exit_audit_v1",),
+            ),
+            "intrabar_policy": self._intrabar_policy_contract(trades),
+        }
+        warnings = [
+            f"{name} metadata unavailable"
+            for name, contract in contracts.items()
+            if contract["status"] == "missing"
+        ]
+        return {
+            "schema_version": "backtest_metadata_schema_index_v1",
+            "contracts": contracts,
+            "warnings": warnings,
+        }
+
+    def _schema_contract(
+        self,
+        *,
+        expected_schema: str,
+        location: str,
+        value: Any,
+        compatible_saved_schemas: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        record = value if isinstance(value, dict) else None
+        observed_schema = record.get("schema_version") if record else None
+        status = "missing"
+        if record:
+            status = "present"
+            if observed_schema and observed_schema not in (expected_schema, *compatible_saved_schemas):
+                status = "schema_mismatch"
+        return {
+            "expected_schema": expected_schema,
+            "compatible_saved_schemas": list(compatible_saved_schemas),
+            "observed_schema": observed_schema,
+            "location": location,
+            "status": status,
+        }
+
+    def _score_components_contract(self, trades: list[dict[str, Any]]) -> dict[str, Any]:
+        components = self._first_trade_metadata_record(trades, "score_components")
+        component_values = list(components.values()) if isinstance(components, dict) else []
+        component_records = [component for component in component_values if isinstance(component, dict)]
+        invalid_component_count = len(component_values) - len(component_records)
+        placeholder_count = sum(1 for component in component_records if component.get("is_placeholder") is True)
+        return {
+            "expected_schema": "score_components_v1",
+            "observed_schema": "score_components_v1" if components else None,
+            "location": "trades.metadata.score_components",
+            "status": "present" if components else "missing",
+            "component_count": len(component_values),
+            "placeholder_component_count": placeholder_count,
+            "invalid_component_count": invalid_component_count,
+            "required_component_fields": [
+                "raw_score",
+                "weight",
+                "source",
+                "is_placeholder",
+                "included_in_executable_score",
+            ],
+        }
+
+    def _intrabar_policy_contract(self, trades: list[dict[str, Any]]) -> dict[str, Any]:
+        policy = None
+        ambiguous = None
+        for trade in trades:
+            metadata = trade.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            exit_metadata = metadata.get("exit_metadata")
+            if isinstance(exit_metadata, dict):
+                policy = policy or exit_metadata.get("intrabar_policy")
+                ambiguous = ambiguous if ambiguous is not None else exit_metadata.get("ambiguous_stop_target")
+            policy = policy or metadata.get("intrabar_policy")
+            ambiguous = ambiguous if ambiguous is not None else metadata.get("ambiguous_stop_target")
+            if policy is not None or ambiguous is not None:
+                break
+        return {
+            "expected_schema": "intrabar_policy_v1",
+            "observed_schema": "intrabar_policy_v1" if policy is not None or ambiguous is not None else None,
+            "location": "trades.metadata.exit_metadata.intrabar_policy",
+            "status": "present" if policy is not None or ambiguous is not None else "missing",
+            "policy": policy,
+            "ambiguous_stop_target": ambiguous,
+        }
+
+    def _first_trade_metadata_record(
+        self,
+        trades: list[dict[str, Any]],
+        key: str,
+    ) -> dict[str, Any] | None:
+        for trade in trades:
+            metadata = trade.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            value = metadata.get(key)
+            if isinstance(value, dict):
+                return value
+        return None
 
     def _serialize_dataclass(self, value: Any) -> Any:
         if hasattr(value, "__dataclass_fields__"):

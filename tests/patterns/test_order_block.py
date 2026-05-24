@@ -6,7 +6,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from quant_bitcoin.indicators import AtrConfig, VolumeRatioConfig
+from quant_bitcoin.indicators import (
+    AtrConfig,
+    PivotConfig,
+    SupportResistanceZoneConfig,
+    VolumeRatioConfig,
+)
 from quant_bitcoin.patterns import (
     OrderBlockConfig,
     OrderBlockState,
@@ -99,7 +104,7 @@ def test_detects_bullish_order_block_event() -> None:
     event = events[0]
     assert event.pattern_type == "ORDER_BLOCK"
     assert event.direction == "BULLISH"
-    assert event.pattern_status == OrderBlockStatus.VALID.value
+    assert event.pattern_status == OrderBlockStatus.WEAK.value
     assert event.order_block_state == OrderBlockState.FRESH.value
     assert event.symbol == "BTCUSDT"
     assert event.timeframe == "1m"
@@ -112,21 +117,86 @@ def test_detects_bullish_order_block_event() -> None:
     assert event.zone_size == pytest.approx(1.0)
     assert event.zone_size_atr == pytest.approx(1.0 / 6.5)
     assert event.source_mode == "SINGLE_CANDLE"
+    assert event.source_cluster_size == 1
+    assert event.detector_input_type == "OHLCV_HEURISTIC"
+    assert event.retest_entry_eligible is False
     assert event.zone_definition == OrderBlockZoneDefinition.FULL_RANGE.value
     assert event.displacement_direction == "BULLISH"
     assert event.displacement_range_atr == pytest.approx(12.0 / 6.5)
     assert event.body_ratio == pytest.approx(10.3 / 12.0)
     assert event.volume_ratio == pytest.approx(500.0 / 300.0)
     assert event.mitigation_depth == pytest.approx(0.0)
-    assert event.pattern_score >= 0.7
+    assert event.pattern_score == pytest.approx(event.executable_pattern_score)
+    assert event.pattern_score < event.diagnostic_pattern_score
+    assert event.diagnostic_pattern_score >= 0.6
     assert event.score_components["zone_quality"]["source"] == "observed_zone_size_atr"
-    assert event.score_components["structure_confirmation"]["is_placeholder"] is True
+    assert event.score_components["structure_confirmation"]["source"] == "missing_context"
+    assert event.score_components["structure_confirmation"]["raw_score"] == 0.0
+    assert event.score_components["structure_confirmation"]["is_placeholder"] is False
     assert event.score_components["liquidity"]["is_placeholder"] is True
+    assert event.score_components["liquidity"]["included_in_executable_score"] is False
     assert event.score_calibration["score_type"] == "heuristic_quality_score"
     assert event.entry_reference == pytest.approx(99.5)
     assert event.stop_reference == pytest.approx(99.0 - 0.2 * 6.5)
     assert event.risk_reward == pytest.approx(2.0)
     assert event.reason
+
+
+def test_bullish_multi_candle_cluster_is_opt_in_and_deterministic() -> None:
+    candles = _candles(
+        [
+            {"open": 100.0, "high": 101.0, "low": 98.0, "close": 99.0, "volume": 100.0},
+            {"open": 99.0, "high": 100.0, "low": 97.0, "close": 98.0, "volume": 120.0},
+            {"open": 98.0, "high": 110.0, "low": 97.0, "close": 109.5, "volume": 600.0},
+        ]
+    )
+
+    single = detect_order_blocks(candles, symbol="BTCUSDT", config=_config(maximum_zone_size_atr_multiplier=2.0))
+    cluster = detect_order_blocks(
+        candles,
+        symbol="BTCUSDT",
+        config=_config(
+            allow_multi_candle_order_block=True,
+            maximum_source_cluster_size=2,
+            maximum_zone_size_atr_multiplier=2.0,
+        ),
+    )
+
+    assert single[0].source_mode == "SINGLE_CANDLE"
+    assert single[0].source_cluster_start_index == 1
+    assert cluster[0].source_mode == "MULTI_CANDLE_CLUSTER"
+    assert cluster[0].source_cluster_start_index == 0
+    assert cluster[0].source_cluster_end_index == 1
+    assert cluster[0].source_cluster_size == 2
+    assert cluster[0].zone_low == pytest.approx(97.0)
+    assert cluster[0].zone_high == pytest.approx(101.0)
+
+
+def test_bearish_multi_candle_cluster_is_symmetric() -> None:
+    candles = _candles(
+        [
+            {"open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0, "volume": 100.0},
+            {"open": 101.0, "high": 103.0, "low": 100.0, "close": 102.0, "volume": 120.0},
+            {"open": 102.0, "high": 103.0, "low": 90.0, "close": 90.5, "volume": 600.0},
+        ]
+    )
+
+    events = detect_order_blocks(
+        candles,
+        symbol="BTCUSDT",
+        config=_config(
+            allow_multi_candle_order_block=True,
+            maximum_source_cluster_size=2,
+            maximum_zone_size_atr_multiplier=2.0,
+        ),
+    )
+
+    assert len(events) == 1
+    assert events[0].direction == "BEARISH"
+    assert events[0].source_mode == "MULTI_CANDLE_CLUSTER"
+    assert events[0].source_cluster_size == 2
+    assert events[0].zone_low == pytest.approx(99.0)
+    assert events[0].zone_high == pytest.approx(103.0)
 
 
 def test_detects_bearish_order_block_event() -> None:
@@ -140,7 +210,7 @@ def test_detects_bearish_order_block_event() -> None:
     assert len(events) == 1
     event = events[0]
     assert event.direction == "BEARISH"
-    assert event.pattern_status == OrderBlockStatus.VALID.value
+    assert event.pattern_status == OrderBlockStatus.WEAK.value
     assert event.order_block_state == OrderBlockState.FRESH.value
     assert event.zone_low == pytest.approx(99.0)
     assert event.zone_high == pytest.approx(100.0)
@@ -242,12 +312,40 @@ def test_order_block_state_classification(
     events = detect_order_blocks(
         _bullish_order_block_candles(later=[later_candle]),
         symbol="BTCUSDT",
-        config=_config(retrospective_lifecycle=True),
+        config=_config(retrospective_lifecycle=True, weak_pattern_score=0.0),
     )
 
     assert len(events) == 1
     assert events[0].order_block_state == expected_state
     assert events[0].mitigation_depth == pytest.approx(expected_depth)
+
+
+def test_retest_event_emission_uses_visible_post_displacement_candles() -> None:
+    events = detect_order_blocks(
+        _bullish_order_block_candles(
+            later=[{"open": 101.0, "high": 102.0, "low": 99.5, "close": 101.0}]
+        ),
+        symbol="BTCUSDT",
+        config=_config(emit_retest_events=True, retest_entry_max_wait_bars=2, weak_pattern_score=0.0),
+    )
+
+    assert len(events) == 1
+    assert events[0].order_block_state == OrderBlockState.MITIGATED.value
+    assert events[0].end_index == 2
+    assert events[0].retest_entry_eligible is True
+    assert events[0].retest_wait_bars == 1
+
+
+def test_retest_event_skips_when_no_touch_within_wait_window() -> None:
+    events = detect_order_blocks(
+        _bullish_order_block_candles(
+            later=[{"open": 102.0, "high": 103.0, "low": 102.0, "close": 102.5}]
+        ),
+        symbol="BTCUSDT",
+        config=_config(emit_retest_events=True, retest_entry_max_wait_bars=1),
+    )
+
+    assert events == []
 
 
 def test_broken_zone_is_not_emitted_as_valid_reference() -> None:
@@ -344,6 +442,51 @@ def test_detector_accepts_standard_schema_without_binance_raw_fields() -> None:
 
     assert list(candles.columns) == ["timestamp", "open", "high", "low", "close", "volume"]
     assert len(detect_order_blocks(candles, symbol="BTCUSDT", config=_config())) == 1
+
+
+def test_bearish_order_block_near_confirmed_resistance_gets_observed_context_score() -> None:
+    candles = _candles(
+        [
+            {"open": 100.0, "high": 104.0, "low": 94.0, "close": 98.0},
+            {"open": 106.0, "high": 110.0, "low": 100.0, "close": 105.0},
+            {"open": 100.0, "high": 104.0, "low": 94.0, "close": 98.0},
+            {"open": 106.0, "high": 109.8, "low": 100.0, "close": 105.0},
+            {"open": 100.0, "high": 104.0, "low": 94.0, "close": 98.0},
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0},
+            {"open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0},
+            {"open": 101.0, "high": 101.5, "low": 89.0, "close": 90.0, "volume": 500.0},
+        ]
+    )
+
+    events = detect_order_blocks(
+        candles,
+        symbol="BTCUSDT",
+        config=_config(
+            minimum_displacement_atr_multiplier=0.8,
+            minimum_pattern_score=0.0,
+            weak_pattern_score=0.0,
+            maximum_zone_size_atr_multiplier=1.0,
+            pivot_config=PivotConfig(
+                left_window=1,
+                right_window=1,
+                minimum_distance_between_pivots=1,
+            ),
+            support_resistance_config=SupportResistanceZoneConfig(
+                minimum_touch_count=2,
+                zone_width_atr_multiplier=1.5,
+                maximum_zone_width_rate=0.3,
+                merge_overlapping_zones=False,
+            ),
+        ),
+    )
+
+    assert len(events) == 1
+    component = events[0].score_components["support_resistance_context"]
+    assert events[0].direction == "BEARISH"
+    assert component["source"] == "observed_support_resistance_proximity"
+    assert component["is_placeholder"] is False
+    assert component["metadata"]["context"] == "NEAR_RESISTANCE"
+    assert component["metadata"]["expected_zone_type"] == "RESISTANCE"
 
 
 def test_requiring_unavailable_liquidity_or_spread_filters_needs_explicit_values() -> None:

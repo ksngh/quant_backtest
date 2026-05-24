@@ -19,6 +19,14 @@ def calculate_risk_exit_audit(
     target_price_distances: list[float] = []
     flags: list[dict[str, object]] = []
     validation = {"critical_count": 0, "warnings": []}
+    grouped: dict[tuple[str, ...], dict[str, Any]] = defaultdict(_group_accumulator)
+    target_source_grouped: dict[str, dict[str, Any]] = defaultdict(_source_accumulator)
+    timing_by_exit_timestamp = _timing_by_exit_timestamp(summary_metadata)
+    ambiguous_count = 0
+    ambiguous_net_pnl = 0.0
+    stop_movement_count = 0
+    stop_movement_net_pnl = 0.0
+    total_cost = 0.0
 
     for row in rows:
         metadata = _record(_field(row, "metadata"))
@@ -51,6 +59,9 @@ def calculate_risk_exit_audit(
 
     for row in closing:
         reason = _exit_reason(row) or "UNKNOWN"
+        metadata = _record(_field(row, "metadata"))
+        exit_metadata = _record(metadata.get("exit_metadata"))
+        timing = timing_by_exit_timestamp.get(str(_field(row, "timestamp") or ""))
         counts[reason] += 1
         net_pnl = _number(_field(row, "net_pnl")) or 0.0
         r_value = _number(_field(row, "realized_r_multiple"))
@@ -60,6 +71,18 @@ def calculate_risk_exit_audit(
             pnl_by_reason[reason]["r_sum"] += r_value
             pnl_by_reason[reason]["r_count"] += 1.0
         total_net_pnl += net_pnl
+        cost = _number(_field(row, "total_cost")) or _number(metadata.get("total_cost")) or 0.0
+        total_cost += cost
+        group = grouped[_group_key(row, metadata, exit_metadata)]
+        _accumulate_group(group, row, net_pnl, r_value, timing, cost)
+        source = str(_field(row, "target_source") or exit_metadata.get("target_source") or metadata.get("target_source") or "NONE").upper()
+        _accumulate_group(target_source_grouped[source], row, net_pnl, r_value, timing, cost)
+        if bool(exit_metadata.get("ambiguous_stop_target")):
+            ambiguous_count += 1
+            ambiguous_net_pnl += net_pnl
+        if bool(exit_metadata.get("stop_moved_by_break_even_or_trailing")):
+            stop_movement_count += 1
+            stop_movement_net_pnl += net_pnl
         if "PARTIAL_EXIT" in str(_field(row, "action_type") or "").upper():
             partial_net_pnl += net_pnl
 
@@ -83,6 +106,15 @@ def calculate_risk_exit_audit(
             flags.append(_flag("HARD_STOP_DOMINATES_NEGATIVE_EXPECTANCY", stop_ratio, "Hard-stop exits dominate a negative-expectancy run."))
         if soft_ratio > 0.5:
             flags.append(_flag("SOFT_INVALIDATION_DOMINATES_NEGATIVE_EXPECTANCY", soft_ratio, "Soft-invalidation exits dominate a negative-expectancy run."))
+    if stop_ratio > 0.5:
+        flags.append(_flag("STOP_DOMINANT_PATTERN", stop_ratio, "Stop exits dominate completed exits."))
+    if time_ratio > 0.5:
+        flags.append(_flag("TIME_STOP_DOMINANT_PATTERN", time_ratio, "Time-stop exits dominate completed exits."))
+    if soft_ratio > 0.5:
+        flags.append(_flag("SOFT_INVALIDATION_DOMINANT_PATTERN", soft_ratio, "Soft-invalidation exits dominate completed exits."))
+    cost_dominance_ratio = None if total_net_pnl == 0 else total_cost / abs(total_net_pnl)
+    if cost_dominance_ratio is not None and cost_dominance_ratio > 0.5:
+        flags.append(_flag("COST_DOMINANT_PATTERN", cost_dominance_ratio, "Transaction costs are large relative to absolute closing PnL."))
 
     if completed_count == 0:
         validation["warnings"].append("no closing executions available for risk audit")
@@ -103,6 +135,39 @@ def calculate_risk_exit_audit(
             "final_target_hit_rate": None if completed_count == 0 else _target_hit_count(rows, "TP3") / completed_count,
             "average_target_distance_r": _average(target_r_values),
             "average_target_distance_price": _average(target_price_distances),
+            "by_target_source": _finalize_source_groups(target_source_grouped),
+        },
+        "outcome_attribution": {
+            "schema_version": "risk_exit_outcome_attribution_v1",
+            "grouping_fields": (
+                "pattern_type",
+                "direction",
+                "entry_mode",
+                "target_source",
+                "exit_reason",
+                "intrabar_policy",
+            ),
+            "groups": tuple(_finalize_group(group) for group in grouped.values()),
+        },
+        "path_attribution": {
+            "mfe_mae_source": "summary_metadata.timing_diagnostics.trades",
+            "groups_with_mfe_mae": len([group for group in grouped.values() if group["mfe_count"] > 0]),
+            "average_mfe_r": _average([group["mfe_sum"] / group["mfe_count"] for group in grouped.values() if group["mfe_count"] > 0]),
+            "average_mae_r": _average([group["mae_sum"] / group["mae_count"] for group in grouped.values() if group["mae_count"] > 0]),
+        },
+        "intrabar_ambiguity": {
+            "ambiguous_stop_target_count": ambiguous_count,
+            "ambiguous_stop_target_net_pnl": ambiguous_net_pnl,
+            "ambiguous_stop_target_pnl_contribution_ratio": None if total_net_pnl == 0 else ambiguous_net_pnl / total_net_pnl,
+        },
+        "stop_movement": {
+            "break_even_or_trailing_stop_count": stop_movement_count,
+            "break_even_or_trailing_stop_net_pnl": stop_movement_net_pnl,
+            "metadata_source": "exit_metadata.stop_moved_by_break_even_or_trailing",
+        },
+        "cost_dominance": {
+            "total_cost": total_cost,
+            "cost_to_abs_closing_pnl_ratio": cost_dominance_ratio,
         },
         "partial_exit": {
             "partial_exit_net_pnl": partial_net_pnl,
@@ -180,3 +245,109 @@ def _reason_average_r(distribution: Mapping[str, Mapping[str, object]], reason: 
 
 def _target_hit_count(rows: Sequence[Any], target_name: str) -> int:
     return len([row for row in rows if str(_field(row, "target_name") or "").upper() == target_name])
+
+
+def _timing_by_exit_timestamp(summary_metadata: Mapping[str, Any] | None) -> dict[str, Mapping[str, Any]]:
+    timing = _record(_record(summary_metadata).get("timing_diagnostics"))
+    trades = timing.get("trades")
+    if not isinstance(trades, Sequence):
+        return {}
+    result: dict[str, Mapping[str, Any]] = {}
+    for trade in trades:
+        if isinstance(trade, Mapping) and trade.get("exit_timestamp") is not None:
+            result[str(trade["exit_timestamp"])] = trade
+    return result
+
+
+def _group_key(row: Any, metadata: Mapping[str, Any], exit_metadata: Mapping[str, Any]) -> tuple[str, ...]:
+    return (
+        str(metadata.get("pattern_type") or "UNKNOWN").upper(),
+        str(metadata.get("pattern_direction") or metadata.get("position_side") or _field(row, "position_side") or "UNKNOWN").upper(),
+        str(metadata.get("entry_mode") or "UNKNOWN").upper(),
+        str(_field(row, "target_source") or exit_metadata.get("target_source") or metadata.get("target_source") or "NONE").upper(),
+        _exit_reason(row) or "UNKNOWN",
+        str(exit_metadata.get("intrabar_policy") or metadata.get("intrabar_policy") or "UNKNOWN").upper(),
+    )
+
+
+def _group_accumulator() -> dict[str, Any]:
+    return {
+        "key": None,
+        "count": 0,
+        "net_pnl": 0.0,
+        "cost": 0.0,
+        "r_sum": 0.0,
+        "r_count": 0,
+        "mfe_sum": 0.0,
+        "mfe_count": 0,
+        "mae_sum": 0.0,
+        "mae_count": 0,
+        "ambiguous_stop_target_count": 0,
+    }
+
+
+def _source_accumulator() -> dict[str, Any]:
+    return _group_accumulator()
+
+
+def _accumulate_group(
+    group: dict[str, Any],
+    row: Any,
+    net_pnl: float,
+    r_value: float | None,
+    timing: Mapping[str, Any] | None,
+    cost: float,
+) -> None:
+    metadata = _record(_field(row, "metadata"))
+    exit_metadata = _record(metadata.get("exit_metadata"))
+    group["key"] = _group_key(row, metadata, exit_metadata)
+    group["count"] += 1
+    group["net_pnl"] += net_pnl
+    group["cost"] += cost
+    if r_value is not None:
+        group["r_sum"] += r_value
+        group["r_count"] += 1
+    mfe_r = _number(_record(timing).get("mfe_r"))
+    mae_r = _number(_record(timing).get("mae_r"))
+    if mfe_r is not None:
+        group["mfe_sum"] += mfe_r
+        group["mfe_count"] += 1
+    if mae_r is not None:
+        group["mae_sum"] += mae_r
+        group["mae_count"] += 1
+    if bool(exit_metadata.get("ambiguous_stop_target")):
+        group["ambiguous_stop_target_count"] += 1
+
+
+def _finalize_group(group: Mapping[str, Any]) -> dict[str, Any]:
+    key = tuple(group.get("key") or ("UNKNOWN", "UNKNOWN", "UNKNOWN", "NONE", "UNKNOWN", "UNKNOWN"))
+    return {
+        "pattern_type": key[0],
+        "direction": key[1],
+        "entry_mode": key[2],
+        "target_source": key[3],
+        "exit_reason": key[4],
+        "intrabar_policy": key[5],
+        "count": int(group["count"]),
+        "net_pnl": group["net_pnl"],
+        "average_net_pnl": None if group["count"] == 0 else group["net_pnl"] / group["count"],
+        "average_realized_r": None if group["r_count"] == 0 else group["r_sum"] / group["r_count"],
+        "average_mfe_r": None if group["mfe_count"] == 0 else group["mfe_sum"] / group["mfe_count"],
+        "average_mae_r": None if group["mae_count"] == 0 else group["mae_sum"] / group["mae_count"],
+        "ambiguous_stop_target_count": int(group["ambiguous_stop_target_count"]),
+        "total_cost": group["cost"],
+    }
+
+
+def _finalize_source_groups(groups: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        source: {
+            "count": int(group["count"]),
+            "net_pnl": group["net_pnl"],
+            "average_realized_r": None if group["r_count"] == 0 else group["r_sum"] / group["r_count"],
+            "average_mfe_r": None if group["mfe_count"] == 0 else group["mfe_sum"] / group["mfe_count"],
+            "average_mae_r": None if group["mae_count"] == 0 else group["mae_sum"] / group["mae_count"],
+            "total_cost": group["cost"],
+        }
+        for source, group in sorted(groups.items())
+    }

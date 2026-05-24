@@ -12,7 +12,10 @@ from quant_bitcoin.backtesting.costs import (
     LiquidityRole,
     TransactionCostConfig,
     calculate_transaction_cost,
+    is_zero_transaction_cost_config,
+    transaction_cost_profile_metadata,
 )
+from quant_bitcoin.backtesting.cost_profiles import COST_PROFILES, break_even_cost_bps
 from quant_bitcoin.backtesting.performance_metrics import (
     calculate_performance_metrics,
     calculate_trade_attribution_metrics,
@@ -26,7 +29,9 @@ from quant_bitcoin.backtesting.sizing import (
     InsufficientFundsPolicy,
     PositionSizingConfig,
     PositionSizingMode,
+    SizingRiskSource,
     ShortExposureMode,
+    ShortEconomicsConfig,
     SimulatedMarginConfig,
 )
 from quant_bitcoin.backtesting.strategy_models import (
@@ -38,6 +43,10 @@ from quant_bitcoin.backtesting.strategy_models import (
 from quant_bitcoin.market_data.candle_validation import (
     CandleValidationConfig,
     validate_standard_candles,
+)
+from quant_bitcoin.indicators.market_regime import (
+    PatternRegimeThresholdConfig,
+    evaluate_pattern_regime_thresholds,
 )
 from quant_bitcoin.strategies.actions import (
     StrategyAction,
@@ -70,6 +79,11 @@ class StrategyEngineConfig:
     enforce_candle_continuity: bool = False
     guardrails: BacktestGuardrailConfig | None = None
     market_regime_by_timestamp: dict[Any, dict[str, Any]] | None = None
+    pattern_regime_thresholds: PatternRegimeThresholdConfig | None = None
+    strict_zero_cost_1m_pattern_runs: bool = False
+    include_cost_sensitivity_report: bool = False
+    short_economics: ShortEconomicsConfig | None = None
+    strict_fill_adjusted_risk_sizing: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.trade_quantity, (int, float)) or not isfinite(float(self.trade_quantity)) or float(self.trade_quantity) <= 0:
@@ -90,10 +104,16 @@ class StrategyEngineConfig:
             raise ValueError("guardrails must be a BacktestGuardrailConfig")
         if self.market_regime_by_timestamp is not None and not isinstance(self.market_regime_by_timestamp, dict):
             raise ValueError("market_regime_by_timestamp must be a dictionary when provided")
+        if self.pattern_regime_thresholds is not None and not isinstance(self.pattern_regime_thresholds, PatternRegimeThresholdConfig):
+            raise ValueError("pattern_regime_thresholds must be a PatternRegimeThresholdConfig when provided")
+        short_economics = self.short_economics or ShortEconomicsConfig()
+        if not isinstance(short_economics, ShortEconomicsConfig):
+            raise ValueError("short_economics must be a ShortEconomicsConfig")
         object.__setattr__(self, "position_sizing", sizing)
         object.__setattr__(self, "short_exposure_mode", short_mode)
         object.__setattr__(self, "simulated_margin", margin)
         object.__setattr__(self, "guardrails", guardrails)
+        object.__setattr__(self, "short_economics", short_economics)
 
 
 def run_strategy_backtest_engine(
@@ -107,6 +127,7 @@ def run_strategy_backtest_engine(
     _validate_candles(frame, cfg)
     if frame.empty:
         raise ValueError("candles must not be empty")
+    _validate_cost_failsafe(cfg, actions)
 
     cash = float(cfg.starting_cash)
     position = 0.0
@@ -122,6 +143,13 @@ def run_strategy_backtest_engine(
         "daily_realized_pnl": {},
         "trades_by_day": {},
     }
+    previous_timestamp: Any | None = None
+    total_short_borrow_cost = 0.0
+    total_short_funding_cost = 0.0
+    total_short_carrying_cost = 0.0
+    short_funding_event_count = 0
+    short_liquidation_events: list[dict[str, object]] = []
+    minimum_short_liquidation_buffer_ratio: float | None = None
 
     equity_points: list[StrategyEquityPoint] = []
 
@@ -129,11 +157,32 @@ def run_strategy_backtest_engine(
         timestamp = candle["timestamp"]
         close = float(candle["close"])
         volatility_bps = _candle_volatility_bps(candle)
+        if position < 0 and previous_timestamp is not None:
+            carry = _short_carrying_cost(
+                cfg,
+                position,
+                close,
+                _elapsed_days(previous_timestamp, timestamp, cfg.interval),
+            )
+            if carry["total_cost"] > 0:
+                cash -= carry["total_cost"]
+                realized_pnl -= carry["total_cost"]
+                total_short_borrow_cost += carry["borrow_cost"]
+                total_short_funding_cost += carry["funding_cost"]
+                total_short_carrying_cost += carry["total_cost"]
+                if carry["funding_cost"] > 0:
+                    short_funding_event_count += 1
         current_equity = cash + (position * close)
         current_drawdown = 0.0 if peak_equity == 0 else (current_equity - peak_equity) / peak_equity
         entry_equity_mark_price: float | None = None
         for action in actions_by_ts.get(timestamp, []):
-            action = _action_with_regime_metadata(action, cfg.market_regime_by_timestamp.get(timestamp) if cfg.market_regime_by_timestamp else None)
+            action = _action_with_regime_metadata(
+                action,
+                cfg.market_regime_by_timestamp.get(timestamp)
+                if cfg.market_regime_by_timestamp
+                else None,
+                cfg.pattern_regime_thresholds,
+            )
             result = _apply_action(
                 cash,
                 position,
@@ -159,9 +208,46 @@ def run_strategy_backtest_engine(
             ):
                 entry_equity_mark_price = float(execution.effective_price or execution.price)
 
+        forced_exit = _apply_forced_guardrail_exit(
+            cash,
+            position,
+            avg_entry,
+            close,
+            timestamp,
+            cfg,
+            peak_equity,
+            guard_state,
+            volatility_bps=volatility_bps,
+        )
+        if forced_exit is not None:
+            cash, position, avg_entry, execution, realized_delta = forced_exit
+            realized_pnl += realized_delta
+            executions.append(execution)
+            _update_guard_state(guard_state, execution)
+            entry_equity_mark_price = None
+
         equity_valuation_price = entry_equity_mark_price if position != 0.0 and entry_equity_mark_price is not None else close
         equity_semantics = _ENTRY_EXECUTION_EQUITY_SEMANTICS if equity_valuation_price != close else _CANDLE_CLOSE_EQUITY_SEMANTICS
         equity = cash + (position * equity_valuation_price)
+        liquidation_diagnostic = _short_liquidation_diagnostic(
+            cfg,
+            timestamp,
+            candle,
+            cash,
+            position,
+            avg_entry,
+        )
+        if liquidation_diagnostic is not None:
+            buffer_ratio = liquidation_diagnostic.get("buffer_ratio")
+            if buffer_ratio is not None:
+                ratio = float(buffer_ratio)
+                minimum_short_liquidation_buffer_ratio = (
+                    ratio
+                    if minimum_short_liquidation_buffer_ratio is None
+                    else min(minimum_short_liquidation_buffer_ratio, ratio)
+                )
+            if liquidation_diagnostic.get("would_liquidate"):
+                short_liquidation_events.append(liquidation_diagnostic)
         peak_equity = max(peak_equity, equity)
         drawdown = 0.0 if peak_equity == 0 else (equity - peak_equity) / peak_equity
         unrealized = (equity_valuation_price - avg_entry) * position
@@ -184,8 +270,21 @@ def run_strategy_backtest_engine(
                 available_buying_power=account_state["available_buying_power_after"],
                 cash_semantics=account_state["cash_after_semantics"],
                 equity_semantics=account_state["equity_after_semantics"],
+                short_carrying_cost_cumulative=total_short_carrying_cost,
+                short_would_liquidate=(
+                    bool(liquidation_diagnostic["would_liquidate"])
+                    if liquidation_diagnostic is not None
+                    else False
+                ),
+                short_liquidation_buffer_ratio=(
+                    float(liquidation_diagnostic["buffer_ratio"])
+                    if liquidation_diagnostic is not None
+                    and liquidation_diagnostic.get("buffer_ratio") is not None
+                    else None
+                ),
             )
         )
+        previous_timestamp = timestamp
 
     final_price = float(frame.iloc[-1]["close"])
     final_equity_point = equity_points[-1]
@@ -199,8 +298,9 @@ def run_strategy_backtest_engine(
     total_spread_cost = sum(e.spread_cost for e in executions)
     total_slippage_cost = sum(e.slippage_cost for e in executions)
     total_cost = sum(e.total_cost for e in executions)
+    total_notional = sum(e.notional for e in executions)
     gross_pnl_total = sum(e.gross_pnl for e in executions if e.gross_pnl is not None)
-    net_pnl_total = sum(e.net_pnl for e in executions if e.net_pnl is not None)
+    net_pnl_total = sum(e.net_pnl for e in executions if e.net_pnl is not None) - total_short_carrying_cost
     win_count = len([e for e in closing_execs if (e.net_pnl or 0.0) > 0])
     loss_count = len([e for e in closing_execs if (e.net_pnl or 0.0) < 0])
     short_closing_execs = [e for e in closing_execs if e.position_side == "SHORT"]
@@ -211,6 +311,9 @@ def run_strategy_backtest_engine(
     partial_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.PARTIAL_EXIT_LONG.value, StrategyActionType.PARTIAL_EXIT_SHORT.value)])
     full_exit_count = len([e for e in filled_execs if e.action_type in (StrategyActionType.EXIT_LONG.value, StrategyActionType.EXIT_SHORT.value)])
 
+    zero_cost = _zero_transaction_cost_assumption(cfg)
+    pattern_run = _actions_include_pattern(actions)
+    zero_cost_warning = _zero_cost_warning(cfg, pattern_run)
     summary_metadata = {
         "transaction_cost": {
             "maker_fee_bps": cfg.transaction_cost_config.maker_fee_bps if cfg.transaction_cost_config else 0.0,
@@ -220,9 +323,10 @@ def run_strategy_backtest_engine(
             "minimum_slippage_bps": cfg.transaction_cost_config.minimum_slippage_bps if cfg.transaction_cost_config else 0.0,
             "volatility_slippage_multiplier": cfg.transaction_cost_config.volatility_slippage_multiplier if cfg.transaction_cost_config else 0.0,
             "default_liquidity_role": cfg.default_liquidity_role.value,
-            "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
+            "zero_transaction_cost_assumption": zero_cost,
             "volatility_slippage_source": "candle high-low range divided by close, in basis points",
         },
+        "cost_profile": transaction_cost_profile_metadata(cfg.transaction_cost_config),
         "cost_summary": {
             "total_fee_cost": total_fee_cost,
             "total_spread_cost": total_spread_cost,
@@ -230,15 +334,14 @@ def run_strategy_backtest_engine(
             "total_cost": total_cost,
             "gross_pnl": gross_pnl_total,
             "net_pnl": net_pnl_total,
+            "short_carrying_cost": total_short_carrying_cost,
             "cost_to_gross_pnl_ratio": None if gross_pnl_total == 0 else total_cost / abs(gross_pnl_total),
-            "zero_transaction_cost_assumption": _zero_transaction_cost_assumption(cfg),
+            "zero_transaction_cost_assumption": zero_cost,
+            "zero_cost_warning": zero_cost_warning,
+            "diagnostic_severity": "HIGH" if zero_cost_warning else None,
             "volatility_slippage_source": "candle high-low range divided by close, in basis points",
         },
-        "limitations": [
-            "No borrow fees modeled",
-            "No futures funding modeled",
-            "No maintenance margin or liquidation model",
-        ],
+        "limitations": _short_economics_limitations(cfg),
         "short_performance": {
             "short_close_count": len(short_closing_execs),
             "short_win_count": len([e for e in short_closing_execs if (e.net_pnl or 0.0) > 0]),
@@ -251,32 +354,30 @@ def run_strategy_backtest_engine(
             "scope": "backtest_only",
             "spot_short_execution": "simulated only; not a real spot exchange order capability",
             "modeled_economics": {
-                "borrow_fees": False,
-                "futures_funding": False,
-                "maintenance_margin": False,
-                "liquidation": False,
+                "borrow_fees": bool(cfg.short_economics.enabled),
+                "futures_funding": bool(cfg.short_economics.enabled),
+                "maintenance_margin": bool(cfg.short_economics.enabled),
+                "liquidation": bool(cfg.short_economics.enabled),
                 "initial_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
             },
-            "unsupported_economics": [
-                "No borrow fees modeled",
-                "No futures funding modeled",
-                "No maintenance margin or liquidation model",
-            ],
+            "unsupported_economics": _short_economics_unsupported_items(cfg),
         },
-        "short_economics": {
-            "scope": "backtest_only_simulation",
-            "cash_bounded_short": cfg.short_exposure_mode is ShortExposureMode.CASH_BOUNDED,
-            "simulated_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
-            "real_spot_short_execution": False,
-            "real_futures_or_margin_execution": False,
-            "borrow_fees_modeled": False,
-            "futures_funding_modeled": False,
-            "maintenance_margin_modeled": False,
-            "liquidation_modeled": False,
-            "warning": "Short results are simulation-only and exclude borrow fees, futures funding, maintenance margin, and liquidation.",
-        },
+        "short_economics": _short_economics_summary(
+            cfg,
+            total_borrow_cost=total_short_borrow_cost,
+            total_funding_cost=total_short_funding_cost,
+            total_carrying_cost=total_short_carrying_cost,
+            funding_event_count=short_funding_event_count,
+            liquidation_events=short_liquidation_events,
+            minimum_buffer_ratio=minimum_short_liquidation_buffer_ratio,
+        ),
         "simulated_margin": cfg.simulated_margin.to_metadata(),
         "guardrails": cfg.guardrails.to_metadata(),
+        "pattern_regime_thresholds": (
+            cfg.pattern_regime_thresholds.to_metadata()
+            if cfg.pattern_regime_thresholds is not None
+            else {"schema_version": "pattern_regime_thresholds_v1", "enabled": False}
+        ),
         "account_state": _account_state(
             cash,
             position,
@@ -307,6 +408,7 @@ def run_strategy_backtest_engine(
             "gross_pnl": gross_pnl_total,
             "net_pnl": net_pnl_total,
             "total_cost": total_cost,
+            "short_carrying_cost": total_short_carrying_cost,
             "max_drawdown": min([p.drawdown for p in equity_points], default=0.0),
         },
         "performance_metrics": calculate_performance_metrics(
@@ -316,6 +418,11 @@ def run_strategy_backtest_engine(
         ).to_metadata(),
         "trade_attribution": calculate_trade_attribution_metrics(executions, equity_points),
     }
+    if cfg.include_cost_sensitivity_report:
+        summary_metadata["cost_sensitivity_report"] = _cost_sensitivity_report(
+            gross_pnl_total,
+            total_notional,
+        )
     summary_metadata["timing_diagnostics"] = calculate_trade_timing_diagnostics(
         executions,
         frame,
@@ -376,6 +483,29 @@ def _apply_action(
     if not explicit_price_valid:
         return None
     if action_type in (StrategyActionType.ENTER_LONG, StrategyActionType.ENTER_SHORT):
+        regime_decision = (
+            action.metadata.get("pattern_regime_thresholds")
+            if isinstance(action.metadata, dict)
+            else None
+        )
+        if isinstance(regime_decision, dict) and regime_decision.get("blocked"):
+            side = execution_side_for_action(action_type) or "BUY"
+            position_side = position_side_for_action(action_type)
+            reason = str(regime_decision.get("block_reason") or "REGIME_ENTRY_BLOCKED")
+            execution = _execution_record(
+                action,
+                side,
+                position_side,
+                close,
+                close,
+                0.0,
+                cash,
+                position,
+                cash + (position * close),
+                reason=reason,
+                account_state=_account_state(cash, position, close, avg_entry, cfg),
+            )
+            return cash, position, avg_entry, execution, 0.0
         if action_type == StrategyActionType.ENTER_SHORT and not cfg.allow_short:
             return None
         if position != 0.0:
@@ -424,7 +554,17 @@ def _apply_action(
             return cash, position, avg_entry, execution, 0.0
         if qty <= 0:
             return None
-        return _open_position(cash, close, qty, action, cfg, explicit_price=explicit_price, sizing_metadata=sizing_metadata, volatility_bps=volatility_bps)
+        return _open_position(
+            cash,
+            close,
+            qty,
+            action,
+            cfg,
+            explicit_price=explicit_price,
+            sizing_metadata=sizing_metadata,
+            volatility_bps=volatility_bps,
+            account_equity=account_equity,
+        )
 
     if action_type in (StrategyActionType.EXIT_LONG, StrategyActionType.PARTIAL_EXIT_LONG):
         if position <= 0:
@@ -452,13 +592,16 @@ def _apply_action(
 def _action_with_regime_metadata(
     action: StrategyAction,
     regime_context: dict[str, Any] | None,
+    threshold_config: PatternRegimeThresholdConfig | None = None,
 ) -> StrategyAction:
-    if not regime_context:
+    if not regime_context and threshold_config is None:
         return action
     metadata = dict(action.metadata) if isinstance(action.metadata, dict) else {}
-    clean_context = {key: value for key, value in regime_context.items() if value is not None}
-    if not clean_context:
-        return action
+    clean_context = (
+        {key: value for key, value in regime_context.items() if value is not None}
+        if regime_context
+        else {}
+    )
     for key in (
         "market_regime",
         "volatility_regime",
@@ -478,11 +621,19 @@ def _action_with_regime_metadata(
     if "session_tag" in clean_context:
         metadata.setdefault("session", clean_context["session_tag"])
         metadata.setdefault("market_session", clean_context["session_tag"])
-    metadata.setdefault("market_regime_context", clean_context)
+    if clean_context:
+        metadata.setdefault("market_regime_context", clean_context)
+    decision = evaluate_pattern_regime_thresholds(
+        metadata,
+        clean_context,
+        threshold_config,
+    )
+    if decision["enabled"]:
+        metadata["pattern_regime_thresholds"] = decision
     return replace(action, metadata=metadata)
 
 
-def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing_metadata=None, volatility_bps=None):
+def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing_metadata=None, volatility_bps=None, account_equity=None):
     is_short = action.action_type == StrategyActionType.ENTER_SHORT
     side = "SELL" if is_short else "BUY"
     requested_qty = qty
@@ -493,6 +644,33 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
     reason = None
     extra_metadata = dict(sizing_metadata or {})
     extra_metadata["requested_quantity"] = requested_qty
+    qty, cost, exposure_reason, exposure_metadata = _apply_entry_exposure_caps(
+        qty,
+        raw_price,
+        side,
+        cfg,
+        account_equity=account_equity if account_equity is not None else cash,
+        volatility_bps=volatility_bps,
+    )
+    extra_metadata.update(exposure_metadata)
+    if exposure_reason is not None:
+        account_state = _account_state(cash, 0.0, close, 0.0, cfg)
+        execution = _execution_record(
+            action,
+            side,
+            "SHORT" if is_short else "LONG",
+            raw_price,
+            raw_price,
+            0.0,
+            cash,
+            0.0,
+            cash,
+            reason=exposure_reason,
+            extra_metadata=extra_metadata,
+            account_state=account_state,
+        )
+        return cash, 0.0, 0.0, execution, 0.0
+    notional = cost.effective_price * qty
     if not is_short:
         qty, cost, reason, affordability_metadata = _apply_entry_affordability(
             cash,
@@ -630,6 +808,7 @@ def _resolve_entry_quantity(action: StrategyAction, cash: float, close: float, c
         return qty, {
             "position_sizing_source": "ACTION_QUANTITY",
             "position_sizing_mode": PositionSizingMode.FIXED_QUANTITY.value,
+            "sizing_risk_source": SizingRiskSource.ACTION_OVERRIDE.value,
         }
     sizing = cfg.position_sizing
     valuation_price = max(float(raw_price), float(close))
@@ -640,14 +819,18 @@ def _resolve_entry_quantity(action: StrategyAction, cash: float, close: float, c
     elif sizing.mode is PositionSizingMode.TARGET_NOTIONAL:
         qty = float(sizing.value) / valuation_price
     elif sizing.mode is PositionSizingMode.EQUITY_RISK_FRACTION:
-        risk_per_unit = _action_risk_per_unit(action)
+        risk_per_unit, risk_metadata, risk_block_reason = _resolve_sizing_risk(action, cfg)
         metadata = {
             "position_sizing_source": "ENGINE_CONFIG",
             "position_sizing_mode": sizing.mode.value,
             "position_sizing_value": sizing.value,
             "risk_per_unit": risk_per_unit,
             "account_equity_for_risk_sizing": account_equity if account_equity is not None else cash,
+            **risk_metadata,
         }
+        if risk_block_reason is not None:
+            metadata["block_reason"] = risk_block_reason
+            return 0.0, metadata
         if risk_per_unit is None or risk_per_unit <= 0:
             metadata["block_reason"] = "MISSING_RISK_PER_UNIT_FOR_RISK_SIZING"
             return 0.0, metadata
@@ -692,10 +875,58 @@ def _resolve_exit_quantity(action: StrategyAction, position: float, cfg: Strateg
     return raw_quantity, metadata, None
 
 
-def _action_risk_per_unit(action: StrategyAction) -> float | None:
-    if not isinstance(action.metadata, dict):
-        return None
-    raw = action.metadata.get("risk_per_unit")
+def _resolve_sizing_risk(
+    action: StrategyAction,
+    cfg: StrategyEngineConfig,
+) -> tuple[float | None, dict[str, object], str | None]:
+    metadata = action.metadata if isinstance(action.metadata, dict) else {}
+    risk_per_unit = _metadata_float(metadata.get("risk_per_unit"))
+    fill_adjusted = _metadata_float(metadata.get("fill_adjusted_risk_per_unit"))
+    original = _metadata_float(metadata.get("original_risk_per_unit"))
+    pattern_entry = _is_pattern_entry_action(action)
+
+    if not pattern_entry:
+        source = (
+            SizingRiskSource.ACTION_OVERRIDE.value
+            if risk_per_unit is not None and risk_per_unit > 0
+            else SizingRiskSource.MISSING.value
+        )
+        return risk_per_unit, {"sizing_risk_source": source}, None
+
+    base_metadata: dict[str, object] = {
+        "strict_fill_adjusted_risk_sizing": cfg.strict_fill_adjusted_risk_sizing,
+    }
+    if fill_adjusted is not None:
+        base_metadata["fill_adjusted_risk_per_unit"] = fill_adjusted
+    if original is not None:
+        base_metadata["original_risk_per_unit"] = original
+
+    if risk_per_unit is None:
+        base_metadata["sizing_risk_source"] = SizingRiskSource.MISSING.value
+        return None, base_metadata, "MISSING_RISK_PER_UNIT_FOR_RISK_SIZING"
+    if risk_per_unit <= 0:
+        base_metadata["sizing_risk_source"] = SizingRiskSource.MISSING.value
+        return risk_per_unit, base_metadata, "INVALID_RISK_PER_UNIT_FOR_RISK_SIZING"
+
+    if fill_adjusted is not None and fill_adjusted > 0:
+        if not _numbers_equal(risk_per_unit, fill_adjusted):
+            base_metadata["sizing_risk_source"] = SizingRiskSource.ORIGINAL_REFERENCE.value
+            base_metadata["stale_risk_per_unit"] = risk_per_unit
+            return risk_per_unit, base_metadata, "STALE_RISK_PER_UNIT_FOR_RISK_SIZING"
+        base_metadata["sizing_risk_source"] = SizingRiskSource.FILL_ADJUSTED.value
+        return risk_per_unit, base_metadata, None
+
+    if original is not None or metadata.get("sizing_risk_source") == SizingRiskSource.ORIGINAL_REFERENCE.value:
+        base_metadata["sizing_risk_source"] = SizingRiskSource.ORIGINAL_REFERENCE.value
+        if cfg.strict_fill_adjusted_risk_sizing:
+            return risk_per_unit, base_metadata, "STALE_RISK_PER_UNIT_FOR_RISK_SIZING"
+        return risk_per_unit, base_metadata, None
+
+    base_metadata["sizing_risk_source"] = SizingRiskSource.MISSING.value
+    return risk_per_unit, base_metadata, "MISSING_FILL_ADJUSTED_RISK_FOR_PATTERN_SIZING"
+
+
+def _metadata_float(raw: object) -> float | None:
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -703,6 +934,24 @@ def _action_risk_per_unit(action: StrategyAction) -> float | None:
     if not isfinite(value):
         return None
     return value
+
+
+def _is_pattern_entry_action(action: StrategyAction) -> bool:
+    if action.action_type not in (StrategyActionType.ENTER_LONG, StrategyActionType.ENTER_SHORT):
+        return False
+    if not isinstance(action.metadata, dict):
+        return False
+    metadata = action.metadata
+    return bool(
+        metadata.get("canonical_pattern_action")
+        or metadata.get("pattern_entry_policy") is not None
+        or metadata.get("pattern_type") is not None
+        or metadata.get("pattern_event_id") is not None
+    )
+
+
+def _numbers_equal(left: float, right: float) -> bool:
+    return abs(float(left) - float(right)) < 1e-12
 
 
 def _entry_guardrail_decision(
@@ -727,6 +976,56 @@ def _entry_guardrail_decision(
                 metadata.update({"worst_daily_realized_pnl": worst_daily, "max_daily_loss": guardrails.max_daily_loss})
                 return "RISK_GUARD_MAX_DAILY_LOSS", metadata
     return None, {}
+
+
+def _apply_forced_guardrail_exit(
+    cash: float,
+    position: float,
+    avg_entry: float,
+    close: float,
+    timestamp: Any,
+    cfg: StrategyEngineConfig,
+    peak_equity: float,
+    guard_state: dict[str, object],
+    *,
+    volatility_bps: float | None = None,
+):
+    if not cfg.guardrails.close_open_position_on_breach or position == 0:
+        return None
+    equity = cash + (position * close)
+    current_drawdown = 0.0 if peak_equity == 0 else (equity - peak_equity) / peak_equity
+    reason, guard_metadata = _entry_guardrail_decision(cfg, guard_state, current_drawdown)
+    if reason is None:
+        return None
+    action_type = StrategyActionType.EXIT_LONG if position > 0 else StrategyActionType.EXIT_SHORT
+    action = StrategyAction(
+        action_type=action_type,
+        timestamp=timestamp,
+        quantity=abs(position),
+        reason=reason,
+        requested_price=close,
+        metadata={
+            **guard_metadata,
+            "exit_reason": "GUARDRAIL_FORCED_EXIT",
+            "guardrail_forced_exit": True,
+            "guardrail_breach_reason": reason,
+            "forced_exit_price_source": "CURRENT_CANDLE_CLOSE",
+            "forced_exit_generated_by": "BACKTEST_GUARDRAIL",
+            "strategy_exit": False,
+            "guardrail_scope": "backtest_only",
+        },
+    )
+    return _close_position(
+        cash,
+        position,
+        avg_entry,
+        close,
+        abs(position),
+        action,
+        cfg,
+        explicit_price=close,
+        volatility_bps=volatility_bps,
+    )
 
 
 def _update_guard_state(guard_state: dict[str, object], execution: StrategyExecution) -> None:
@@ -806,6 +1105,60 @@ def _apply_entry_affordability(
     return resized_qty, resized_cost, None, metadata
 
 
+def _apply_entry_exposure_caps(
+    qty: float,
+    raw_price: float,
+    side: str,
+    cfg: StrategyEngineConfig,
+    *,
+    account_equity: float,
+    volatility_bps: float | None = None,
+):
+    cost = _cost(raw_price, qty, side, cfg, volatility_bps=volatility_bps)
+    notional = cost.effective_price * qty
+    guardrails = cfg.guardrails
+    caps: list[tuple[float, str, str]] = []
+    if guardrails.max_position_notional is not None:
+        caps.append((float(guardrails.max_position_notional), "RISK_GUARD_MAX_POSITION_NOTIONAL", "max_position_notional"))
+    if guardrails.max_symbol_notional is not None:
+        caps.append((float(guardrails.max_symbol_notional), "RISK_GUARD_MAX_SYMBOL_NOTIONAL", "max_symbol_notional"))
+    if guardrails.max_leverage_simulated is not None:
+        leverage_cap = max(0.0, float(account_equity)) * float(guardrails.max_leverage_simulated)
+        caps.append((leverage_cap, "RISK_GUARD_MAX_LEVERAGE_SIMULATED", "max_leverage_simulated_notional"))
+    if not caps:
+        return qty, cost, None, {"entry_exposure_cap_applied": False}
+
+    cap_value, reason, cap_name = min(caps, key=lambda item: item[0])
+    metadata: dict[str, object] = {
+        "entry_exposure_cap_applied": notional > cap_value,
+        "entry_exposure_cap_policy": cfg.position_sizing.insufficient_funds_policy.value,
+        "entry_exposure_requested_notional": notional,
+        "entry_exposure_cap_notional": cap_value,
+        "entry_exposure_cap_name": cap_name,
+    }
+    if notional <= cap_value:
+        return qty, cost, None, metadata
+
+    if cfg.position_sizing.insufficient_funds_policy is InsufficientFundsPolicy.BLOCK:
+        metadata["block_reason"] = reason
+        return qty, cost, reason, metadata
+
+    resized_qty = cap_value / cost.effective_price if cost.effective_price > 0 else 0.0
+    if resized_qty <= 0:
+        metadata["block_reason"] = reason
+        return qty, cost, reason, metadata
+    resized_cost = _cost(raw_price, resized_qty, side, cfg, volatility_bps=volatility_bps)
+    metadata.update(
+        {
+            "resize_reason": reason,
+            "requested_quantity_before_exposure_cap": qty,
+            "filled_quantity_after_exposure_cap": resized_qty,
+            "resized_notional_after_exposure_cap": resized_cost.effective_price * resized_qty,
+        }
+    )
+    return resized_qty, resized_cost, None, metadata
+
+
 def _cost(raw_price, qty, side, cfg, *, volatility_bps=None):
     if cfg.transaction_cost_config is None:
         class _C: pass
@@ -878,18 +1231,237 @@ def _candle_volatility_bps(candle: pd.Series) -> float | None:
     return max(0.0, ((high - low) / close) * 10_000.0)
 
 
-def _zero_transaction_cost_assumption(cfg: StrategyEngineConfig) -> bool:
-    cost = cfg.transaction_cost_config
-    if cost is None:
-        return True
-    return (
-        cost.maker_fee_bps == 0
-        and cost.taker_fee_bps == 0
-        and cost.spread_bps == 0
-        and cost.slippage_bps == 0
-        and cost.minimum_slippage_bps == 0
-        and cost.volatility_slippage_multiplier == 0
+def _short_carrying_cost(
+    cfg: StrategyEngineConfig,
+    position: float,
+    mark_price: float,
+    elapsed_days: float,
+) -> dict[str, float]:
+    economics = cfg.short_economics
+    if not economics.enabled or position >= 0 or elapsed_days <= 0 or mark_price <= 0:
+        return {"borrow_cost": 0.0, "funding_cost": 0.0, "total_cost": 0.0}
+    notional = abs(position) * mark_price
+    borrow_cost = notional * (float(economics.borrow_fee_bps_per_day) / 10_000.0) * elapsed_days
+    funding_cost = notional * (float(economics.funding_bps_per_interval) / 10_000.0)
+    return {
+        "borrow_cost": borrow_cost,
+        "funding_cost": funding_cost,
+        "total_cost": borrow_cost + funding_cost,
+    }
+
+
+def _elapsed_days(previous_timestamp: Any, timestamp: Any, interval: str) -> float:
+    if isinstance(previous_timestamp, (int, float)) and isinstance(timestamp, (int, float)):
+        return _interval_days(interval)
+    try:
+        elapsed = (pd.Timestamp(timestamp) - pd.Timestamp(previous_timestamp)).total_seconds() / 86_400.0
+    except (TypeError, ValueError):
+        return _interval_days(interval)
+    return elapsed if elapsed > 0 else _interval_days(interval)
+
+
+def _interval_days(interval: str) -> float:
+    text = str(interval).strip().lower()
+    if not text:
+        return 1.0 / 1440.0
+    unit = text[-1]
+    try:
+        amount = float(text[:-1])
+    except ValueError:
+        amount = 1.0
+    if amount <= 0:
+        amount = 1.0
+    if unit == "m":
+        return amount / 1440.0
+    if unit == "h":
+        return amount / 24.0
+    if unit == "d":
+        return amount
+    return 1.0 / 1440.0
+
+
+def _short_liquidation_diagnostic(
+    cfg: StrategyEngineConfig,
+    timestamp: Any,
+    candle: pd.Series,
+    cash: float,
+    position: float,
+    avg_entry: float,
+) -> dict[str, object] | None:
+    economics = cfg.short_economics
+    if not economics.enabled or position >= 0 or avg_entry <= 0:
+        return None
+    try:
+        high = float(candle["high"])
+        close = float(candle["close"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    qty = abs(position)
+    maintenance_rate = float(economics.maintenance_margin_rate)
+    buffer_rate = float(economics.liquidation_buffer_rate)
+    threshold_multiplier = maintenance_rate * (1.0 + buffer_rate)
+    equity_at_high = cash + (position * high)
+    equity_at_close = cash + (position * close)
+    threshold_at_high = qty * high * threshold_multiplier
+    threshold_at_close = qty * close * threshold_multiplier
+    estimated_liquidation_price = None
+    denominator = qty * (1.0 + threshold_multiplier)
+    if denominator > 0:
+        estimated_liquidation_price = cash / denominator
+    would_liquidate = equity_at_high <= threshold_at_high
+    buffer_ratio = None
+    if threshold_at_close > 0:
+        buffer_ratio = (equity_at_close - threshold_at_close) / threshold_at_close
+    return {
+        "schema_version": "short_liquidation_diagnostic_v1",
+        "timestamp": str(timestamp),
+        "position_quantity": position,
+        "avg_entry": avg_entry,
+        "mark_close": close,
+        "adverse_high": high,
+        "cash_balance": cash,
+        "maintenance_margin_rate": maintenance_rate,
+        "liquidation_buffer_rate": buffer_rate,
+        "maintenance_requirement_at_close": threshold_at_close,
+        "equity_at_close": equity_at_close,
+        "equity_at_adverse_high": equity_at_high,
+        "estimated_liquidation_price": estimated_liquidation_price,
+        "buffer_ratio": buffer_ratio,
+        "would_liquidate": would_liquidate,
+        "diagnostic_only": True,
+    }
+
+
+def _short_economics_limitations(cfg: StrategyEngineConfig) -> list[str]:
+    if not cfg.short_economics.enabled:
+        return [
+            "No borrow fees modeled",
+            "No futures funding modeled",
+            "No maintenance margin or liquidation model",
+        ]
+    return [
+        "Short economics are research-only estimates and not real spot, margin, or futures execution.",
+        "Liquidation diagnostics do not auto-close positions or submit exchange orders.",
+    ]
+
+
+def _short_economics_unsupported_items(cfg: StrategyEngineConfig) -> list[str]:
+    if not cfg.short_economics.enabled:
+        return [
+            "No borrow fees modeled",
+            "No futures funding modeled",
+            "No maintenance margin or liquidation model",
+        ]
+    return [
+        "No exchange fee tier lookup",
+        "No order-book margin call or liquidation execution",
+        "No live borrow availability or funding-rate feed",
+    ]
+
+
+def _short_economics_summary(
+    cfg: StrategyEngineConfig,
+    *,
+    total_borrow_cost: float,
+    total_funding_cost: float,
+    total_carrying_cost: float,
+    funding_event_count: int,
+    liquidation_events: list[dict[str, object]],
+    minimum_buffer_ratio: float | None,
+) -> dict[str, object]:
+    economics = cfg.short_economics
+    metadata = economics.to_metadata()
+    enabled = bool(economics.enabled)
+    metadata.update(
+        {
+            "scope": "backtest_only_research" if enabled else "backtest_only_simulation",
+            "cash_bounded_short": cfg.short_exposure_mode is ShortExposureMode.CASH_BOUNDED,
+            "simulated_margin": cfg.short_exposure_mode is ShortExposureMode.SIMULATED_MARGIN and cfg.simulated_margin.enabled,
+            "borrow_fees_modeled": enabled,
+            "futures_funding_modeled": enabled,
+            "maintenance_margin_modeled": enabled,
+            "liquidation_modeled": enabled,
+            "total_borrow_cost": total_borrow_cost,
+            "total_funding_cost": total_funding_cost,
+            "total_carrying_cost": total_carrying_cost,
+            "funding_event_count": funding_event_count,
+            "liquidation_diagnostics": {
+                "schema_version": "short_liquidation_diagnostics_v1",
+                "enabled": enabled,
+                "diagnostic_only": True,
+                "would_liquidate": bool(liquidation_events),
+                "event_count": len(liquidation_events),
+                "events": tuple(liquidation_events),
+                "minimum_buffer_ratio": minimum_buffer_ratio,
+            },
+            "warning": (
+                "Short economics are research-only estimates; no live margin/futures execution or forced liquidation is enabled."
+                if enabled
+                else "Short results are simulation-only and exclude borrow fees, futures funding, maintenance margin, and liquidation."
+            ),
+        }
     )
+    return metadata
+
+
+def _zero_transaction_cost_assumption(cfg: StrategyEngineConfig) -> bool:
+    return is_zero_transaction_cost_config(cfg.transaction_cost_config)
+
+
+def _validate_cost_failsafe(
+    cfg: StrategyEngineConfig, actions: list[StrategyAction]
+) -> None:
+    if (
+        cfg.strict_zero_cost_1m_pattern_runs
+        and cfg.interval == "1m"
+        and _zero_transaction_cost_assumption(cfg)
+        and _actions_include_pattern(actions)
+    ):
+        raise ValueError("strict cost mode blocks zero-cost 1m pattern runs")
+
+
+def _actions_include_pattern(actions: list[StrategyAction]) -> bool:
+    return any(
+        bool(getattr(action, "metadata", None))
+        and (
+            action.metadata.get("pattern_type") is not None
+            or action.metadata.get("event_id") is not None
+            or action.metadata.get("canonical_pattern_action") is True
+        )
+        for action in actions
+    )
+
+
+def _zero_cost_warning(cfg: StrategyEngineConfig, pattern_run: bool) -> str | None:
+    if _zero_transaction_cost_assumption(cfg) and cfg.interval == "1m" and pattern_run:
+        return "HIGH: zero fees, spread, and slippage on a 1m pattern run can materially overstate edge."
+    if _zero_transaction_cost_assumption(cfg):
+        return "Zero fees, spread, and slippage are enabled; treat as debugging baseline only."
+    return None
+
+
+def _cost_sensitivity_report(gross_pnl: float, total_notional: float) -> dict[str, object]:
+    profiles = ("zero", "binance_spot_taker_baseline", "conservative_crypto_1m", "high_slippage_stress")
+    rows = []
+    for key in profiles:
+        profile = COST_PROFILES[key]
+        cfg = profile.config
+        static_bps = cfg.taker_fee_bps + cfg.spread_bps + max(cfg.slippage_bps, cfg.minimum_slippage_bps)
+        estimated_cost = total_notional * (static_bps / 10_000.0)
+        rows.append(
+            {
+                "profile_key": key,
+                "static_cost_bps": static_bps,
+                "estimated_total_cost": estimated_cost,
+                "estimated_net_pnl": gross_pnl - estimated_cost,
+                "cost_to_gross_pnl_ratio": None if gross_pnl == 0 else estimated_cost / abs(gross_pnl),
+            }
+        )
+    return {
+        "schema_version": "transaction_cost_sensitivity_report_v1",
+        "profiles": tuple(rows),
+        "break_even_cost_bps": break_even_cost_bps(gross_pnl, total_notional),
+    }
 
 
 def _execution_record(action, side, position_side, raw_price, effective_price, qty, cash_after, position_after, equity_after, reason=None, gross=None, net=None, cost=None, extra_metadata=None, account_state=None, execution_equity_after=None):

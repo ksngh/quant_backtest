@@ -21,3 +21,6 @@ No active frontend task. Task 186 `SAVED_RUN_RESEARCH_REPORT_ARTIFACT` completed
 - The Strategy Explanation panel now uses actual selected-run metadata and diagnostics for strategy overview, economic hypothesis, indicators, risk design, realized risk behavior, entry timing, exit timing, limitations, and bad-performance clues, with explicit fallback text for legacy rows.
 - The dashboard now includes a read-only Run Conclusion panel that maps saved diagnostics into top likely failure reasons, confidence, evidence rows, and recommended next analyses without exposing execution controls.
 - The dashboard now includes a read-only Research Report preview for saved-run `backtest_research_report_v1` JSON/markdown artifacts.
+- The dashboard now includes a read-only Execution Assumptions panel for pattern entry fill, fill-adjusted risk, costs, intrabar ambiguity, zero-cost warnings, and short-simulation limitations.
+- The dashboard now includes a read-only Pattern Geometry panel for saved pattern geometry fields, observed versus placeholder score components, and candidate-overfit diagnostics.
+- The Research Report preview now highlights saved `pattern_research_note_v1` sections for hypothesis, detector conditions, entry/risk/cost/score assumptions, no-lookahead status, regime dependence, limitations, and recommended analyses.

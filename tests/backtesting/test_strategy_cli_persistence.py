@@ -414,6 +414,36 @@ def test_strategy_cli_persists_reproducibility_metadata(monkeypatch, capsys) -> 
     assert "secret" not in json.dumps(payload.run.metadata)
 
 
+def test_cli_pattern_regime_threshold_flags_are_reported_in_workflow_metadata() -> None:
+    parser = strategy_postgres_runner_core.build_parser("test")
+    args = parser.parse_args(
+        [
+            "--enable-pattern-regime-thresholds",
+            "--regime-min-volume-ratio",
+            "1.5",
+            "--high-vol-breakout-atr-multiplier",
+            "0.8",
+            "--block-low-liquidity-pattern-entries",
+        ]
+    )
+
+    config = strategy_postgres_runner_core._build_pattern_regime_threshold_config(args)
+    workflow = strategy_postgres_runner_core._workflow_settings_metadata(
+        args,
+        strategy_postgres_runner_core._build_guardrail_config(args),
+    )
+
+    assert config.enabled is True
+    assert config.default_thresholds.minimum_volume_ratio == 1.5
+    assert workflow["pattern_regime_thresholds"]["enabled"] is True
+    assert workflow["pattern_regime_thresholds"]["volatility_regime_overrides"]["HIGH"][
+        "breakout_atr_multiplier"
+    ] == 0.8
+    assert workflow["pattern_regime_thresholds"]["liquidity_regime_overrides"]["LOW"][
+        "block_entry"
+    ] is True
+
+
 def test_strategy_cli_exception_logging_uses_current_signature(monkeypatch) -> None:
     calls: list[str] = []
 

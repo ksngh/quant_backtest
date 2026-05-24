@@ -1,5 +1,7 @@
 """Backtesting components."""
 
+import importlib
+
 from quant_bitcoin.backtesting.equity_curve import (
     EquityCurveConfig,
     EquityCurvePoint,
@@ -25,17 +27,6 @@ from quant_bitcoin.backtesting.performance_metrics import calculate_trade_attrib
 from quant_bitcoin.backtesting.performance_diagnostics import calculate_backtest_performance_diagnostics
 from quant_bitcoin.backtesting.timing_diagnostics import calculate_trade_timing_diagnostics
 from quant_bitcoin.backtesting.risk_exit_audit import calculate_risk_exit_audit
-from quant_bitcoin.backtesting.walk_forward import (
-    WalkForwardConfig,
-    WalkForwardFold,
-    aggregate_fold_metrics,
-    build_pattern_action_builder,
-    build_rsi_action_builder,
-    generate_walk_forward_folds,
-    monte_carlo_trade_return_bootstrap,
-    run_walk_forward_validation,
-)
-
 from quant_bitcoin.backtesting.pattern_event_study import (
     PatternEventStudyDataset,
     PatternEventStudyRecord,
@@ -46,12 +37,34 @@ from quant_bitcoin.backtesting.pattern_event_study import (
     records_to_dataframe,
 )
 
+_LAZY_WALK_FORWARD_EXPORTS = {
+    "WalkForwardConfig",
+    "WalkForwardFold",
+    "aggregate_fold_metrics",
+    "build_pattern_action_builder",
+    "build_rsi_action_builder",
+    "generate_walk_forward_folds",
+    "monte_carlo_trade_return_bootstrap",
+    "run_walk_forward_validation",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_WALK_FORWARD_EXPORTS:
+        walk_forward = importlib.import_module("quant_bitcoin.backtesting.walk_forward")
+        value = getattr(walk_forward, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
 from quant_bitcoin.backtesting.sizing import (
     BacktestGuardrailConfig,
     InsufficientFundsPolicy,
     PositionSizingConfig,
     PositionSizingMode,
+    SizingRiskSource,
+    ShortEconomicsConfig,
     ShortExposureMode,
     SimulatedMarginConfig,
 )
@@ -103,6 +116,8 @@ __all__ = [
     "InsufficientFundsPolicy",
     "PositionSizingConfig",
     "PositionSizingMode",
+    "SizingRiskSource",
+    "ShortEconomicsConfig",
     "ShortExposureMode",
     "SimulatedMarginConfig",
     "run_strategy_backtest_engine",

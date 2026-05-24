@@ -20,21 +20,26 @@ First-batch implementation notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Iterable
 
 import pandas as pd
 
-from quant_bitcoin.indicators.atr import AtrConfig, calculate_atr
+from quant_bitcoin.indicators.atr import AtrConfig, atr_timing_metadata, calculate_atr
 from quant_bitcoin.indicators.displacement_candle import (
     DisplacementCandleConfig,
     DisplacementDirection,
     DisplacementStatus,
     detect_displacement_candles,
 )
-from quant_bitcoin.indicators.pivots import PivotConfig, PivotType, detect_pivots
+from quant_bitcoin.indicators.pivots import (
+    PivotConfig,
+    PivotType,
+    detect_pivots,
+    pivot_strength_diagnostics,
+)
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
@@ -87,6 +92,9 @@ class AdamAndEveConfig:
     minimum_breakout_volume_ratio: float = 1.5
     weak_breakout_volume_ratio: float = 1.3
     require_prior_downtrend: bool = True
+    prior_downtrend_lookback: int = 20
+    minimum_prior_downtrend_decline_rate: float = 0.03
+    require_prior_lower_low: bool = True
     # Liquidity and spread modules are not implemented yet. The first detector
     # defaults these unavailable prerequisite filters to not required instead of
     # silently approximating them.
@@ -100,6 +108,7 @@ class AdamAndEveConfig:
     atr_config: AtrConfig | None = None
     volume_ratio_config: VolumeRatioConfig | None = None
     displacement_config: DisplacementCandleConfig | None = None
+    enable_candidate_diagnostics: bool = False
 
     def __post_init__(self) -> None:
         if self.maximum_bottom_difference_rate < 0:
@@ -145,6 +154,12 @@ class AdamAndEveConfig:
                 "minimum_breakout_volume_ratio must be greater than or equal to "
                 "weak_breakout_volume_ratio"
             )
+        if self.prior_downtrend_lookback < 1:
+            raise ValueError("prior_downtrend_lookback must be at least 1")
+        if not 0 <= self.minimum_prior_downtrend_decline_rate <= 1:
+            raise ValueError(
+                "minimum_prior_downtrend_decline_rate must be between 0 and 1"
+            )
         if not 0 <= self.minimum_pattern_score <= 1:
             raise ValueError("minimum_pattern_score must be between 0 and 1")
 
@@ -186,9 +201,15 @@ class AdamAndEveEvent:
     liquidity_pass: bool | None
     spread_pass: bool | None
     displacement_confirmed: bool
+    prior_downtrend_method: str
+    prior_downtrend_strength: float
+    prior_lower_low_confirmed: bool
     pattern_score: float
     entry_reference: float
     stop_reference: float
+    stop_reference_mode: str
+    detector_reference_stop: float
+    detector_reference_risk_reward: float | None
     target_reference: float
     risk_reward: float | None
     reason: str
@@ -196,6 +217,9 @@ class AdamAndEveEvent:
     score_component_sources: dict[str, str] = field(default_factory=dict)
     score_limitations: tuple[str, ...] = ()
     score_calibration: dict[str, Any] = field(default_factory=dict)
+    atr_metadata: dict[str, Any] = field(default_factory=dict)
+    pivot_metadata: dict[str, Any] = field(default_factory=dict)
+    candidate_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -203,6 +227,13 @@ class _AdamAndEveCandidate:
     adam_low: dict[str, Any]
     neckline_pivot: dict[str, Any]
     eve_low: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _AdamAndEveCandidateBuildResult:
+    candidates: list[_AdamAndEveCandidate]
+    candidate_count: int
+    max_guard_hit: bool
 
 
 def detect_adam_and_eve_patterns(
@@ -231,16 +262,13 @@ def detect_adam_and_eve_patterns(
         candle_frame[["symbol", "timestamp", "high", "low", "close"]],
         ae_config.atr_config,
     )
-    volume_rows = calculate_volume_ratio(
-        candle_frame[["symbol", "timestamp", "volume"]],
-        ae_config.volume_ratio_config,
-    )
+    volume_rows = calculate_volume_ratio(candle_frame, ae_config.volume_ratio_config)
     enriched = candle_frame.copy()
     enriched["atr"] = atr_rows["atr"]
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
 
     pivot_rows = detect_pivots(
-        enriched[["symbol", "timestamp", "open", "high", "low", "close"]],
+        enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr"]],
         ae_config.pivot_config,
     )
     pivot_rows = pivot_rows[pivot_rows["is_confirmed"] == True]
@@ -274,9 +302,10 @@ def detect_adam_and_eve_patterns(
         ]
         if len(visible_pivots) > ae_config.max_recent_pivots:
             visible_pivots = visible_pivots.nlargest(ae_config.max_recent_pivots, "pivot_index")
+        build_result = _build_candidates(visible_pivots, ae_config)
         evaluated = [
             event
-            for candidate in _build_candidates(visible_pivots, ae_config)
+            for candidate in build_result.candidates
             if (
                 event := _evaluate_candidate(
                     candidate,
@@ -291,7 +320,22 @@ def detect_adam_and_eve_patterns(
             is not None
         ]
         if evaluated:
-            events.append(_select_best_event(evaluated))
+            selected = _select_best_event(evaluated)
+            if ae_config.enable_candidate_diagnostics:
+                selected = replace(
+                    selected,
+                    candidate_diagnostics=_candidate_diagnostics(
+                        pattern_type="ADAM_AND_EVE_PATTERN",
+                        visible_pivot_count=len(visible_pivots),
+                        bars_observed=breakout_index + 1,
+                        candidate_count=build_result.candidate_count,
+                        evaluated_candidate_count=len(build_result.candidates),
+                        accepted_candidate_count=len(evaluated),
+                        selected_rank=1,
+                        max_guard_hit=build_result.max_guard_hit,
+                    ),
+                )
+            events.append(selected)
 
     return events
 
@@ -368,9 +412,9 @@ def _validate_external_filters(config: AdamAndEveConfig) -> None:
 
 def _build_candidates(
     visible_pivots: pd.DataFrame, config: AdamAndEveConfig
-) -> list[_AdamAndEveCandidate]:
+) -> _AdamAndEveCandidateBuildResult:
     if len(visible_pivots) < 3:
-        return []
+        return _AdamAndEveCandidateBuildResult([], 0, False)
     records = list(visible_pivots.sort_values("pivot_index").to_dict("records"))
     lows = [
         record
@@ -397,8 +441,52 @@ def _build_candidates(
                 candidates.append(_AdamAndEveCandidate(adam_low, neckline_pivot, eve_low))
                 candidate_count += 1
                 if candidate_count >= config.max_candidates_per_bar:
-                    return candidates
-    return candidates
+                    return _AdamAndEveCandidateBuildResult(candidates, candidate_count, True)
+    return _AdamAndEveCandidateBuildResult(candidates, candidate_count, False)
+
+
+def _candidate_diagnostics(
+    *,
+    pattern_type: str,
+    visible_pivot_count: int,
+    bars_observed: int,
+    candidate_count: int,
+    evaluated_candidate_count: int,
+    accepted_candidate_count: int,
+    selected_rank: int | None,
+    max_guard_hit: bool,
+) -> dict[str, Any]:
+    pivot_density = candidate_count / max(visible_pivot_count, 1)
+    bar_density = candidate_count / max(bars_observed, 1)
+    rejected_by_reason: dict[str, int] = {}
+    rejected_by_rule = max(evaluated_candidate_count - accepted_candidate_count, 0)
+    if rejected_by_rule:
+        rejected_by_reason["candidate_rule_rejected"] = rejected_by_rule
+    if max_guard_hit:
+        rejected_by_reason["max_candidate_guard_hit"] = 1
+
+    warnings: list[str] = []
+    if max_guard_hit:
+        warnings.append("max_candidate_guard_hit")
+    if pivot_density >= 2.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_pivot_density")
+    if bar_density >= 1.0 and candidate_count >= 10:
+        warnings.append("high_candidate_to_bar_density")
+
+    return {
+        "schema_version": "chart_pattern_candidate_diagnostics_v1",
+        "pattern_type": pattern_type,
+        "candidate_count": candidate_count,
+        "evaluated_candidate_count": evaluated_candidate_count,
+        "rejected_by_reason": rejected_by_reason,
+        "selected_rank": selected_rank,
+        "max_guard_hit": max_guard_hit,
+        "visible_pivot_count": visible_pivot_count,
+        "bars_observed": bars_observed,
+        "candidate_to_pivot_ratio": pivot_density,
+        "candidate_to_bar_ratio": bar_density,
+        "overfit_warnings": warnings,
+    }
 
 
 def _evaluate_candidate(
@@ -417,7 +505,8 @@ def _evaluate_candidate(
     if not adam_index < neckline_index < eve_index < breakout_index:
         return None
 
-    if config.require_prior_downtrend and not _has_prior_downtrend(candles, adam_index):
+    prior_downtrend = _prior_downtrend_metadata(candles, adam_index, config)
+    if config.require_prior_downtrend and not prior_downtrend["confirmed"]:
         return None
     if config.require_liquidity_pass and config.liquidity_pass is not True:
         return None
@@ -514,11 +603,17 @@ def _evaluate_candidate(
         pattern_status = AdamAndEveStatus.WEAK
 
     entry_reference = breakout_price
-    stop_reference = min(adam_price, eve_price)
+    stop_reference = eve_price
+    detector_reference_stop = min(adam_price, eve_price)
     target_reference = breakout_price + pattern_height
     risk_reward = _risk_reward(entry_reference, stop_reference, target_reference)
     if risk_reward is None:
         return None
+    detector_reference_risk_reward = _risk_reward(
+        entry_reference,
+        detector_reference_stop,
+        target_reference,
+    )
 
     event_id = _build_event_id(
         pattern_type="ADAM_AND_EVE_PATTERN",
@@ -567,9 +662,15 @@ def _evaluate_candidate(
         liquidity_pass=config.liquidity_pass,
         spread_pass=config.spread_pass,
         displacement_confirmed=displacement_confirmed,
+        prior_downtrend_method=str(prior_downtrend["method"]),
+        prior_downtrend_strength=float(prior_downtrend["strength"]),
+        prior_lower_low_confirmed=bool(prior_downtrend["lower_low_confirmed"]),
         pattern_score=pattern_score,
         entry_reference=entry_reference,
         stop_reference=stop_reference,
+        stop_reference_mode="EVE_LOW",
+        detector_reference_stop=detector_reference_stop,
+        detector_reference_risk_reward=detector_reference_risk_reward,
         target_reference=target_reference,
         risk_reward=risk_reward,
         reason="Bullish Adam and Eve breakout confirmed.",
@@ -577,6 +678,13 @@ def _evaluate_candidate(
         score_component_sources=score_metadata["score_component_sources"],
         score_limitations=score_metadata["score_limitations"],
         score_calibration=score_metadata["score_calibration"],
+        atr_metadata=atr_timing_metadata(config.atr_config),
+        pivot_metadata=pivot_strength_diagnostics(
+            (candidate.adam_low, candidate.neckline_pivot, candidate.eve_low),
+            config.pivot_config,
+            current_index=breakout_index,
+            candle_count=len(candles),
+        ),
     )
 
 
@@ -596,15 +704,49 @@ def _select_best_event(events: list[AdamAndEveEvent]) -> AdamAndEveEvent:
     )[0]
 
 
-def _has_prior_downtrend(candles: pd.DataFrame, adam_index: int) -> bool:
+def _prior_downtrend_metadata(
+    candles: pd.DataFrame,
+    adam_index: int,
+    config: AdamAndEveConfig,
+) -> dict[str, Any]:
+    method = "local_lookback_close_decline"
+    if config.require_prior_lower_low:
+        method = f"{method}_lower_low"
     if adam_index < 1:
-        return False
-    prior = candles.iloc[: adam_index + 1]
-    first_close = float(prior.iloc[0]["close"])
+        return {
+            "confirmed": False,
+            "method": method,
+            "strength": 0.0,
+            "lower_low_confirmed": False,
+        }
+
+    start = max(0, adam_index - config.prior_downtrend_lookback)
+    prior = candles.iloc[start:adam_index]
+    if prior.empty:
+        return {
+            "confirmed": False,
+            "method": method,
+            "strength": 0.0,
+            "lower_low_confirmed": False,
+        }
+
+    prior_reference_close = float(prior["close"].max())
     adam_close = float(candles.iloc[adam_index]["close"])
-    return adam_close < first_close and float(candles.iloc[adam_index]["low"]) < float(
-        prior.iloc[:-1]["low"].min()
-    )
+    if prior_reference_close <= 0:
+        decline_rate = 0.0
+    else:
+        decline_rate = max(0.0, (prior_reference_close - adam_close) / prior_reference_close)
+    lower_low_confirmed = float(candles.iloc[adam_index]["low"]) < float(prior["low"].min())
+    confirmed = decline_rate >= config.minimum_prior_downtrend_decline_rate
+    if config.require_prior_lower_low:
+        confirmed = confirmed and lower_low_confirmed
+
+    return {
+        "confirmed": confirmed,
+        "method": method,
+        "strength": decline_rate,
+        "lower_low_confirmed": lower_low_confirmed,
+    }
 
 
 def _adam_bottom_duration(index: int, candle_count: int, config: AdamAndEveConfig) -> int:

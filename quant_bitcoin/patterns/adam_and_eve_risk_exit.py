@@ -132,6 +132,8 @@ def create_adam_and_eve_risk_exit_plan(
         config=planner_config.to_risk_exit_config(),
         structural_targets=structure_targets,
         measured_targets=(measured_target,),
+        detector_target_reference=event.target_reference,
+        atr_metadata=getattr(event, "atr_metadata", {}),
     )
 
     return AdamAndEveRiskExitPlan(
