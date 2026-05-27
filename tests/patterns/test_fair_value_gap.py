@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -69,6 +70,52 @@ def _valid_bullish_fvg_candles() -> pd.DataFrame:
     )
 
 
+def _valid_bearish_fvg_candles() -> pd.DataFrame:
+    return _candles(
+        [
+            {"open": 104.0, "high": 106.0, "low": 104.0, "close": 105.0, "volume": 100.0},
+            {"open": 107.0, "high": 108.0, "low": 92.0, "close": 93.0, "volume": 500.0},
+            {"open": 101.0, "high": 102.0, "low": 98.0, "close": 100.0, "volume": 100.0},
+        ]
+    )
+
+
+def _fib_bearish_fvg_candles() -> pd.DataFrame:
+    return _candles(
+        [
+            {"open": 103.0, "high": 106.0, "low": 102.0, "close": 105.0, "volume": 100.0},
+            {"open": 107.0, "high": 108.0, "low": 92.0, "close": 93.0, "volume": 500.0},
+            {"open": 99.0, "high": 100.0, "low": 96.0, "close": 98.0, "volume": 100.0},
+        ]
+    )
+
+
+def _trend_rows(score: float | None, direction: str, timestamp: str = "2026-05-16T00:02:00Z") -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "timestamp": timestamp,
+                "trend_score": score,
+                "trend_direction": direction,
+                "available_weight": 1.0 if score is not None else 0.0,
+                "trend_score_metadata": {
+                    "schema_version": "multitimeframe_trend_score_v1",
+                    "timestamp": timestamp,
+                    "components": {
+                        "1m": {
+                            "score": score,
+                            "direction": direction,
+                            "is_available": score is not None,
+                        }
+                    },
+                    "missing_timeframes": [] if score is not None else ["1m"],
+                    "diagnostic_only": True,
+                },
+            }
+        ]
+    )
+
+
 def test_returns_empty_when_no_fair_value_gap_rules_match() -> None:
     candles = _candles(
         [
@@ -126,6 +173,211 @@ def test_detects_one_bullish_fair_value_gap_event() -> None:
     assert event.target_reference == pytest.approx(105.0)
     assert event.risk_reward == pytest.approx(2.0)
     assert event.reason
+
+
+def test_fvg_trend_score_diagnostic_mode_records_bullish_alignment_without_score_change() -> None:
+    baseline = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(),
+    )[0]
+
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_multitimeframe_trend_score=True, trend_score_rows=_trend_rows(0.45, "BULLISH")),
+    )[0]
+
+    assert event.mtf_trend_score == pytest.approx(0.45)
+    assert event.mtf_trend_direction == "BULLISH"
+    assert event.mtf_trend_aligned is True
+    assert event.pattern_score == pytest.approx(baseline.pattern_score)
+    assert "mtf_trend_alignment" in event.score_components
+    assert event.score_components["mtf_trend_alignment"]["source"] == "observed_multitimeframe_ema_trend_score"
+    assert event.score_components["mtf_trend_alignment"]["metadata"]["signed_score"] == pytest.approx(0.45)
+
+
+def test_fvg_trend_filter_rejects_bullish_gap_in_bearish_context() -> None:
+    events = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            use_multitimeframe_trend_score=True,
+            require_trend_alignment=True,
+            trend_score_rows=_trend_rows(-0.35, "BEARISH"),
+        ),
+    )
+
+    assert events == []
+
+
+def test_fvg_trend_filter_accepts_bearish_gap_in_bearish_context() -> None:
+    events = detect_patterns(
+        _valid_bearish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            use_multitimeframe_trend_score=True,
+            require_trend_alignment=True,
+            trend_score_rows=_trend_rows(-0.35, "BEARISH"),
+        ),
+    )
+
+    assert len(events) == 1
+    assert events[0].direction == "BEARISH"
+    assert events[0].mtf_trend_aligned is True
+    assert events[0].mtf_trend_score == pytest.approx(-0.35)
+
+
+def test_fvg_trend_filter_rejects_bearish_gap_in_bullish_context() -> None:
+    events = detect_patterns(
+        _valid_bearish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            use_multitimeframe_trend_score=True,
+            require_trend_alignment=True,
+            trend_score_rows=_trend_rows(0.35, "BULLISH"),
+        ),
+    )
+
+    assert events == []
+
+
+def test_required_fvg_trend_filter_rejects_missing_context() -> None:
+    events = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_multitimeframe_trend_score=True, require_trend_alignment=True),
+    )
+
+    assert events == []
+
+
+def test_fvg_trend_missing_context_is_explicit_in_diagnostic_mode() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_multitimeframe_trend_score=True, trend_score_rows=_trend_rows(None, "UNAVAILABLE")),
+    )[0]
+
+    component = event.score_components["mtf_trend_alignment"]
+    assert event.mtf_trend_score is None
+    assert event.mtf_trend_aligned is False
+    assert component["is_placeholder"] is True
+    assert component["metadata"]["missing_context_reason"] == "UNAVAILABLE_TREND_SCORE"
+    assert "mtf_trend_alignment uses placeholder context" in " ".join(event.score_limitations)
+
+
+def test_default_fvg_config_does_not_emit_trend_metadata() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(),
+    )[0]
+
+    assert event.mtf_trend_score is None
+    assert event.mtf_trend_direction is None
+    assert event.mtf_trend_aligned is None
+    assert event.mtf_trend_metadata == {}
+    assert "mtf_trend_alignment" not in event.score_components
+
+
+def test_fvg_trend_metadata_is_json_serializable() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_multitimeframe_trend_score=True, trend_score_rows=_trend_rows(0.45, "BULLISH")),
+    )[0]
+
+    json.dumps(event.mtf_trend_metadata)
+    json.dumps(event.score_components["mtf_trend_alignment"])
+
+
+def test_fvg_fibonacci_confluence_diagnostic_mode_records_pass_without_score_change() -> None:
+    baseline = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(),
+    )[0]
+
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_fibonacci_confluence=True),
+    )[0]
+
+    assert event.fib_confluence_pass is True
+    assert event.fib_retracement_level == pytest.approx(0.5)
+    assert event.fib_metadata["anchor_method"] == "DISPLACEMENT_CANDLE_RANGE"
+    assert event.pattern_score == pytest.approx(baseline.pattern_score)
+    assert "fibonacci_confluence" in event.score_components
+    assert event.score_components["fibonacci_confluence"]["source"] == "observed_displacement_candle_range"
+
+
+def test_fvg_fibonacci_hard_filter_rejects_non_confluent_bullish_gap() -> None:
+    events = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(
+            use_fibonacci_confluence=True,
+            require_fibonacci_confluence=True,
+            fib_min_level=0.7,
+            fib_max_level=0.8,
+        ),
+    )
+
+    assert events == []
+
+
+def test_fvg_fibonacci_hard_filter_accepts_bearish_confluent_gap() -> None:
+    events = detect_patterns(
+        _fib_bearish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_fibonacci_confluence=True, require_fibonacci_confluence=True),
+    )
+
+    assert len(events) == 1
+    assert events[0].direction == "BEARISH"
+    assert events[0].fib_confluence_pass is True
+    assert events[0].fib_retracement_level == pytest.approx(0.5625)
+
+
+def test_default_fvg_config_does_not_emit_fibonacci_metadata() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(),
+    )[0]
+
+    assert event.fib_confluence_pass is None
+    assert event.fib_retracement_level is None
+    assert event.fib_metadata == {}
+    assert "fibonacci_confluence" not in event.score_components
+
+
+def test_fvg_fibonacci_metadata_is_json_serializable() -> None:
+    event = detect_patterns(
+        _valid_bullish_fvg_candles(),
+        symbol="BTCUSDT",
+        timeframe="1m",
+        config=_config(use_fibonacci_confluence=True),
+    )[0]
+
+    json.dumps(event.fib_metadata)
+    json.dumps(event.score_components["fibonacci_confluence"])
 
 
 def test_fvg_event_records_atr_timing_metadata_and_warmup_blocks_early_event() -> None:

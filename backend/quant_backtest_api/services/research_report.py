@@ -82,6 +82,7 @@ def build_backtest_research_report(
                 "timing_diagnostics": summary_metadata.get("timing_diagnostics") or diagnostics_summary.get("timing_diagnostics"),
                 "risk_exit_audit": summary_metadata.get("risk_exit_audit") or diagnostics_summary.get("risk_exit_audit"),
                 "score_calibration": summary_metadata.get("score_calibration") or diagnostics_summary.get("score_calibration"),
+                "fvg_retest_v2": summary_metadata.get("fvg_retest_v2") or diagnostics_summary.get("fvg_retest_v2"),
             }
         ),
         "pattern_research_note": _redact(
@@ -193,6 +194,7 @@ def _pattern_research_note(
     cost_profile = _first_record(summary_metadata.get("cost_profile"), diagnostics_summary.get("cost_profile"))
     cost_summary = _first_record(summary_metadata.get("cost_summary"), diagnostics_summary.get("cost_summary"))
     metadata_schema_index = _first_record(diagnostics_summary.get("metadata_schema_index"))
+    fvg_retest_v2 = _first_record(summary_metadata.get("fvg_retest_v2"), diagnostics_summary.get("fvg_retest_v2"))
     score_lift = _first_record(score_calibration.get("score_lift") if score_calibration else None)
     regime_attribution = _regime_attribution(trade_attribution)
     top_failure_reasons = _top_failure_reasons(performance_diagnostics, timing_diagnostics, risk_exit_audit, score_calibration)
@@ -224,10 +226,14 @@ def _pattern_research_note(
         },
         "entry_mode": {
             "selected_entry_mode": entry_metadata.get("entry_mode") or (policy or {}).get("selected_entry_mode"),
+            "entry_trigger": entry_metadata.get("entry_trigger"),
             "fill_assumption": entry_metadata.get("fill_assumption"),
             "fill_price_source": entry_metadata.get("fill_price_source"),
             "entry_reference": entry_metadata.get("entry_reference"),
             "requested_price": entry_metadata.get("requested_price"),
+            "bars_waited": entry_metadata.get("bars_waited"),
+            "touch_timestamp": entry_metadata.get("touch_timestamp"),
+            "reaction_timestamp": entry_metadata.get("reaction_timestamp"),
         },
         "risk_plan": {
             "position_sizing": summary_metadata.get("position_sizing"),
@@ -236,7 +242,9 @@ def _pattern_research_note(
             "risk_plan_aligned_to_fill": entry_metadata.get("risk_plan_aligned_to_fill"),
             "target_semantics": first_trade_metadata.get("target_semantics"),
             "risk_exit_audit_schema": risk_exit_audit.get("schema_version") if risk_exit_audit else None,
+            "fvg_stop_mode": _nested(first_trade_metadata, "risk_plan_atr_metadata", "fvg_stop_mode") or _nested(first_trade_metadata, "atr_metadata", "fvg_stop_mode"),
         },
+        "fvg_retest_v2": _fvg_retest_v2_note(fvg_retest_v2, first_trade_metadata),
         "cost_profile": {
             "profile": cost_profile,
             "summary": cost_summary,
@@ -267,6 +275,76 @@ def _first_record(*values: Any) -> dict[str, Any]:
         if isinstance(value, dict):
             return value
     return {}
+
+
+def _fvg_retest_v2_note(diagnostics: dict[str, Any], trade_metadata: dict[str, Any]) -> dict[str, Any]:
+    if not diagnostics and not trade_metadata:
+        return {"status": "unavailable"}
+    settings = _first_record(diagnostics.get("settings") if diagnostics else None)
+    trend_settings = _first_record(settings.get("trend_score") if settings else None)
+    fib_settings = _first_record(settings.get("fibonacci_confluence") if settings else None)
+    liquidity_settings = _first_record(settings.get("liquidity_targets") if settings else None)
+    counts = _first_record(diagnostics.get("counts") if diagnostics else None)
+    target_semantics = _first_record(trade_metadata.get("target_semantics"))
+    return {
+        "status": "available" if diagnostics or _has_fvg_v2_trade_metadata(trade_metadata) else "unavailable",
+        "schema_version": diagnostics.get("schema_version") if diagnostics else None,
+        "experimental_scope": diagnostics.get("experimental_scope") or settings.get("experimental_scope"),
+        "entry_trigger": diagnostics.get("entry_trigger") or settings.get("entry_trigger") or trade_metadata.get("entry_trigger"),
+        "stop_mode": diagnostics.get("stop_mode") or settings.get("stop_mode"),
+        "trend_score": {
+            "enabled": trend_settings.get("enabled"),
+            "signed_score": trade_metadata.get("mtf_trend_score"),
+            "direction": trade_metadata.get("mtf_trend_direction"),
+            "aligned": trade_metadata.get("mtf_trend_aligned"),
+            "metadata": trade_metadata.get("mtf_trend_metadata"),
+        },
+        "fibonacci_confluence": {
+            "enabled": fib_settings.get("enabled"),
+            "pass": trade_metadata.get("fib_confluence_pass"),
+            "retracement_level": trade_metadata.get("fib_retracement_level"),
+            "metadata": trade_metadata.get("fib_metadata"),
+        },
+        "liquidity_targets": {
+            "required": liquidity_settings.get("require_liquidity_target"),
+            "risk_targets": target_semantics.get("risk_targets"),
+            "structural_targets": target_semantics.get("structural_targets"),
+        },
+        "entry_quality": {
+            "bars_waited": trade_metadata.get("bars_waited"),
+            "touch_timestamp": trade_metadata.get("touch_timestamp"),
+            "reaction_timestamp": trade_metadata.get("reaction_timestamp"),
+            "reaction_candle_index": trade_metadata.get("reaction_candle_index"),
+        },
+        "counts": counts,
+        "caveats": [
+            "Offline completed-candle backtest metadata only.",
+            "Trend, Fibonacci, and liquidity fields are OHLCV-derived research proxies.",
+            "No order-book liquidity, live order execution, exchange account access, or API-key behavior is implied.",
+        ],
+    }
+
+
+def _has_fvg_v2_trade_metadata(metadata: dict[str, Any]) -> bool:
+    return any(
+        key in metadata
+        for key in (
+            "mtf_trend_score",
+            "mtf_trend_metadata",
+            "fib_confluence_pass",
+            "fib_metadata",
+            "reaction_candle_index",
+        )
+    )
+
+
+def _nested(record: dict[str, Any], *keys: str) -> Any:
+    value: Any = record
+    for key in keys:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+    return value
 
 
 def _first_trade(trades: list[dict[str, Any]], *, contains: str) -> dict[str, Any]:
@@ -363,6 +441,7 @@ def _to_markdown(report: dict[str, Any]) -> str:
         f"- Pattern: {report.get('pattern_research_note', {}).get('pattern_type')}",
         f"- Status: {report.get('pattern_research_note', {}).get('status')}",
         f"- Entry Mode: {report.get('pattern_research_note', {}).get('entry_mode', {}).get('selected_entry_mode')}",
+        f"- FVG V2 Status: {report.get('pattern_research_note', {}).get('fvg_retest_v2', {}).get('status')}",
         f"- Score Reliability: {report.get('pattern_research_note', {}).get('score_reliability', {}).get('inference_strength')}",
         "",
         "## Recommended Next Experiments",

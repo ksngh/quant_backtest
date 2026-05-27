@@ -14,6 +14,7 @@ export function buildResearchReportPreview(reportValue: unknown): ResearchReport
   }
   const note = asRecord(report.pattern_research_note);
   const entryMode = asRecord(note?.entry_mode);
+  const fvgRetestV2 = asRecord(note?.fvg_retest_v2);
   const riskPlan = asRecord(note?.risk_plan);
   const scoreReliability = asRecord(note?.score_reliability);
   const costProfile = asRecord(asRecord(note?.cost_profile)?.profile);
@@ -27,6 +28,8 @@ export function buildResearchReportPreview(reportValue: unknown): ResearchReport
       row("Pattern", scalar(note?.pattern_type)),
       row("Research Status", scalar(note?.status)),
       row("Entry Mode", scalar(entryMode?.selected_entry_mode)),
+      row("Entry Trigger", scalar(entryMode?.entry_trigger) ?? scalar(fvgRetestV2?.entry_trigger)),
+      row("FVG V2 Status", scalar(fvgRetestV2?.status)),
       row("Fill Source", scalar(entryMode?.fill_price_source)),
       row("Risk Aligned To Fill", scalar(riskPlan?.risk_plan_aligned_to_fill)),
       row("Cost Profile", scalar(costProfile?.profile_key)),
@@ -45,6 +48,7 @@ function sectionNames(note: AnyRecord | null): string[] {
     windows_candles_observed: "Windows/Candles",
     entry_mode: "Entry Mode",
     risk_plan: "Risk Plan",
+    fvg_retest_v2: "FVG Retest V2",
     cost_profile: "Cost Profile",
     score_reliability: "Score Reliability",
     no_lookahead_status: "No-Lookahead Status",

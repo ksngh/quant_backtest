@@ -28,7 +28,8 @@ On `1m` BTC candle data, newly confirmed Fair Value Gap (FVG) events represent s
 ## 6) Eligible Timeframe and Instrument Scope
 - **Initial research timeframe:** `1m`.
 - **Symbol scope:** BTC spot-like candle streams using the repository standard candle schema.
-- **Future extension note:** Higher-timeframe context filters may be added in later strategy versions, not in V1.
+- **Baseline boundary:** V1 defaults remain single-timeframe and backward compatible.
+- **V2 research extension:** Opt-in FVG retest v2 metadata may use higher-timeframe context, but only from completed higher-timeframe candles aligned to the current 1m row. Incomplete higher-timeframe candles must not be used for trend scoring.
 
 ## 7) Data Requirements
 Required fields per candle (ascending `timestamp`):
@@ -45,6 +46,18 @@ Use existing deterministic FVG detection contract:
 - Configuration baseline: `FairValueGapConfig()` defaults unless pre-declared experiment variants.
 - Directional support: **both bullish and bearish** events are supported by current implementation.
 - Event eligibility for strategy logic: event must be newly confirmed on current candle in rolling-prefix evaluation (`end_index == current_index`).
+- Multi-timeframe EMA trend context is default-off. When explicitly enabled,
+  FVG events may include `mtf_trend_score`, `mtf_trend_direction`,
+  `mtf_trend_aligned`, and `mtf_trend_metadata`; `require_trend_alignment`
+  can hard-filter misaligned or unavailable trend context. These fields are
+  diagnostic research metadata by default and are not live-trading signals.
+- Fibonacci retracement confluence is also default-off. When explicitly
+  enabled, FVG events may include `fib_confluence_pass`,
+  `fib_retracement_level`, and `fib_metadata`; `require_fibonacci_confluence`
+  can hard-filter non-confluent zones. The initial anchor method is
+  `DISPLACEMENT_CANDLE_RANGE`, which uses only the displacement candle already
+  visible at FVG confirmation time. This is a deterministic filter/diagnostic
+  feature, not an anchor optimizer or profitability claim.
 
 ## 9) Entry Rule (Frozen V1)
 Implemented baseline entry mode:
@@ -62,6 +75,14 @@ Explicit research variants:
 Retest/limit variants model imbalance rebalancing into the FVG reference,
 midpoint, boundary, or declared custom price. They can emit `ENTRY_NOT_FILLED`
 SKIP diagnostics when the selected level is not touched before expiry.
+
+The opt-in `FAIR_VALUE_GAP_RETEST` policy preset defaults to
+`LIMIT_AT_PATTERN_MIDPOINT`, `max_wait_bars=5`, and `entry_trigger=TOUCH`.
+Reaction variants can require `TOUCH_AND_REACTION_CLOSE` or
+`TOUCH_AND_RECLAIM_MIDPOINT`; metadata records trigger type, touch index/time,
+reaction index/time, fill index/time, bars waited, and no-fill reason. Baseline
+`FAIR_VALUE_GAP` market-confirmation behavior remains unchanged unless a retest
+mode/trigger is explicitly selected.
 
 Implementation alignment:
 - Entry simulation contract: `quant_bitcoin.patterns.entry_simulation`.
@@ -83,11 +104,23 @@ Implementation alignment:
 - Structural stop source:
   - bullish: FVG lower boundary (`zone_low`) + shared ATR buffering contract
   - bearish: FVG upper boundary (`zone_high`) + shared ATR buffering contract
+- Stop mode default is `FVG_BOUNDARY_ATR_BUFFER` for backward compatibility.
+  Optional research variants `SWING_PIVOT` and `WIDER_OF_FVG_AND_SWING` require
+  visible, precomputed swing stop input; missing swing stops produce invalid
+  risk plans rather than silent fallback. Stop metadata schema `fvg_stop_mode_v1`
+  records selected stop source, boundary stop, swing stop, selected stop, and
+  direction.
 
 ## 12) Target Rule
 - Use shared risk/exit R-multiple targets from FVG planner:
   - `r_multiples = (1.0, 2.0, 3.0)`
 - Structural targets may be provided, but baseline research comparison should include standardized 1R/2R/3R reporting.
+- Optional FVG liquidity targets can supply structural target candidates from
+  prior confirmed pivots visible at event confirmation time. Bullish setups use
+  pivot highs above entry; bearish setups use pivot lows below entry. Metadata
+  schema `fvg_liquidity_targets_v1` records source, target price, estimated R,
+  filtering reason, and the caveat that this is OHLCV pivot-derived structure,
+  not order-book liquidity.
 
 ## 13) Partial Exit Rule
 - Default partial exit allocation:
@@ -105,6 +138,7 @@ Implementation alignment:
   - reaction window default: `5` bars post-entry
   - bullish favorable reaction condition: close above midpoint
   - bearish favorable reaction condition: close below midpoint
+  - configured action: `SOFT_INVALIDATION_EXIT`
 - If reaction condition fails by deadline, mark as soft invalidation candidate per exit simulator policy.
 
 ## 16) Intrabar Ambiguity Policy
@@ -176,4 +210,6 @@ Reject (`REJECTED`) when one or more apply:
 ## 25) Implementation/Research Notes
 - This V1 document freezes a baseline candidate definition only.
 - It does not authorize live trading or exchange order endpoints.
-- Future versions (for example V2) may add higher-timeframe context, but must be separately specified and versioned before parameter search.
+- FVG retest v2 is an opt-in research layer over the baseline, not a replacement for default `FAIR_VALUE_GAP` behavior.
+- V2 trend score, Fibonacci confluence, liquidity target, reaction-entry, and stop-mode features remain offline research diagnostics/filters only. They are not live-trading approval, order-book liquidity evidence, or automatic parameter-promotion rules.
+- V2 parameter search must follow `docs/29_FVG_RETEST_V2_RESEARCH_PROTOCOL.md`, keep all losing/no-fill variants, and respect locked holdout boundaries before any future paper-only decision task.

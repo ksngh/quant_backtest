@@ -166,6 +166,11 @@ REGIME_STRATIFICATION_DIMENSIONS: tuple[str, ...] = (
     "session_tag",
     "weekday_tag",
     "entry_mode",
+    "fvg_entry_trigger",
+    "fvg_trend_alignment",
+    "fvg_fibonacci_confluence",
+    "fvg_liquidity_target_available",
+    "fvg_stop_mode",
 )
 
 
@@ -193,6 +198,11 @@ def calculate_regime_stratified_attribution(
             "session_tag": regime.get("session_tag", "UNKNOWN"),
             "weekday_tag": regime.get("weekday_tag", "UNKNOWN"),
             "entry_mode": metadata.get("entry_mode", "UNKNOWN"),
+            "fvg_entry_trigger": metadata.get("entry_trigger") or _nested_metadata(metadata, ("pattern_entry_policy", "entry_trigger")) or "UNKNOWN",
+            "fvg_trend_alignment": _bool_bucket(metadata.get("mtf_trend_aligned")),
+            "fvg_fibonacci_confluence": _bool_bucket(metadata.get("fib_confluence_pass")),
+            "fvg_liquidity_target_available": _liquidity_target_bucket(metadata),
+            "fvg_stop_mode": _fvg_stop_mode_bucket(metadata),
         }
         for dimension, value in values.items():
             bucket = by_dimension[dimension].setdefault(
@@ -295,12 +305,16 @@ def build_pattern_action_builder(
     entry_mode: PatternEntryMode | str = PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
     entry_config: PatternEntryConfig | None = None,
     entry_custom_price: float | None = None,
+    detector_config_updates: Mapping[str, Any] | None = None,
+    risk_config_updates: Mapping[str, Any] | None = None,
 ) -> ActionBuilder:
     pattern_entry_mode = _pattern_entry_mode(entry_mode)
     pattern_entry_config = entry_config or PatternEntryConfig()
 
     def _builder(train: pd.DataFrame, test: pd.DataFrame, fold: WalkForwardFold) -> Sequence[StrategyAction]:
         strategy = strategy_for_pattern(pattern, entry_filter_config=entry_filter_config)
+        _apply_dataclass_updates(strategy, "detector_config", detector_config_updates)
+        _apply_dataclass_updates(strategy, "risk_config", risk_config_updates)
         actions: list[StrategyAction] = []
         seen_event_ids: set[str] = set()
         for position_index in range(len(test)):
@@ -440,6 +454,7 @@ def _fold_diagnostics(summary_metadata: dict[str, Any]) -> dict[str, object]:
         "performance_diagnostics": performance_diagnostics,
         "risk_exit_audit": risk_exit_audit,
         "score_calibration": score_calibration,
+        "timing_diagnostics": summary_metadata.get("timing_diagnostics") if isinstance(summary_metadata, dict) else None,
     }
 
 
@@ -593,6 +608,54 @@ def _pattern_entry_mode(value: PatternEntryMode | str) -> PatternEntryMode:
     if isinstance(value, PatternEntryMode):
         return value
     return PatternEntryMode(str(value).upper().replace("-", "_"))
+
+
+def _apply_dataclass_updates(strategy: Any, attr: str, updates: Mapping[str, Any] | None) -> None:
+    if not updates:
+        return
+    current = getattr(strategy, attr)
+    available = set(getattr(current, "__dataclass_fields__", {}))
+    invalid = sorted(set(updates) - available)
+    if invalid:
+        raise ValueError(f"unsupported {attr} field: {', '.join(invalid)}")
+    object.__setattr__(strategy, attr, replace(current, **dict(updates)))
+
+
+def _bool_bucket(value: Any) -> str:
+    if value is True:
+        return "TRUE"
+    if value is False:
+        return "FALSE"
+    return "UNKNOWN"
+
+
+def _liquidity_target_bucket(metadata: Mapping[str, Any]) -> str:
+    target_semantics = metadata.get("target_semantics")
+    if not isinstance(target_semantics, Mapping):
+        return "UNKNOWN"
+    for key in ("risk_targets", "structural_targets"):
+        value = target_semantics.get(key)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)) and len(value) > 0:
+            return "TRUE"
+    return "FALSE"
+
+
+def _fvg_stop_mode_bucket(metadata: Mapping[str, Any]) -> str:
+    value = (
+        _nested_metadata(metadata, ("risk_plan_atr_metadata", "fvg_stop_mode", "stop_mode"))
+        or _nested_metadata(metadata, ("atr_metadata", "fvg_stop_mode", "stop_mode"))
+        or metadata.get("risk_stop_mode")
+    )
+    return str(value).upper() if value else "UNKNOWN"
+
+
+def _nested_metadata(metadata: Mapping[str, Any], path: Sequence[str]) -> Any:
+    value: Any = metadata
+    for key in path:
+        if not isinstance(value, Mapping):
+            return None
+        value = value.get(key)
+    return value
 
 
 def _distribution(values: Sequence[float]) -> dict[str, float | int | None]:

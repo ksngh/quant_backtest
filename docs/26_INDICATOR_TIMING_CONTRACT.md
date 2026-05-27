@@ -31,6 +31,20 @@ Indicator timing metadata uses `indicator_timing_metadata_v1`:
 | Pivot | Excluded until confirmed | Yes | `left_window + right_window + 1` | `right_window` | Pivot at index `i` is only confirmed at `i + right_window`. |
 | Market Regime | Included | Yes | max configured windows | `0` | Percentile/z-score baselines can exclude current via `percentile_zscore_include_current=False`. |
 | RSI | Included | Yes | `window + 1` effective closes | `0` | RSI is based on latest close-to-close change and is safe after candle close. |
+| EMA Trend | Included | Yes | `max(slow_period, slope_lookback + 1)` | `0` | EMA fast/slow and slope features include the current completed candle close. |
+| Multi-Timeframe Trend Score | Included | Yes | EMA trend warm-up per available timeframe | `0` | Diagnostic-only composite score using completed base candles and latest completed higher-timeframe candles. Missing higher-timeframe context is explicit and not treated as neutral agreement. |
+
+## Multi-Timeframe Trend Score Metadata
+
+The multi-timeframe trend score uses `multitimeframe_trend_score_v1` row metadata:
+
+- `source_timeframe`: base timeframe such as `1m`.
+- `timeframes`: configured score components such as `1m`, `5m`, and `15m`.
+- `configured_weight`: sum of configured component weights.
+- `available_weight`: sum of weights whose component is valid at the row timestamp.
+- `missing_timeframes`: timeframes unavailable because of warm-up or missing completed candles.
+- `components`: per-timeframe score, weight, direction, feature timestamp, missing reason, and EMA subcomponents.
+- `diagnostic_only`: `true`; the score is not an auto-trading signal by default.
 
 Pattern detectors currently consume completed candle frames. Their ATR, volume-ratio,
 displacement, pivot, and regime inputs should therefore be interpreted as after-close features

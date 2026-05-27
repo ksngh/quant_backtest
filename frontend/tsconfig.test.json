@@ -10,6 +10,7 @@
   "include": [
     "src/lib/performanceDiagnostics.ts",
     "src/lib/executionAssumptions.ts",
+    "src/lib/fvgRetestDiagnostics.ts",
     "src/lib/patternGeometry.ts",
     "src/lib/researchReport.ts",
     "src/lib/runConclusion.ts",

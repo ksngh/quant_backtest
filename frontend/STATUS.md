@@ -4,7 +4,7 @@
 Frontend dashboard integration with read-only backtest API verified in Task 078.
 
 ## Active Task
-No active frontend task. Task 186 `SAVED_RUN_RESEARCH_REPORT_ARTIFACT` completed.
+No active frontend task. Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGNOSTICS` completed for read-only FVG retest v2 diagnostics display.
 
 ## Stack Decision Boundary
 - Selected stack: Next.js App Router + React + TypeScript.
@@ -23,4 +23,5 @@ No active frontend task. Task 186 `SAVED_RUN_RESEARCH_REPORT_ARTIFACT` completed
 - The dashboard now includes a read-only Research Report preview for saved-run `backtest_research_report_v1` JSON/markdown artifacts.
 - The dashboard now includes a read-only Execution Assumptions panel for pattern entry fill, fill-adjusted risk, costs, intrabar ambiguity, zero-cost warnings, and short-simulation limitations.
 - The dashboard now includes a read-only Pattern Geometry panel for saved pattern geometry fields, observed versus placeholder score components, and candidate-overfit diagnostics.
+- The dashboard now includes a read-only FVG Retest V2 Diagnostics panel for saved trend-score, Fibonacci, liquidity-target, reaction-entry, and stop-mode metadata with legacy fallback.
 - The Research Report preview now highlights saved `pattern_research_note_v1` sections for hypothesis, detector conditions, entry/risk/cost/score assumptions, no-lookahead status, regime dependence, limitations, and recommended analyses.

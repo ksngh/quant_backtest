@@ -40,6 +40,14 @@ from quant_bitcoin.indicators.swing_structure import (
     swing_structure_alignment_feature,
 )
 from quant_bitcoin.indicators.volume_ratio import VolumeRatioConfig, calculate_volume_ratio
+from quant_bitcoin.indicators.multitimeframe_trend_score import (
+    MultiTimeframeTrendScoreConfig,
+    calculate_multitimeframe_trend_score,
+)
+from quant_bitcoin.indicators.fibonacci_retracement import (
+    FibonacciRetracementConfig,
+    evaluate_fibonacci_retracement_confluence,
+)
 from quant_bitcoin.patterns.score_metadata import build_score_metadata
 
 REQUIRED_PATTERN_CANDLE_COLUMNS: tuple[str, ...] = (
@@ -113,6 +121,20 @@ class FairValueGapConfig:
     support_resistance_config: SupportResistanceZoneConfig | None = None
     swing_structure_config: SwingStructureConfig | None = None
     retrospective_lifecycle: bool = False
+    use_multitimeframe_trend_score: bool = False
+    require_trend_alignment: bool = False
+    minimum_bullish_trend_score: float = 0.1
+    maximum_bearish_trend_score: float = -0.1
+    trend_score_config: MultiTimeframeTrendScoreConfig | None = None
+    trend_score_rows: pd.DataFrame | None = None
+    higher_timeframe_candles: dict[str, pd.DataFrame] | None = None
+    use_fibonacci_confluence: bool = False
+    require_fibonacci_confluence: bool = False
+    fib_min_level: float = 0.382
+    fib_max_level: float = 0.618
+    fib_tolerance_atr_multiplier: float = 0.0
+    fib_anchor_method: str = "DISPLACEMENT_CANDLE_RANGE"
+    fib_overlap_mode: str = "MIDPOINT"
 
     def __post_init__(self) -> None:
         if self.minimum_gap_size_atr_multiplier < 0:
@@ -138,6 +160,18 @@ class FairValueGapConfig:
             )
         if not 0 <= self.minimum_pattern_score <= 1:
             raise ValueError("minimum_pattern_score must be between 0 and 1")
+        if self.minimum_bullish_trend_score < -1 or self.minimum_bullish_trend_score > 1:
+            raise ValueError("minimum_bullish_trend_score must be between -1 and 1")
+        if self.maximum_bearish_trend_score < -1 or self.maximum_bearish_trend_score > 1:
+            raise ValueError("maximum_bearish_trend_score must be between -1 and 1")
+        FibonacciRetracementConfig(
+            min_level=self.fib_min_level,
+            max_level=self.fib_max_level,
+            tolerance_atr_multiplier=self.fib_tolerance_atr_multiplier,
+            overlap_mode=self.fib_overlap_mode,
+        )
+        if self.fib_anchor_method.upper() != "DISPLACEMENT_CANDLE_RANGE":
+            raise ValueError("fib_anchor_method currently supports only DISPLACEMENT_CANDLE_RANGE")
 
 
 @dataclass(frozen=True)
@@ -183,6 +217,13 @@ class PatternEvent:
     executable_pattern_score: float | None = None
     diagnostic_pattern_score: float | None = None
     atr_metadata: dict[str, Any] = field(default_factory=dict)
+    mtf_trend_score: float | None = None
+    mtf_trend_direction: str | None = None
+    mtf_trend_aligned: bool | None = None
+    mtf_trend_metadata: dict[str, Any] = field(default_factory=dict)
+    fib_confluence_pass: bool | None = None
+    fib_retracement_level: float | None = None
+    fib_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def detect_patterns(
@@ -255,6 +296,7 @@ def detect_fair_value_gaps(
     enriched = candle_frame.copy()
     enriched["atr"] = atr_rows["atr"]
     enriched["volume_ratio"] = volume_rows["volume_ratio"]
+    trend_rows = _trend_score_rows_for_config(enriched, fvg_config)
 
     displacement_rows = detect_displacement_candles(
         enriched[["symbol", "timestamp", "open", "high", "low", "close", "atr", "volume_ratio"]],
@@ -279,6 +321,7 @@ def detect_fair_value_gaps(
                 symbol=symbol or str(enriched.iloc[0]["symbol"]),
                 timeframe=timeframe,
                 config=fvg_config,
+                trend_rows=trend_rows,
             )
             if event is not None:
                 events.append(event)
@@ -294,6 +337,7 @@ def detect_fair_value_gaps(
                 symbol=symbol or str(enriched.iloc[0]["symbol"]),
                 timeframe=timeframe,
                 config=fvg_config,
+                trend_rows=trend_rows,
             )
             if event is not None:
                 events.append(event)
@@ -405,6 +449,7 @@ def _evaluate_fair_value_gap(
     symbol: str | None,
     timeframe: str | None,
     config: FairValueGapConfig,
+    trend_rows: pd.DataFrame | None = None,
 ) -> PatternEvent | None:
     candle_1 = candles.iloc[candle_1_index]
     candle_2 = candles.iloc[candle_2_index]
@@ -479,6 +524,24 @@ def _evaluate_fair_value_gap(
         direction=direction.value,
         config=config.swing_structure_config,
     )
+    trend_feature = _trend_feature_for_event(
+        trend_rows,
+        timestamp=candle_3["timestamp"],
+        direction=direction,
+        config=config,
+    )
+    if config.require_trend_alignment and not trend_feature["aligned"]:
+        return None
+    fib_feature = _fibonacci_feature_for_event(
+        direction=direction,
+        candle_2=candle_2,
+        zone_low=zone_low,
+        zone_high=zone_high,
+        atr=atr,
+        config=config,
+    )
+    if config.require_fibonacci_confluence and not fib_feature["confluence_pass"]:
+        return None
 
     score_metadata = _calculate_pattern_score_metadata(
         gap_size_atr=gap_size_atr,
@@ -487,6 +550,8 @@ def _evaluate_fair_value_gap(
         fvg_state=fvg_state,
         support_resistance_feature=support_resistance_feature,
         swing_structure_feature=swing_structure_feature,
+        trend_feature=trend_feature if _trend_feature_enabled(config) else None,
+        fibonacci_feature=fib_feature if _fibonacci_feature_enabled(config) else None,
         config=config,
     )
     pattern_score = float(score_metadata["pattern_score"])
@@ -564,6 +629,13 @@ def _evaluate_fair_value_gap(
         executable_pattern_score=score_metadata["executable_pattern_score"],
         diagnostic_pattern_score=score_metadata["diagnostic_pattern_score"],
         atr_metadata=atr_timing_metadata(config.atr_config),
+        mtf_trend_score=trend_feature["signed_score"] if _trend_feature_enabled(config) else None,
+        mtf_trend_direction=trend_feature["direction"] if _trend_feature_enabled(config) else None,
+        mtf_trend_aligned=trend_feature["aligned"] if _trend_feature_enabled(config) else None,
+        mtf_trend_metadata=trend_feature["metadata"] if _trend_feature_enabled(config) else {},
+        fib_confluence_pass=fib_feature["confluence_pass"] if _fibonacci_feature_enabled(config) else None,
+        fib_retracement_level=fib_feature.get("retracement_level_at_zone_mid") if _fibonacci_feature_enabled(config) else None,
+        fib_metadata=fib_feature if _fibonacci_feature_enabled(config) else {},
     )
 
 
@@ -608,6 +680,8 @@ def _calculate_pattern_score(
     config: FairValueGapConfig,
     support_resistance_feature: dict[str, Any] | None = None,
     swing_structure_feature: dict[str, Any] | None = None,
+    trend_feature: dict[str, Any] | None = None,
+    fibonacci_feature: dict[str, Any] | None = None,
 ) -> float:
     return float(
         _calculate_pattern_score_metadata(
@@ -617,6 +691,8 @@ def _calculate_pattern_score(
             fvg_state=fvg_state,
             support_resistance_feature=support_resistance_feature,
             swing_structure_feature=swing_structure_feature,
+            trend_feature=trend_feature,
+            fibonacci_feature=fibonacci_feature,
             config=config,
         )["pattern_score"]
     )
@@ -631,6 +707,8 @@ def _calculate_pattern_score_metadata(
     config: FairValueGapConfig,
     support_resistance_feature: dict[str, Any] | None = None,
     swing_structure_feature: dict[str, Any] | None = None,
+    trend_feature: dict[str, Any] | None = None,
+    fibonacci_feature: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if 0.2 <= gap_size_atr <= 1.0:
         gap_quality_score = 1.0
@@ -660,6 +738,12 @@ def _calculate_pattern_score_metadata(
     support_feature = support_resistance_feature or _missing_score_feature(
         reason="feature_not_computed"
     )
+    trend_score_feature = trend_feature or _missing_score_feature(
+        reason="trend_score_not_enabled"
+    )
+    fib_score_feature = fibonacci_feature or _missing_score_feature(
+        reason="fibonacci_confluence_not_enabled"
+    )
     liquidity_score = 0.8 if not config.require_liquidity_pass else 1.0
 
     if fvg_state == FairValueGapState.FRESH:
@@ -669,9 +753,7 @@ def _calculate_pattern_score_metadata(
     else:
         freshness_score = 0.0
 
-    return build_score_metadata(
-        PatternType.FAIR_VALUE_GAP.value,
-        [
+    components = [
             {
                 "name": "gap_quality",
                 "raw_score": gap_quality_score,
@@ -724,8 +806,33 @@ def _calculate_pattern_score_metadata(
                 "source": "observed_lifecycle_state",
                 "description": "Fresh or partially filled lifecycle state at signal time.",
             },
-        ],
-    )
+        ]
+    if trend_feature is not None:
+        components.append(
+            {
+                "name": "mtf_trend_alignment",
+                "raw_score": trend_score_feature["score"],
+                "weight": 0.0,
+                "source": trend_score_feature["source"],
+                "is_placeholder": not bool(trend_score_feature["feature_available"]),
+                "description": "Diagnostic multi-timeframe EMA trend agreement at the FVG confirmation candle.",
+                "metadata": trend_score_feature,
+            }
+        )
+    if fibonacci_feature is not None:
+        components.append(
+            {
+                "name": "fibonacci_confluence",
+                "raw_score": fib_score_feature["score"],
+                "weight": 0.0,
+                "source": fib_score_feature["source"],
+                "is_placeholder": not bool(fib_score_feature["feature_available"]),
+                "description": "Diagnostic Fibonacci retracement confluence at the FVG zone.",
+                "metadata": fib_score_feature,
+            }
+        )
+
+    return build_score_metadata(PatternType.FAIR_VALUE_GAP.value, components)
 
 
 def _context_pivots(
@@ -748,6 +855,174 @@ def _missing_score_feature(reason: str) -> dict[str, Any]:
         "score": 0.0,
         "missing_context_reason": reason,
     }
+
+
+def _trend_feature_enabled(config: FairValueGapConfig) -> bool:
+    return bool(
+        config.use_multitimeframe_trend_score
+        or config.require_trend_alignment
+        or config.trend_score_rows is not None
+        or config.higher_timeframe_candles is not None
+    )
+
+
+def _fibonacci_feature_enabled(config: FairValueGapConfig) -> bool:
+    return bool(config.use_fibonacci_confluence or config.require_fibonacci_confluence)
+
+
+def _fibonacci_feature_for_event(
+    *,
+    direction: PatternDirection,
+    candle_2: pd.Series,
+    zone_low: float,
+    zone_high: float,
+    atr: float,
+    config: FairValueGapConfig,
+) -> dict[str, Any]:
+    if not _fibonacci_feature_enabled(config):
+        return _fibonacci_feature_missing("FIBONACCI_CONFLUENCE_DISABLED", config)
+    metadata = evaluate_fibonacci_retracement_confluence(
+        direction=direction.value,
+        anchor_low=float(candle_2["low"]),
+        anchor_high=float(candle_2["high"]),
+        zone_low=zone_low,
+        zone_high=zone_high,
+        atr=atr,
+        config=FibonacciRetracementConfig(
+            min_level=config.fib_min_level,
+            max_level=config.fib_max_level,
+            tolerance_atr_multiplier=config.fib_tolerance_atr_multiplier,
+            overlap_mode=config.fib_overlap_mode,
+        ),
+    )
+    metadata["anchor_method"] = config.fib_anchor_method.upper()
+    metadata["anchor_candle_timestamp"] = _json_ready(candle_2["timestamp"])
+    return _json_ready(metadata)
+
+
+def _fibonacci_feature_missing(reason: str, config: FairValueGapConfig) -> dict[str, Any]:
+    return {
+        "schema_version": "fibonacci_retracement_confluence_v1",
+        "feature_available": False,
+        "source": "missing_context",
+        "confluence_pass": False,
+        "reason": reason,
+        "score": 0.0,
+        "band_min_level": config.fib_min_level,
+        "band_max_level": config.fib_max_level,
+        "overlap_mode": config.fib_overlap_mode,
+        "anchor_method": config.fib_anchor_method.upper(),
+    }
+
+
+def _trend_score_rows_for_config(
+    candles: pd.DataFrame,
+    config: FairValueGapConfig,
+) -> pd.DataFrame | None:
+    if not _trend_feature_enabled(config):
+        return None
+    if config.trend_score_rows is not None:
+        return _normalize_trend_score_rows(config.trend_score_rows)
+    return calculate_multitimeframe_trend_score(
+        candles,
+        higher_timeframe_candles=config.higher_timeframe_candles,
+        config=config.trend_score_config,
+    )
+
+
+def _normalize_trend_score_rows(rows: pd.DataFrame) -> pd.DataFrame:
+    if not isinstance(rows, pd.DataFrame):
+        raise ValueError("trend_score_rows must be a pandas DataFrame")
+    missing = [column for column in ("timestamp", "trend_score", "trend_direction") if column not in rows.columns]
+    if missing:
+        raise ValueError(f"trend_score_rows missing required columns: {', '.join(missing)}")
+    normalized = rows.copy().reset_index(drop=True)
+    normalized["timestamp"] = pd.to_datetime(normalized["timestamp"], errors="raise", utc=True, format="mixed")
+    if not normalized["timestamp"].is_monotonic_increasing:
+        raise ValueError("trend_score_rows must be sorted ascending by timestamp")
+    return normalized
+
+
+def _trend_feature_for_event(
+    trend_rows: pd.DataFrame | None,
+    *,
+    timestamp: Any,
+    direction: PatternDirection,
+    config: FairValueGapConfig,
+) -> dict[str, Any]:
+    if not _trend_feature_enabled(config):
+        return _trend_feature_missing("TREND_SCORE_DISABLED")
+    if trend_rows is None or trend_rows.empty:
+        return _trend_feature_missing("MISSING_TREND_SCORE_ROWS")
+
+    event_timestamp = pd.to_datetime(pd.Series([timestamp]), errors="raise", utc=True, format="mixed").iloc[0]
+    visible = trend_rows[trend_rows["timestamp"] <= event_timestamp]
+    if visible.empty:
+        return _trend_feature_missing("NO_TREND_SCORE_AT_EVENT_TIMESTAMP")
+    row = visible.iloc[-1]
+    score = _optional_float(row.get("trend_score"))
+    metadata = row.get("trend_score_metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    trend_direction = str(row.get("trend_direction") or "UNAVAILABLE")
+    if score is None:
+        return _trend_feature_missing(
+            "UNAVAILABLE_TREND_SCORE",
+            trend_direction=trend_direction,
+            metadata=metadata,
+        )
+
+    if direction == PatternDirection.BULLISH:
+        aligned = score >= config.minimum_bullish_trend_score
+        alignment_score = _clamp((score + 1.0) / 2.0)
+    else:
+        aligned = score <= config.maximum_bearish_trend_score
+        alignment_score = _clamp((1.0 - score) / 2.0)
+
+    return {
+        "feature_available": True,
+        "source": "observed_multitimeframe_ema_trend_score",
+        "context": "ALIGNED" if aligned else "MISALIGNED",
+        "score": alignment_score,
+        "signed_score": score,
+        "direction": trend_direction,
+        "aligned": bool(aligned),
+        "missing_context_reason": None,
+        "metadata": _json_ready(metadata),
+        "thresholds": {
+            "minimum_bullish_trend_score": config.minimum_bullish_trend_score,
+            "maximum_bearish_trend_score": config.maximum_bearish_trend_score,
+        },
+    }
+
+
+def _trend_feature_missing(
+    reason: str,
+    *,
+    trend_direction: str = "UNAVAILABLE",
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "feature_available": False,
+        "source": "missing_context",
+        "context": "MISSING_CONTEXT",
+        "score": 0.0,
+        "signed_score": None,
+        "direction": trend_direction,
+        "aligned": False,
+        "missing_context_reason": reason,
+        "metadata": _json_ready(metadata or {}),
+    }
+
+
+def _json_ready(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat().replace("+00:00", "Z")
+    return value
 
 
 def _classify_pattern_status(

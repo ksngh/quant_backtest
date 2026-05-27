@@ -13,7 +13,12 @@ const preview = buildResearchReportPreview({
     windows_candles_observed: {},
     entry_mode: {
       selected_entry_mode: "LIMIT_AT_PATTERN_MIDPOINT",
+      entry_trigger: "TOUCH_AND_REACTION_CLOSE",
       fill_price_source: "limit_touch",
+    },
+    fvg_retest_v2: {
+      status: "available",
+      entry_trigger: "TOUCH_AND_REACTION_CLOSE",
     },
     risk_plan: {
       risk_plan_aligned_to_fill: true,
@@ -36,9 +41,12 @@ const preview = buildResearchReportPreview({
 assert.equal(preview.hasReport, true);
 assert.equal(preview.rows.find((row) => row.label === "Pattern")?.value, "FAIR_VALUE_GAP");
 assert.equal(preview.rows.find((row) => row.label === "Entry Mode")?.value, "LIMIT_AT_PATTERN_MIDPOINT");
+assert.equal(preview.rows.find((row) => row.label === "Entry Trigger")?.value, "TOUCH_AND_REACTION_CLOSE");
+assert.equal(preview.rows.find((row) => row.label === "FVG V2 Status")?.value, "available");
 assert.equal(preview.rows.find((row) => row.label === "Risk Aligned To Fill")?.value, "Yes");
 assert.equal(preview.rows.find((row) => row.label === "Cost Profile")?.value, "conservative_crypto_1m");
 assert.ok(preview.sections.includes("Hypothesis"));
+assert.ok(preview.sections.includes("FVG Retest V2"));
 assert.ok(preview.sections.includes("No-Lookahead Status"));
 assert.ok(preview.markdown?.includes("Pattern Research Note"));
 

@@ -90,6 +90,28 @@ POLICIES: dict[str, PatternExecutionPolicy] = {
             PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE: "LEGACY_EVENT_ENTRY_REFERENCE",
         },
     ),
+    "FAIR_VALUE_GAP_RETEST": PatternExecutionPolicy(
+        pattern_key="FAIR_VALUE_GAP_RETEST",
+        policy_key="FVG_RETEST_ONLY",
+        default_entry_mode=PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
+        allowed_entry_modes=(
+            PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
+            PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY,
+            PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY,
+            PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY,
+            PatternEntryMode.LIMIT_AT_CUSTOM_PRICE,
+        ),
+        exit_assumptions=("ATR-buffered FVG structural stop", "R-multiple targets", "fill-adjusted risk plan"),
+        economic_rationale="FVG retest preset waits for price to rebalance into the gap before entry.",
+        research_hypothesis="Retest entries may improve reward-to-risk versus chasing, while no-fill and reaction failures expose missed continuation.",
+        mode_hypotheses={
+            PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT: "RETEST_GAP_MIDPOINT",
+            PatternEntryMode.LIMIT_AT_PATTERN_NEAR_BOUNDARY: "RETEST_NEAR_GAP_BOUNDARY",
+            PatternEntryMode.LIMIT_AT_PATTERN_FAR_BOUNDARY: "RETEST_DEEP_GAP_BOUNDARY",
+            PatternEntryMode.LIMIT_AT_PATTERN_BOUNDARY: "LEGACY_RETEST_DEEP_GAP_BOUNDARY",
+            PatternEntryMode.LIMIT_AT_CUSTOM_PRICE: "CUSTOM_RESEARCH_PRICE",
+        },
+    ),
     "TRENDLINE_BREAK": PatternExecutionPolicy(
         pattern_key="TRENDLINE_BREAK",
         policy_key="TRENDLINE_BREAKOUT_CONFIRMATION",

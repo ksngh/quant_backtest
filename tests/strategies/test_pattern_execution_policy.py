@@ -9,6 +9,7 @@ from quant_bitcoin.strategies.pattern_execution_policy import policy_for_pattern
 def test_policy_matrix_defines_supported_patterns() -> None:
     for pattern in (
         "FAIR_VALUE_GAP",
+        "FAIR_VALUE_GAP_RETEST",
         "ORDER_BLOCK",
         "TRENDLINE_BREAK",
         "CUP_AND_HANDLE",
@@ -46,6 +47,16 @@ def test_fvg_and_order_block_define_canonical_experiment_modes() -> None:
     assert fvg["selected_entry_hypothesis"] == "CHASE_MOMENTUM_CONFIRMATION_CLOSE"
     assert "LIMIT_AT_ORDER_BLOCK_618_RETRACEMENT" in order_block["allowed_entry_modes"]
     assert "LIMIT_AT_CUSTOM_PRICE" in order_block["allowed_entry_modes"]
+
+
+def test_fvg_retest_policy_defaults_to_midpoint_and_rejects_chase_modes() -> None:
+    policy = policy_for_pattern("FAIR_VALUE_GAP_RETEST").to_metadata()
+
+    assert policy["default_entry_mode"] == "LIMIT_AT_PATTERN_MIDPOINT"
+    assert policy["selected_entry_hypothesis"] == "RETEST_GAP_MIDPOINT"
+    assert "MARKET_ON_CONFIRMATION_CLOSE" not in policy["allowed_entry_modes"]
+    with pytest.raises(ValueError, match="not supported for FAIR_VALUE_GAP_RETEST"):
+        validate_pattern_entry_mode("FAIR_VALUE_GAP_RETEST", PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE)
 
 
 def test_adam_and_eve_allows_neckline_retest_entry_mode_metadata() -> None:

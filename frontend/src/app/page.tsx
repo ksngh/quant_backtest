@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getBacktestRun, getHealth, listBacktestRuns } from "../lib/api";
 import { buildExecutionAssumptionModel } from "../lib/executionAssumptions";
+import { buildFvgRetestDiagnosticsModel } from "../lib/fvgRetestDiagnostics";
 import { extractPerformanceDiagnostics, type MetricDefinition } from "../lib/performanceDiagnostics";
 import { buildPatternGeometryModel, type PatternScoreComponent } from "../lib/patternGeometry";
 import { buildResearchReportPreview } from "../lib/researchReport";
@@ -1049,6 +1050,58 @@ function TradabilityDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResp
   );
 }
 
+function FvgRetestDiagnosticsPanel({ detail }: { detail: BacktestRunDetailResponse }) {
+  const model = buildFvgRetestDiagnosticsModel(detail);
+
+  return (
+    <section className="panel">
+      <SectionHeader
+        title="FVG Retest V2 Diagnostics"
+        subtitle="Read-only trend, Fibonacci, entry-retest, liquidity-target, and stop-mode metadata from saved runs."
+      />
+      {!model.hasMetadata ? (
+        <p className="muted">No FVG retest v2 metadata is available for this run. Baseline FVG and legacy runs remain valid with unavailable v2 fields.</p>
+      ) : (
+        <>
+          {model.caveats.map((caveat) => (
+            <p className="diagnostic-warning" key={caveat}>{caveat}</p>
+          ))}
+          <div className="strategy-grid">
+            <div className="info-block">
+              <h3>V2 Summary</h3>
+              <KeyValueGrid rows={model.summaryRows} />
+            </div>
+            <div className="info-block">
+              <h3>Trend Score</h3>
+              <KeyValueGrid rows={model.trendRows} />
+            </div>
+            <div className="info-block">
+              <h3>Fibonacci</h3>
+              <KeyValueGrid rows={model.fibonacciRows} />
+            </div>
+            <div className="info-block">
+              <h3>Liquidity Targets</h3>
+              <KeyValueGrid rows={model.liquidityRows} />
+            </div>
+            <div className="info-block">
+              <h3>Retest Entry</h3>
+              <KeyValueGrid rows={model.entryRows} />
+            </div>
+            <div className="info-block">
+              <h3>Stop Mode</h3>
+              <KeyValueGrid rows={model.stopRows} />
+            </div>
+          </div>
+          <details className="debug-details">
+            <summary>Raw FVG v2 diagnostics</summary>
+            <pre>{JSON.stringify(model.raw, null, 2)}</pre>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
 function ResearchReportPanel({ detail }: { detail: BacktestRunDetailResponse }) {
   const report = asRecord(detail.research_report);
   const preview = buildResearchReportPreview(detail.research_report);
@@ -1325,6 +1378,7 @@ export default function DashboardPage() {
               <RunDiagnosisPanel detail={detail} />
               <ScoreCalibrationPanel detail={detail} />
               <PatternGeometryPanel detail={detail} />
+              <FvgRetestDiagnosticsPanel detail={detail} />
               <TradabilityDiagnosticsPanel detail={detail} />
               <TimingDiagnosticsPanel detail={detail} />
               <RiskAuditPanel detail={detail} />

@@ -263,6 +263,7 @@ class BacktestResultsService:
             (
                 "account_state",
                 "cost_summary",
+                "fvg_retest_v2",
                 "performance_diagnostics",
                 "performance_metrics",
                 "pattern_execution_policy",
@@ -358,6 +359,11 @@ class BacktestResultsService:
                 location="summary.metadata.risk_exit_audit",
                 value=summary_metadata.get("risk_exit_audit"),
                 compatible_saved_schemas=("risk_exit_audit_v1",),
+            ),
+            "fvg_retest_v2": self._schema_contract(
+                expected_schema="fvg_retest_v2_diagnostics_v1",
+                location="summary.metadata.fvg_retest_v2",
+                value=summary_metadata.get("fvg_retest_v2"),
             ),
             "intrabar_policy": self._intrabar_policy_contract(trades),
         }

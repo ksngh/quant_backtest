@@ -15,7 +15,7 @@ from quant_bitcoin.patterns import (
     TrailingStopSettings,
     create_risk_exit_plan,
 )
-from quant_bitcoin.patterns.entry_simulation import PatternEntryMode
+from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryTrigger
 from quant_bitcoin.risk.exit_simulation import SoftInvalidationRule
 from quant_bitcoin.strategies.actions import StrategyActionType, StrategyQuantityMode
 
@@ -237,6 +237,74 @@ def test_canonical_builder_preserves_pattern_metadata_for_all_pattern_types(patt
     assert entry.metadata["event_stop_reference"] == pytest.approx(95.0)
     assert entry.metadata["event_target_reference"] == pytest.approx(115.0)
     assert entry.metadata["fill_adjusted_risk_per_unit"] == pytest.approx(15.0)
+
+
+def test_canonical_builder_preserves_fvg_trend_metadata() -> None:
+    actions = build_pattern_trade_actions(
+        _Event(
+            "BULLISH",
+            mtf_trend_score=0.42,
+            mtf_trend_direction="BULLISH",
+            mtf_trend_aligned=True,
+            mtf_trend_metadata={"schema_version": "multitimeframe_trend_score_v1"},
+        ),
+        _plan("LONG"),
+        _candles([{"timestamp": 2, "high": 106.0, "low": 100.0, "close": 104.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0},
+        position_side="LONG",
+    )
+
+    metadata = actions[0].metadata
+    assert metadata["mtf_trend_score"] == pytest.approx(0.42)
+    assert metadata["mtf_trend_direction"] == "BULLISH"
+    assert metadata["mtf_trend_aligned"] is True
+    assert metadata["mtf_trend_metadata"]["schema_version"] == "multitimeframe_trend_score_v1"
+
+
+def test_canonical_builder_preserves_fvg_fibonacci_metadata() -> None:
+    actions = build_pattern_trade_actions(
+        _Event(
+            "BULLISH",
+            fib_confluence_pass=True,
+            fib_retracement_level=0.5,
+            fib_metadata={"schema_version": "fibonacci_retracement_confluence_v1"},
+        ),
+        _plan("LONG"),
+        _candles([{"timestamp": 2, "high": 106.0, "low": 100.0, "close": 104.0}]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 111.0, "low": 100.0, "close": 110.0},
+        position_side="LONG",
+    )
+
+    metadata = actions[0].metadata
+    assert metadata["fib_confluence_pass"] is True
+    assert metadata["fib_retracement_level"] == pytest.approx(0.5)
+    assert metadata["fib_metadata"]["schema_version"] == "fibonacci_retracement_confluence_v1"
+
+
+def test_reaction_entry_metadata_and_fill_adjusted_risk_are_preserved() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH", zone_mid=100.0),
+        _plan("LONG"),
+        _candles([
+            {"timestamp": 2, "open": 101.0, "high": 101.2, "low": 99.8, "close": 99.9},
+            {"timestamp": 3, "open": 99.9, "high": 111.0, "low": 99.7, "close": 108.0},
+        ]),
+        entry_action_timestamp=1,
+        confirmation_candle={"timestamp": 1, "open": 101.0, "high": 102.0, "low": 100.0, "close": 101.0},
+        position_side="LONG",
+        entry_mode=PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT,
+        entry_config=PatternEntryConfig(max_wait_bars=3, entry_trigger=PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE),
+    )
+
+    entry = actions[0]
+    assert entry.action_type == StrategyActionType.ENTER_LONG
+    assert entry.requested_price == pytest.approx(108.0)
+    assert entry.metadata["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
+    assert entry.metadata["touch_candle_index"] == 0
+    assert entry.metadata["reaction_candle_index"] == 1
+    assert entry.metadata["fill_adjusted_risk_per_unit"] == pytest.approx(13.0)
 
 
 def test_short_market_fill_rebuilds_targets_from_actual_fill_price() -> None:

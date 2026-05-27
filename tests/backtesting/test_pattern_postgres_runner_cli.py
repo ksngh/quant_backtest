@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pandas as pd
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli, pattern_postgres_runner_cli
 from quant_bitcoin.backtesting import strategy_postgres_runner_core
-from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus
+from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus, PatternEntryTrigger
 from quant_bitcoin.risk.exit_plan import RiskExitDirection, RiskExitPlan, RiskExitPlanStatus
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 
@@ -545,6 +545,8 @@ def test_build_fvg_entry_config_args():
         "3",
         "--fvg-entry-expire-status",
         "cancelled",
+        "--fvg-entry-trigger",
+        "touch_and_reaction_close",
         "--no-persist",
     ])
 
@@ -552,7 +554,43 @@ def test_build_fvg_entry_config_args():
     config = strategy_postgres_runner_core._selected_fvg_entry_config(args)
 
     assert mode is PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT
-    assert config == PatternEntryConfig(max_wait_bars=3, expire_status=PatternEntryStatus.CANCELLED)
+    assert config == PatternEntryConfig(
+        max_wait_bars=3,
+        expire_status=PatternEntryStatus.CANCELLED,
+        entry_trigger=PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE,
+    )
+    metadata = strategy_postgres_runner_core._build_fvg_entry_metadata(mode, config, None)
+    assert metadata["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
+
+
+def test_fvg_v2_cli_metadata_records_research_controls() -> None:
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--enable-fvg-v2",
+        "--fvg-use-trend-score",
+        "--fvg-trend-fast-period",
+        "5",
+        "--fvg-trend-slow-period",
+        "13",
+        "--fvg-use-fibonacci-confluence",
+        "--fvg-require-liquidity-target",
+        "--fvg-stop-mode",
+        "wider_of_fvg_and_swing",
+        "--fvg-entry-trigger",
+        "touch_and_reaction_close",
+        "--no-persist",
+    ])
+
+    metadata = strategy_postgres_runner_core._build_fvg_v2_metadata(args)
+
+    assert metadata["schema_version"] == "fvg_retest_v2_settings_v1"
+    assert metadata["enabled"] is True
+    assert metadata["trend_score"]["fast_period"] == 5
+    assert metadata["trend_score"]["slow_period"] == 13
+    assert metadata["fibonacci_confluence"]["enabled"] is True
+    assert metadata["liquidity_targets"]["require_liquidity_target"] is True
+    assert metadata["stop_mode"] == "WIDER_OF_FVG_AND_SWING"
+    assert metadata["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
 
 
 def test_fvg_entry_mode_cli_output_contains_fill_diagnostics(monkeypatch, capsys):
@@ -587,6 +625,38 @@ def test_fvg_entry_mode_cli_output_contains_fill_diagnostics(monkeypatch, capsys
     assert diagnostics["selected_entry_mode"] == "LIMIT_AT_PATTERN_MIDPOINT"
     assert diagnostics["fill_rate"] == 1.0
     assert out["summary"]["metadata"]["fvg_entry_mode"]["filled_entry_count"] == 1
+
+
+def test_fvg_v2_cli_output_contains_diagnostics(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _FvgEntryStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--pattern",
+        "FAIR_VALUE_GAP",
+        "--enable-fvg-v2",
+        "--fvg-entry-mode",
+        "limit_at_pattern_midpoint",
+        "--fvg-entry-trigger",
+        "touch_and_reaction_close",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+
+    diagnostics = out["diagnostics"]["fvg_retest_v2"]
+    assert diagnostics["schema_version"] == "fvg_retest_v2_diagnostics_v1"
+    assert diagnostics["settings"]["enabled"] is True
+    assert diagnostics["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
+    assert "fvg_retest_v2_experimental_scope" in out["warnings"]
 
 
 def test_fvg_entry_mode_comparison_output_contains_modes(monkeypatch, capsys):

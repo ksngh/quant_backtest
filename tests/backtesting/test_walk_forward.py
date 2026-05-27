@@ -69,7 +69,10 @@ def _pattern_fixture(pattern: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _execution(timestamp, *, net_pnl=1.0, entry_mode="MARKET_ON_CONFIRMATION_CLOSE") -> StrategyExecution:
+def _execution(timestamp, *, net_pnl=1.0, entry_mode="MARKET_ON_CONFIRMATION_CLOSE", metadata=None) -> StrategyExecution:
+    execution_metadata = {"entry_mode": entry_mode}
+    if metadata:
+        execution_metadata.update(metadata)
     return StrategyExecution(
         timestamp=timestamp,
         side="SELL",
@@ -82,7 +85,7 @@ def _execution(timestamp, *, net_pnl=1.0, entry_mode="MARKET_ON_CONFIRMATION_CLO
         equity_after=10001.0,
         net_pnl=net_pnl,
         realized_r_multiple=net_pnl,
-        metadata={"entry_mode": entry_mode},
+        metadata=execution_metadata,
     )
 
 
@@ -131,7 +134,21 @@ def test_monte_carlo_bootstrap_is_deterministic_for_seed() -> None:
 def test_regime_stratified_attribution_groups_by_supplied_metadata() -> None:
     ts = pd.Timestamp("2026-01-01T00:00:00Z")
     payload = calculate_regime_stratified_attribution(
-        [_execution(ts, net_pnl=2.0)],
+        [
+            _execution(
+                ts,
+                net_pnl=2.0,
+                metadata={
+                    "entry_trigger": "TOUCH_AND_REACTION_CLOSE",
+                    "mtf_trend_aligned": True,
+                    "fib_confluence_pass": False,
+                    "target_semantics": {"risk_targets": [{"price": 113.0}]},
+                    "risk_plan_atr_metadata": {
+                        "fvg_stop_mode": {"stop_mode": "WIDER_OF_FVG_AND_SWING"}
+                    },
+                },
+            )
+        ],
         regime_by_timestamp={
             ts: {
                 "market_regime": "TRENDING",
@@ -148,6 +165,11 @@ def test_regime_stratified_attribution_groups_by_supplied_metadata() -> None:
     assert market["completed_trade_count"] == 1
     assert market["expectancy"] == 2.0
     assert payload["by_dimension"]["entry_mode"]["MARKET_ON_CONFIRMATION_CLOSE"]["average_r"] == 2.0
+    assert payload["by_dimension"]["fvg_entry_trigger"]["TOUCH_AND_REACTION_CLOSE"]["completed_trade_count"] == 1
+    assert payload["by_dimension"]["fvg_trend_alignment"]["TRUE"]["average_r"] == 2.0
+    assert payload["by_dimension"]["fvg_fibonacci_confluence"]["FALSE"]["completed_trade_count"] == 1
+    assert payload["by_dimension"]["fvg_liquidity_target_available"]["TRUE"]["completed_trade_count"] == 1
+    assert payload["by_dimension"]["fvg_stop_mode"]["WIDER_OF_FVG_AND_SWING"]["completed_trade_count"] == 1
 
 
 def test_sparse_stratum_warning_triggered() -> None:

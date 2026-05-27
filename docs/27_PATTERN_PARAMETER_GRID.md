@@ -10,7 +10,7 @@ The runner varies selected parameters across deterministic combinations:
 
 - `detector.<field>` for the selected pattern detector config.
 - `risk.<field>` for the selected pattern risk config.
-- `entry.mode`, `entry.max_wait_bars`, and `entry.expire_status`.
+- `entry.mode`, `entry.max_wait_bars`, `entry.expire_status`, and `entry.trigger`.
 - `cost.profile`.
 - `sizing.mode` and `sizing.value`.
 - `filter.minimum_pattern_score` and `filter.minimum_risk_reward`.
@@ -38,3 +38,7 @@ Executed rows include trade count, candidate count, fill rate, expectancy,
 average R, hit rate, profit factor, max drawdown, cost ratio, and no-fill count.
 Rows with no completed fills are marked `NO_FILLS`; invalid rows are marked
 `FAILED` with the error message.
+
+## FVG Retest V2 Protocol
+
+Task 236 adds `docs/29_FVG_RETEST_V2_RESEARCH_PROTOCOL.md` and code helpers for FVG v2 research governance. FVG v2 grids must predeclare entry trigger, stop mode, and cost profile, must retain losing/no-fill variants, and must not promote a strategy from the grid winner. Zero-cost-only evidence is rejected by the FVG v2 protocol validator.

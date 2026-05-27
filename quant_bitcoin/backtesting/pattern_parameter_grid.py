@@ -13,7 +13,7 @@ from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_
 from quant_bitcoin.backtesting.strategy_postgres_runner_core import _expand_raw_actions
 from quant_bitcoin.backtesting.fvg_detection_cache import IndicatorCache, PatternEvaluationContext
 from quant_bitcoin.backtesting.sizing import PositionSizingConfig, PositionSizingMode
-from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus
+from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus, PatternEntryTrigger
 from quant_bitcoin.strategies.actions import StrategyActionType
 from quant_bitcoin.strategies.pattern_execution_policy import validate_pattern_entry_mode
 from quant_bitcoin.strategies.patterns import PatternEntryFilterConfig, strategy_for_pattern
@@ -209,6 +209,8 @@ def _configured_strategy(
             entry_config_kwargs["max_wait_bars"] = None if value is None else int(value)
         elif path == "entry.expire_status":
             entry_config_kwargs["expire_status"] = PatternEntryStatus(str(value).upper().replace("-", "_"))
+        elif path == "entry.trigger":
+            entry_config_kwargs["entry_trigger"] = PatternEntryTrigger(str(value).upper().replace("-", "_"))
         elif path == "cost.profile":
             cost_profile_name = str(value).lower()
         elif path == "sizing.mode":

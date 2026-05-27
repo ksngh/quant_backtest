@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:helpers": "tsc --project tsconfig.test.json && node .tmp-tests/tests/performanceDiagnostics.test.js && node .tmp-tests/tests/strategyExplanation.test.js && node .tmp-tests/tests/runConclusion.test.js && node .tmp-tests/tests/executionAssumptions.test.js && node .tmp-tests/tests/patternGeometry.test.js && node .tmp-tests/tests/researchReport.test.js"
+    "test:helpers": "tsc --project tsconfig.test.json && node .tmp-tests/tests/performanceDiagnostics.test.js && node .tmp-tests/tests/strategyExplanation.test.js && node .tmp-tests/tests/runConclusion.test.js && node .tmp-tests/tests/executionAssumptions.test.js && node .tmp-tests/tests/patternGeometry.test.js && node .tmp-tests/tests/fvgRetestDiagnostics.test.js && node .tmp-tests/tests/researchReport.test.js"
   },
   "dependencies": {
     "next": "14.2.5",

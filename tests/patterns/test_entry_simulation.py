@@ -8,7 +8,9 @@ from quant_bitcoin.patterns.entry_simulation import (
     PatternEntryMode,
     PatternEntrySimulationResult,
     PatternEntryStatus,
+    PatternEntryTrigger,
     create_entry_plan_from_event,
+    fair_value_gap_retest_entry_preset,
     simulate_pattern_entry,
 )
 
@@ -66,6 +68,98 @@ def test_limit_entry_reference_fills_when_touched() -> None:
 
     assert result.status == PatternEntryStatus.FILLED
     assert result.fill_price == pytest.approx(100.25)
+    assert result.entry_trigger == PatternEntryTrigger.TOUCH.value
+    assert result.touch_timestamp == "2026-05-20T00:01:00Z"
+    assert result.touch_candle_index == 0
+
+
+def test_reaction_entry_fills_after_touch_plus_bullish_reaction_close() -> None:
+    plan = create_entry_plan_from_event(_event(zone_mid=100.0), PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT, "LONG")
+    reaction_plan = plan.__class__(
+        mode=plan.mode,
+        direction=plan.direction,
+        limit_price=plan.limit_price,
+        config=PatternEntryConfig(max_wait_bars=3, entry_trigger=PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE),
+        event_id=plan.event_id,
+        pattern_type=plan.pattern_type,
+        metadata=plan.metadata,
+    )
+
+    result = simulate_pattern_entry(
+        reaction_plan,
+        _confirmation(),
+        _future([
+            {"open": 101.0, "high": 101.2, "low": 99.8, "close": 99.9},
+            {"open": 99.9, "high": 101.1, "low": 99.7, "close": 100.8},
+        ]),
+    )
+
+    assert result.status == PatternEntryStatus.FILLED
+    assert result.fill_price == pytest.approx(100.8)
+    assert result.touch_candle_index == 0
+    assert result.reaction_candle_index == 1
+    assert result.entry_trigger == PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE.value
+
+
+def test_reaction_entry_distinguishes_touch_without_reaction() -> None:
+    plan = create_entry_plan_from_event(_event(zone_mid=100.0), PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT, "LONG")
+    reaction_plan = plan.__class__(
+        mode=plan.mode,
+        direction=plan.direction,
+        limit_price=plan.limit_price,
+        config=PatternEntryConfig(max_wait_bars=2, entry_trigger=PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE),
+        event_id=plan.event_id,
+        pattern_type=plan.pattern_type,
+        metadata=plan.metadata,
+    )
+
+    result = simulate_pattern_entry(
+        reaction_plan,
+        _confirmation(),
+        _future([
+            {"open": 101.0, "high": 101.2, "low": 99.8, "close": 99.9},
+            {"open": 100.2, "high": 100.5, "low": 99.7, "close": 99.8},
+        ]),
+    )
+
+    assert result.status == PatternEntryStatus.NOT_FILLED
+    assert result.touch_candle_index == 0
+    assert result.reaction_candle_index is None
+    assert result.reason == "limit price touched but reaction trigger was not confirmed within evaluated candles"
+
+
+def test_reclaim_midpoint_trigger_requires_directional_close_beyond_limit() -> None:
+    plan = create_entry_plan_from_event(_event(zone_mid=100.0), PatternEntryMode.LIMIT_AT_PATTERN_MIDPOINT, "SHORT")
+    reaction_plan = plan.__class__(
+        mode=plan.mode,
+        direction=plan.direction,
+        limit_price=plan.limit_price,
+        config=PatternEntryConfig(max_wait_bars=2, entry_trigger=PatternEntryTrigger.TOUCH_AND_RECLAIM_MIDPOINT),
+        event_id=plan.event_id,
+        pattern_type=plan.pattern_type,
+        metadata=plan.metadata,
+    )
+
+    result = simulate_pattern_entry(
+        reaction_plan,
+        _confirmation(),
+        _future([
+            {"open": 99.0, "high": 100.2, "low": 98.5, "close": 100.1},
+            {"open": 100.1, "high": 100.4, "low": 98.0, "close": 99.5},
+        ]),
+    )
+
+    assert result.status == PatternEntryStatus.FILLED
+    assert result.fill_price == pytest.approx(99.5)
+    assert result.reaction_candle_index == 1
+
+
+def test_fair_value_gap_retest_entry_preset_uses_midpoint_wait_defaults() -> None:
+    config = fair_value_gap_retest_entry_preset()
+
+    assert config.max_wait_bars == 5
+    assert config.expire_status is PatternEntryStatus.NOT_FILLED
+    assert config.entry_trigger is PatternEntryTrigger.TOUCH
 
 
 def test_limit_midpoint_and_boundary_modes() -> None:
