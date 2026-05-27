@@ -131,6 +131,17 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
                     "pattern_key": "FAIR_VALUE_GAP",
                     "selected_entry_mode": "LIMIT_AT_PATTERN_MIDPOINT",
                 },
+                "fvg_retest_v2": {
+                    "schema_version": "fvg_retest_v2_diagnostics_v1",
+                    "entry_trigger": "TOUCH_AND_REACTION_CLOSE",
+                    "stop_mode": "WIDER_OF_FVG_AND_SWING",
+                    "experimental_scope": "offline_research_only",
+                    "counts": {"filled_entry_count": 1, "skipped_entry_count": 0},
+                    "settings": {
+                        "schema_version": "fvg_retest_v2_settings_v1",
+                        "enabled": True,
+                    },
+                },
                 "short_economics": {
                     "schema_version": "short_economics_research_v1",
                     "enabled": False,
@@ -156,6 +167,7 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
                     "short_proceeds_locked_after": 10000.0,
                     "short_collateral_locked_after": 10000.0,
                     "entry_mode": "LIMIT_AT_PATTERN_MIDPOINT",
+                    "entry_trigger": "TOUCH_AND_REACTION_CLOSE",
                     "fill_assumption": "historical_limit_fill",
                     "fill_price_source": "limit_touch",
                     "bars_waited": 2,
@@ -167,6 +179,13 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
                     "effective_slippage_bps": 21.0,
                     "pattern_type": "FAIR_VALUE_GAP",
                     "pattern_score": 0.8,
+                    "mtf_trend_score": 0.42,
+                    "mtf_trend_direction": "BULLISH",
+                    "mtf_trend_aligned": True,
+                    "mtf_trend_metadata": {"schema_version": "multitimeframe_trend_score_v1"},
+                    "fib_confluence_pass": True,
+                    "fib_retracement_level": 0.5,
+                    "fib_metadata": {"schema_version": "fibonacci_retracement_confluence_v1"},
                     "target_semantics": {
                         "schema_version": "target_semantics_v1",
                         "risk_targets": [{"name": "TP1", "price": 9900.0}],
@@ -232,7 +251,11 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
         "zero_cost_warning": None,
     }
     assert detail["diagnostics"]["summary"]["short_economics"]["schema_version"] == "short_economics_research_v1"
+    assert detail["diagnostics"]["summary"]["fvg_retest_v2"]["schema_version"] == "fvg_retest_v2_diagnostics_v1"
+    assert detail["diagnostics"]["summary"]["fvg_retest_v2"]["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
     assert detail["trades"][0]["metadata"]["risk_plan_aligned_to_fill"] is True
+    assert detail["trades"][0]["metadata"]["mtf_trend_score"] == 0.42
+    assert detail["trades"][0]["metadata"]["fib_retracement_level"] == 0.5
     assert detail["trades"][0]["metadata"]["effective_slippage_bps"] == 21.0
     assert detail["diagnostics"]["summary"]["performance_diagnostics"]["schema_version"] == "backtest_performance_diagnostics_v1"
     assert detail["diagnostics"]["summary"]["timing_diagnostics"]["schema_version"] == "trade_timing_diagnostics_v1"
@@ -248,6 +271,8 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
     assert schema_index["contracts"]["risk_exit_audit"]["expected_schema"] == "risk_exit_audit_v2"
     assert schema_index["contracts"]["risk_exit_audit"]["compatible_saved_schemas"] == ["risk_exit_audit_v1"]
     assert schema_index["contracts"]["risk_exit_audit"]["observed_schema"] == "risk_exit_audit_v1"
+    assert schema_index["contracts"]["fvg_retest_v2"]["expected_schema"] == "fvg_retest_v2_diagnostics_v1"
+    assert schema_index["contracts"]["fvg_retest_v2"]["observed_schema"] == "fvg_retest_v2_diagnostics_v1"
     assert schema_index["contracts"]["intrabar_policy"]["observed_schema"] == "intrabar_policy_v1"
     assert detail["research_report"]["schema_version"] == "backtest_research_report_v1"
     assert detail["research_report"]["data_summary"]["trade_rows"] == 1
@@ -261,6 +286,7 @@ def test_detail_serialization_promotes_semantic_signal_and_account_state_metadat
     assert "summary.score_calibration" in detail["diagnostics"]["available_sections"]
     assert "summary.metadata_schema_index" in detail["diagnostics"]["available_sections"]
     assert "summary.short_economics" in detail["diagnostics"]["available_sections"]
+    assert "summary.fvg_retest_v2" in detail["diagnostics"]["available_sections"]
 
 
 def test_detail_serialization_exposes_legacy_timing_diagnostics_from_saved_rows():

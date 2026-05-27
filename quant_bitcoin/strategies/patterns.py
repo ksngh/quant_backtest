@@ -9,6 +9,11 @@ from quant_bitcoin.indicators.market_regime import (
     PatternRegimeThresholdConfig,
     evaluate_pattern_regime_thresholds,
 )
+from quant_bitcoin.indicators.pivots import detect_pivots
+from quant_bitcoin.backtesting.fvg_liquidity_targets import (
+    FvgLiquidityTargetConfig,
+    resolve_fvg_liquidity_targets,
+)
 from quant_bitcoin.patterns import (
     AdamAndEveConfig, AdamAndEveRiskExitConfig, CupAndHandleConfig, CupAndHandleRiskExitConfig,
     DiamondConfig, DiamondRiskExitConfig, FairValueGapConfig, FairValueGapRiskExitConfig,
@@ -279,7 +284,30 @@ class FairValueGapStrategy(PatternStrategyBase):
     def _latest_event(self, frame):
         events = [e for e in detect_fair_value_gaps(frame, config=self.detector_config) if getattr(e, 'end_index', None) == len(frame)-1]
         return events[0] if events else None
-    def _risk_plan(self, event, frame): return create_fair_value_gap_risk_exit_plan(event, config=self.risk_config).risk_plan
+    def _risk_plan(self, event, frame):
+        structural_targets = None
+        liquidity_metadata = {}
+        if self.risk_config.use_liquidity_targets or self.risk_config.require_liquidity_target:
+            pivot_frame = frame
+            if "symbol" not in pivot_frame.columns:
+                pivot_frame = pivot_frame.assign(symbol=getattr(event, "symbol", "UNKNOWN"))
+            pivots = detect_pivots(pivot_frame[["symbol", "timestamp", "open", "high", "low", "close"]])
+            resolved = resolve_fvg_liquidity_targets(
+                event,
+                pivots,
+                config=FvgLiquidityTargetConfig(
+                    require_liquidity_target=self.risk_config.require_liquidity_target,
+                    minimum_target_r=self.risk_config.minimum_liquidity_target_r,
+                ),
+            )
+            structural_targets = resolved.targets
+            liquidity_metadata = resolved.metadata
+        return create_fair_value_gap_risk_exit_plan(
+            event,
+            structural_targets=structural_targets,
+            liquidity_target_metadata=liquidity_metadata,
+            config=self.risk_config,
+        ).risk_plan
 
     def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
         events = detect_fair_value_gap_at_index(context, config=self.detector_config)

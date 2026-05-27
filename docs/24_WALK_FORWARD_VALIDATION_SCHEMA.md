@@ -2,6 +2,7 @@
 
 Task 166 adds an offline validation payload for fixed-parameter walk-forward checks.
 Task 182 extends the same schema to supported pattern strategies.
+Task 236 adds an FVG retest v2 research protocol that wraps this schema with predeclared parameter-grid evidence and research-only promotion/rejection notes.
 
 Safety boundary:
 
@@ -32,6 +33,8 @@ Fold rows include UTC `train_start`, `train_end`, `test_start`, `test_end`, cand
 - `FAILED`: fold could not run; `reason` is present.
 
 Aggregate metrics include fold count, failure count, no-fill fold count, positive-fold ratio, pattern fold stability, and distribution summaries for total return, net PnL, expectancy, trade count, and max drawdown.
+
+When regime stratification is enabled, FVG v2 metadata dimensions may include `fvg_entry_trigger`, `fvg_trend_alignment`, `fvg_fibonacci_confluence`, `fvg_liquidity_target_available`, and `fvg_stop_mode` in addition to regime/session dimensions. These are reporting buckets only, not parameter-selection or execution controls.
 
 Pattern strategy mode:
 

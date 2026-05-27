@@ -39,18 +39,28 @@ class PatternEntryStatus(Enum):
     INVALID = "INVALID"
 
 
+class PatternEntryTrigger(Enum):
+    """Supported historical limit-entry trigger requirements."""
+
+    TOUCH = "TOUCH"
+    TOUCH_AND_REACTION_CLOSE = "TOUCH_AND_REACTION_CLOSE"
+    TOUCH_AND_RECLAIM_MIDPOINT = "TOUCH_AND_RECLAIM_MIDPOINT"
+
+
 @dataclass(frozen=True)
 class PatternEntryConfig:
     """Configuration for deterministic no-fill behavior."""
 
     max_wait_bars: int | None = None
     expire_status: PatternEntryStatus = PatternEntryStatus.NOT_FILLED
+    entry_trigger: PatternEntryTrigger | str = PatternEntryTrigger.TOUCH
 
     def __post_init__(self) -> None:
         if self.max_wait_bars is not None and self.max_wait_bars < 1:
             raise ValueError("max_wait_bars must be at least 1 when supplied")
         if self.expire_status not in (PatternEntryStatus.NOT_FILLED, PatternEntryStatus.CANCELLED):
             raise ValueError("expire_status must be NOT_FILLED or CANCELLED")
+        _coerce_trigger(self.entry_trigger)
 
 
 @dataclass(frozen=True)
@@ -73,6 +83,26 @@ class PatternEntrySimulationResult:
     bars_waited: int
     plan: PatternEntryPlan
     reason: str | None = None
+    entry_trigger: str = PatternEntryTrigger.TOUCH.value
+    touch_timestamp: Any | None = None
+    touch_candle_index: int | None = None
+    reaction_timestamp: Any | None = None
+    reaction_candle_index: int | None = None
+
+
+def fair_value_gap_retest_entry_preset(
+    *,
+    entry_trigger: PatternEntryTrigger | str = PatternEntryTrigger.TOUCH,
+    max_wait_bars: int = 5,
+    expire_status: PatternEntryStatus = PatternEntryStatus.NOT_FILLED,
+) -> PatternEntryConfig:
+    """Return the opt-in FVG retest preset entry configuration."""
+
+    return PatternEntryConfig(
+        max_wait_bars=max_wait_bars,
+        expire_status=expire_status,
+        entry_trigger=entry_trigger,
+    )
 
 
 def create_entry_plan_from_event(
@@ -194,10 +224,17 @@ def simulate_pattern_entry(
         )
 
     assert plan.limit_price is not None
+    trigger = _coerce_trigger(plan.config.entry_trigger)
     max_rows = len(frame) if plan.config.max_wait_bars is None else min(len(frame), plan.config.max_wait_bars)
+    touch_timestamp = None
+    touch_index = None
     for index in range(max_rows):
         candle = frame.iloc[index]
         if float(candle["low"]) <= plan.limit_price <= float(candle["high"]):
+            touch_timestamp = candle["timestamp"]
+            touch_index = index
+            if trigger != PatternEntryTrigger.TOUCH:
+                break
             return PatternEntrySimulationResult(
                 status=PatternEntryStatus.FILLED,
                 fill_price=float(plan.limit_price),
@@ -205,7 +242,40 @@ def simulate_pattern_entry(
                 fill_candle_index=index,
                 bars_waited=index + 1,
                 plan=plan,
+                entry_trigger=trigger.value,
+                touch_timestamp=candle["timestamp"],
+                touch_candle_index=index,
             )
+
+    if touch_index is not None and trigger != PatternEntryTrigger.TOUCH:
+        for index in range(touch_index, max_rows):
+            candle = frame.iloc[index]
+            if _reaction_confirmed(candle, plan.direction, plan.limit_price, trigger):
+                return PatternEntrySimulationResult(
+                    status=PatternEntryStatus.FILLED,
+                    fill_price=float(candle["close"]),
+                    fill_timestamp=candle["timestamp"],
+                    fill_candle_index=index,
+                    bars_waited=index + 1,
+                    plan=plan,
+                    entry_trigger=trigger.value,
+                    touch_timestamp=touch_timestamp,
+                    touch_candle_index=touch_index,
+                    reaction_timestamp=candle["timestamp"],
+                    reaction_candle_index=index,
+                )
+        return PatternEntrySimulationResult(
+            status=plan.config.expire_status,
+            fill_price=None,
+            fill_timestamp=None,
+            fill_candle_index=None,
+            bars_waited=max_rows,
+            plan=plan,
+            reason="limit price touched but reaction trigger was not confirmed within evaluated candles",
+            entry_trigger=trigger.value,
+            touch_timestamp=touch_timestamp,
+            touch_candle_index=touch_index,
+        )
 
     return PatternEntrySimulationResult(
         status=plan.config.expire_status,
@@ -215,6 +285,7 @@ def simulate_pattern_entry(
         bars_waited=max_rows,
         plan=plan,
         reason="limit price not touched within evaluated candles",
+        entry_trigger=trigger.value,
     )
 
 
@@ -229,6 +300,27 @@ def _coerce_direction(direction: str) -> str:
     if normalized not in ("LONG", "SHORT"):
         raise ValueError("direction must be LONG or SHORT")
     return normalized
+
+
+def _coerce_trigger(trigger: PatternEntryTrigger | str) -> PatternEntryTrigger:
+    if isinstance(trigger, PatternEntryTrigger):
+        return trigger
+    return PatternEntryTrigger(str(trigger).upper())
+
+
+def _reaction_confirmed(
+    candle: pd.Series,
+    direction: str,
+    limit_price: float,
+    trigger: PatternEntryTrigger,
+) -> bool:
+    close = float(candle["close"])
+    open_price = float(candle["open"])
+    if trigger == PatternEntryTrigger.TOUCH_AND_REACTION_CLOSE:
+        return close > open_price if direction == "LONG" else close < open_price
+    if direction == "LONG":
+        return close >= limit_price
+    return close <= limit_price
 
 
 def _event_field(event: Any, name: str) -> Any:

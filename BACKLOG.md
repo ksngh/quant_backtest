@@ -10,7 +10,19 @@ Older items are preserved in fixed 50-task segmented archives:
 
 All items below are candidate/planning pointers unless marked completed.
 
-## Recent Task Window (Tasks 201-225)
+## Recent Task Window (Tasks 201-237)
+- Completed (2026-05-27): Task 237 `FVG_RETEST_V2_DOCUMENTATION_LEDGER_RECONCILIATION_AND_ARCHIVE_CHECK` (reconciled FVG v2 docs/status/history/backlog and confirmed no 201-250 archive is required yet).
+- Completed (2026-05-27): Task 236 `FVG_RETEST_V2_WALK_FORWARD_AND_OOS_RESEARCH_PROTOCOL` (added FVG v2 parameter-declaration validation, WFO/OOS research protocol evidence packaging, FVG v2 WFO grouping dimensions, and docs).
+- Completed (2026-05-27): Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGNOSTICS` (exposed saved-run FVG v2 diagnostics through backend metadata/research reports, frontend read-only panel/helper, and API/README docs).
+- Completed (2026-05-27): Task 234 `FVG_RETEST_V2_FIXTURE_AND_NO_LOOKAHEAD_TEST_EXPANSION` (added reusable FVG v2 synthetic fixtures and no-lookahead/metadata regression tests).
+- Completed (2026-05-27): Task 233 `FVG_RETEST_V2_CLI_DIAGNOSTICS_AND_PARAMETER_GRID` (added FVG v2 CLI settings/diagnostics metadata, entry-trigger CLI support, parameter-grid axes, and API/README notes).
+- Completed (2026-05-27): Task 232 `FVG_STOP_MODE_AND_REACTION_FAILURE_EXIT_POLICY` (added FVG stop modes, stop metadata, invalid swing-stop handling, reaction-failure action semantics, and docs).
+- Completed (2026-05-27): Task 231 `FVG_LIQUIDITY_TARGET_RESOLVER_AND_TAKE_PROFIT_POLICY` (added confirmed-pivot FVG liquidity target resolver, opt-in structural-target injection, risk-plan metadata, and docs caveat).
+- Completed (2026-05-27): Task 230 `FVG_RETEST_ENTRY_TRIGGER_AND_POLICY_PRESET` (added opt-in retest entry triggers, FVG retest policy preset, touch/reaction metadata propagation, CLI trigger metadata, and docs).
+- Completed (2026-05-27): Task 229 `FVG_FIBONACCI_RETRACEMENT_CONFLUENCE_FILTER` (added deterministic Fibonacci retracement confluence, default-off FVG diagnostics/filtering, metadata propagation, and docs).
+- Completed (2026-05-27): Task 228 `FVG_DETECTOR_TREND_SCORE_AND_EMA_FILTER_INTEGRATION` (added default-off FVG trend diagnostics/filtering, score metadata, action propagation, and docs).
+- Completed (2026-05-27): Task 227 `EMA_MULTITIMEFRAME_TREND_SCORE_INDICATOR` (added EMA trend features, diagnostic multi-timeframe trend scoring, metadata timing docs, and alignment integration tests).
+- Completed (2026-05-27): Task 226 `MULTITIMEFRAME_CANDLE_AGGREGATION_AND_ALIGNMENT_CONTRACT` (added completed-candle multi-timeframe aggregation/alignment, metadata contract docs, no-lookahead boundary tests, and offline safety checks).
 - Completed (2026-05-24): Task 225 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION_AFTER_PATTERN_RESEARCH_BATCH` (archived Tasks 151-200, reconciled current ledgers/status, and verified task checklist state).
 - Completed (2026-05-24): Task 224 `LIVE_READINESS_BOUNDARY_NON_EXECUTION_AUDIT_FOR_PATTERNS` (re-audited pattern strategy/backtesting live boundaries and added static safety tests).
 - Completed (2026-05-24): Task 223 `PERFORMANCE_REPORT_PATTERN_RESEARCH_NOTE_AUTOGENERATION` (added structured pattern research note JSON/markdown generation and read-only frontend preview).
@@ -41,7 +53,8 @@ All items below are candidate/planning pointers unless marked completed.
 - Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` remains blocked pending explicit owner approval for live order execution and the live-readiness prerequisites documented in `docs/25_EXECUTION_READINESS_SAFETY_AUDIT.md`.
 
 ## Current Candidates / Follow-ups
-- Next explicit task: none assigned.
+- Next explicit task: none assigned. Project rules require a new task document before additional implementation.
+- Follow-up candidate: `RUN_FVG_RETEST_V2_WFO_OOS_ON_APPROVED_DATASET` (execute the Task 236 protocol on a fixed dataset with predeclared splits and realistic costs; keep strategy research-only unless a later task explicitly changes status).
 - Follow-up candidate: `LIVE_EXECUTION_KILL_SWITCH_AND_MAX_NOTIONAL_GUARDS` (prerequisite before any future live execution task).
 - Follow-up candidate: `LIVE_EXECUTION_SYMBOL_FILTER_AND_STALE_DATA_PRECHECKS` (exchange filter, stale candle, and clock-skew checks before live intent submission).
 - Follow-up candidate: `LIVE_EXECUTION_IDEMPOTENCY_AND_RESTART_RECONCILIATION` (durable duplicate-order prevention and restart recovery).
@@ -68,3 +81,4 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-24): Reconciled root backlog archive pointers to fixed 50-task ranges and moved Tasks 088-100 entries into `docs/ledger_archives/backlog_task_051_100.md`.
 - Completed (2026-05-24): Task 171 created `docs/ledger_archives/backlog_task_101_150.md` and reduced root backlog to the Tasks 151-171 recent window.
 - Completed (2026-05-24): Task 225 created `docs/ledger_archives/backlog_task_151_200.md` and reduced root backlog to the Tasks 201-225 recent window.
+- Completed (2026-05-27): Task 237 checked the fixed 50-task archive rule; Tasks 201-237 remain in the active 201-250 root window, so `backlog_task_201_250.md` is not created yet.

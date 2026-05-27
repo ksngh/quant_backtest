@@ -64,11 +64,49 @@ export type BacktestRunsListResponse = {
 
 export type WarningMessage = { code: string; message: string };
 
+export type FvgRetestV2TrendScoreSettings = {
+  enabled?: boolean;
+  fast_period?: number;
+  slow_period?: number;
+  weights?: Record<string, number>;
+  minimum_bullish_trend_score?: number;
+};
+
+export type FvgRetestV2Settings = {
+  schema_version?: "fvg_retest_v2_settings_v1" | string;
+  enabled?: boolean;
+  experimental_scope?: string;
+  trend_score?: FvgRetestV2TrendScoreSettings;
+  fibonacci_confluence?: {
+    enabled?: boolean;
+  };
+  liquidity_targets?: {
+    require_liquidity_target?: boolean;
+  };
+  stop_mode?: string;
+  entry_trigger?: string;
+  default_behavior_preserved?: boolean;
+};
+
+export type FvgRetestV2Diagnostics = {
+  schema_version?: "fvg_retest_v2_diagnostics_v1" | string;
+  settings?: FvgRetestV2Settings;
+  entry_trigger?: string;
+  stop_mode?: string;
+  experimental_scope?: string;
+  counts?: {
+    filled_entry_count?: number | null;
+    skipped_entry_count?: number | null;
+  };
+};
+
 export type BacktestResearchDiagnostics = {
   schema_version: string;
   available_sections: string[];
   run?: Record<string, unknown>;
-  summary?: Record<string, unknown>;
+  summary?: Record<string, unknown> & {
+    fvg_retest_v2?: FvgRetestV2Diagnostics;
+  };
   trade_metadata_keys?: string[];
   graph_metadata_keys?: string[];
 };

@@ -9,6 +9,7 @@ data, call exchange APIs, place orders, or simulate exits.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Iterable
 
 import pandas as pd
@@ -38,6 +39,13 @@ class FairValueGapReactionFailureRule:
     midpoint_price: float
     favorable_close_condition: str
     rule: str = "fvg_midpoint_reaction_failure"
+    action: str = "SOFT_INVALIDATION_EXIT"
+
+
+class FairValueGapStopMode(Enum):
+    FVG_BOUNDARY_ATR_BUFFER = "FVG_BOUNDARY_ATR_BUFFER"
+    SWING_PIVOT = "SWING_PIVOT"
+    WIDER_OF_FVG_AND_SWING = "WIDER_OF_FVG_AND_SWING"
 
 
 @dataclass(frozen=True)
@@ -57,12 +65,19 @@ class FairValueGapRiskExitConfig:
             PartialExitSettings(3.0, 0.34),
         )
     )
+    use_liquidity_targets: bool = False
+    require_liquidity_target: bool = False
+    minimum_liquidity_target_r: float = 0.0
+    stop_mode: FairValueGapStopMode | str = FairValueGapStopMode.FVG_BOUNDARY_ATR_BUFFER
 
     def __post_init__(self) -> None:
         if not FVG_ATR_BUFFER_MIN <= self.atr_buffer_multiplier <= FVG_ATR_BUFFER_MAX:
             raise ValueError("atr_buffer_multiplier must be between 0.1 and 0.3")
         if self.reaction_failure_bars < 1:
             raise ValueError("reaction_failure_bars must be at least 1")
+        if self.minimum_liquidity_target_r < 0:
+            raise ValueError("minimum_liquidity_target_r must be non-negative")
+        _coerce_stop_mode(self.stop_mode)
 
     def to_risk_exit_config(self) -> RiskExitConfig:
         """Convert to the shared risk/exit contract config."""
@@ -88,12 +103,17 @@ class FairValueGapRiskExitPlan:
     fvg_boundary_target: float
     structural_targets: tuple[float, ...]
     reaction_failure: FairValueGapReactionFailureRule
+    liquidity_target_metadata: dict[str, Any] = field(default_factory=dict)
+    stop_mode: str = FairValueGapStopMode.FVG_BOUNDARY_ATR_BUFFER.value
+    stop_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def create_fair_value_gap_risk_exit_plan(
     event: PatternEvent,
     *,
     structural_targets: Iterable[float | int] | None = None,
+    liquidity_target_metadata: dict[str, Any] | None = None,
+    swing_stop: float | int | None = None,
     config: FairValueGapRiskExitConfig | None = None,
 ) -> FairValueGapRiskExitPlan:
     """Create a Fair Value Gap risk/exit plan from a detected event.
@@ -106,7 +126,12 @@ def create_fair_value_gap_risk_exit_plan(
     planner_config = config or FairValueGapRiskExitConfig()
     direction = _risk_direction(event.direction)
     atr = _event_atr(event)
-    structural_stop, structural_stop_source = _structural_stop(event, direction)
+    structural_stop, structural_stop_source, stop_metadata = _structural_stop(
+        event,
+        direction,
+        planner_config,
+        swing_stop=swing_stop,
+    )
     fvg_boundary_target = _fvg_boundary_target(event, direction)
     targets = _structural_targets(
         direction=direction,
@@ -115,6 +140,8 @@ def create_fair_value_gap_risk_exit_plan(
         event_target_reference=_optional_float(event.target_reference),
         structural_targets=structural_targets,
     )
+    if planner_config.require_liquidity_target and not tuple(structural_targets or ()):
+        targets = ()
 
     risk_plan = create_risk_exit_plan(
         direction=direction,
@@ -124,7 +151,10 @@ def create_fair_value_gap_risk_exit_plan(
         config=planner_config.to_risk_exit_config(),
         structural_targets=targets,
         detector_target_reference=event.target_reference,
-        atr_metadata=getattr(event, "atr_metadata", {}),
+        atr_metadata={
+            **getattr(event, "atr_metadata", {}),
+            "fvg_stop_mode": stop_metadata,
+        },
     )
 
     return FairValueGapRiskExitPlan(
@@ -134,6 +164,9 @@ def create_fair_value_gap_risk_exit_plan(
         fvg_boundary_target=fvg_boundary_target,
         structural_targets=targets,
         reaction_failure=_reaction_failure_rule(event, direction, planner_config),
+        liquidity_target_metadata=dict(liquidity_target_metadata or {}),
+        stop_mode=_coerce_stop_mode(planner_config.stop_mode).value,
+        stop_metadata=stop_metadata,
     )
 
 
@@ -156,10 +189,40 @@ def _event_atr(event: PatternEvent) -> float | None:
 def _structural_stop(
     event: PatternEvent,
     direction: RiskExitDirection,
-) -> tuple[float, str]:
+    config: FairValueGapRiskExitConfig,
+    *,
+    swing_stop: float | int | None,
+) -> tuple[float | None, str, dict[str, Any]]:
+    stop_mode = _coerce_stop_mode(config.stop_mode)
     if direction == RiskExitDirection.LONG:
-        return float(event.zone_low), "fvg_zone_low"
-    return float(event.zone_high), "fvg_zone_high"
+        fvg_stop = float(event.zone_low)
+        fvg_source = "fvg_zone_low"
+    else:
+        fvg_stop = float(event.zone_high)
+        fvg_source = "fvg_zone_high"
+    swing = _optional_float(swing_stop)
+    if stop_mode == FairValueGapStopMode.FVG_BOUNDARY_ATR_BUFFER:
+        selected = fvg_stop
+        source = fvg_source
+    elif swing is None:
+        selected = None
+        source = "missing_swing_pivot_stop"
+    elif stop_mode == FairValueGapStopMode.SWING_PIVOT:
+        selected = swing
+        source = "confirmed_swing_pivot"
+    else:
+        selected = min(fvg_stop, swing) if direction == RiskExitDirection.LONG else max(fvg_stop, swing)
+        source = "wider_of_fvg_boundary_and_swing"
+    return selected, source, {
+        "schema_version": "fvg_stop_mode_v1",
+        "stop_mode": stop_mode.value,
+        "fvg_boundary_stop": fvg_stop,
+        "swing_stop": swing,
+        "selected_stop": selected,
+        "source": source,
+        "direction": direction.value,
+        "no_lookahead": True,
+    }
 
 
 def _fvg_boundary_target(event: PatternEvent, direction: RiskExitDirection) -> float:
@@ -209,6 +272,12 @@ def _reaction_failure_rule(
         midpoint_price=float(event.zone_mid),
         favorable_close_condition=condition,
     )
+
+
+def _coerce_stop_mode(stop_mode: FairValueGapStopMode | str) -> FairValueGapStopMode:
+    if isinstance(stop_mode, FairValueGapStopMode):
+        return stop_mode
+    return FairValueGapStopMode(str(stop_mode).upper())
 
 
 def _optional_float(value: Any) -> float | None:

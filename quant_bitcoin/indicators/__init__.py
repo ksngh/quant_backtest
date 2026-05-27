@@ -12,6 +12,28 @@ from quant_bitcoin.indicators.atr import (
     atr_timing_metadata,
 )
 
+from quant_bitcoin.indicators.ema import (
+    EMA_OUTPUT_COLUMNS,
+    EmaTrendConfig,
+    calculate_ema_trend_features,
+    ema_timing_metadata,
+)
+
+from quant_bitcoin.indicators.multitimeframe_trend_score import (
+    DEFAULT_TREND_SCORE_WEIGHTS,
+    TREND_SCORE_SCHEMA_VERSION,
+    MultiTimeframeTrendScoreConfig,
+    calculate_multitimeframe_trend_score,
+    multitimeframe_trend_score_timing_metadata,
+)
+
+from quant_bitcoin.indicators.fibonacci_retracement import (
+    FibonacciDirection,
+    FibonacciOverlapMode,
+    FibonacciRetracementConfig,
+    evaluate_fibonacci_retracement_confluence,
+)
+
 from quant_bitcoin.indicators.displacement_candle import (
     DISPLACEMENT_CANDLE_OUTPUT_COLUMNS,
     REQUIRED_DISPLACEMENT_CANDLE_COLUMNS,
@@ -105,6 +127,19 @@ __all__ = [
     "calculate_true_range",
     "classify_volatility",
     "atr_timing_metadata",
+    "EMA_OUTPUT_COLUMNS",
+    "EmaTrendConfig",
+    "calculate_ema_trend_features",
+    "ema_timing_metadata",
+    "DEFAULT_TREND_SCORE_WEIGHTS",
+    "TREND_SCORE_SCHEMA_VERSION",
+    "MultiTimeframeTrendScoreConfig",
+    "calculate_multitimeframe_trend_score",
+    "multitimeframe_trend_score_timing_metadata",
+    "FibonacciDirection",
+    "FibonacciOverlapMode",
+    "FibonacciRetracementConfig",
+    "evaluate_fibonacci_retracement_confluence",
     "DISPLACEMENT_CANDLE_OUTPUT_COLUMNS",
     "REQUIRED_DISPLACEMENT_CANDLE_COLUMNS",
     "DisplacementCandleConfig",

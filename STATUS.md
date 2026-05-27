@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 281: Pattern research batch reconciliation complete (2026-05-24).
+Phase 282: FVG retest v2 research batch complete through Task 237 (2026-05-27).
 
 ## Current Step
-Task 225 `REFACTOR_DOCUMENTATION_LEDGER_RECONCILIATION_AFTER_PATTERN_RESEARCH_BATCH` is complete; no next task is currently assigned.
+Task 237 `FVG_RETEST_V2_DOCUMENTATION_LEDGER_RECONCILIATION_AND_ARCHIVE_CHECK` is complete. No next task is currently assigned.
 
 ## Current Goal
-Maintain the completed offline research/backtest state while preserving live-trading blocks.
+Keep the completed offline, no-lookahead FVG retest v2 research batch documented, reproducible, and clearly separated from live-trading approval.
 
 ## Current Active Task
-None assigned.
+No active task is assigned after Task 237.
 
 ## Last Completed Step (Short)
-Completed Task 225: archived Tasks 151-200, reduced root ledgers to Tasks 201-225, reconciled task checklist state, and recorded final pattern research batch status.
+Completed Task 237: reconciled FVG v2 documentation, status, history, backlog, and archive state; no 201-250 archive is required yet.
 
 ## Recommended Next Step
-No implementation should proceed until a new specific `task.md` is assigned or created. Candidate follow-ups are listed in `BACKLOG.md`.
+Owner should assign the next explicit task before implementation continues. Candidate next work: run the FVG v2 WFO/OOS protocol on an approved fixed dataset or defer until a new research/data task is created.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.

@@ -13,6 +13,8 @@ Implemented components:
 - **Binance candle downloader** for public historical spot klines only; it normalizes responses to the standard candle schema and rejects order endpoints.
 - **RSI strategy** that returns `BUY`, `SELL`, or `HOLD` signals from standard candle data.
 - **Pattern research strategies** for supported chart-pattern experiments with explicit entry, risk, cost, no-lookahead, score, and diagnostics metadata.
+- **FVG retest v2 research diagnostics** for saved-run inspection of multi-timeframe trend score, Fibonacci confluence, reaction-entry quality, liquidity-target metadata, and stop-mode selection. These are offline OHLCV-derived backtest diagnostics only.
+- **FVG retest v2 WFO/OOS research protocol** for predeclared parameter ranges, realistic-cost validation, all-variant reporting, and research-only promotion/rejection notes.
 - **Basic backtester** for a simple long-only, fixed-quantity historical simulation.
 - **Canonical strategy-engine backtester** for strategy actions, long/short simulation, transaction costs, explicit position sizing, account-state metadata, and persisted graph-ready outputs.
 - **Paper trader** for in-memory fake trade recording and paper cash/position updates.
@@ -309,6 +311,20 @@ limit-entry waiting, and `--compare-fvg-entry-modes` to include a read-only JSON
 comparison of fill rate, trade count, hit rate, average R, expectancy,
 MFE/MAE, average bars waited, and missed-trade count. These options are
 backtest research controls only and do not place orders.
+
+FVG retest v2 diagnostics are also opt-in: `--enable-fvg-v2` records the
+experimental scope, `--fvg-entry-trigger` selects touch or reaction-trigger
+retest behavior, and companion flags record trend-score, Fibonacci confluence,
+liquidity-target, and stop-mode research settings in JSON diagnostics. Parameter
+grid runs can enumerate these settings; they do not pick winners automatically.
+The multi-timeframe trend score uses completed higher-timeframe candles only,
+and the Fibonacci/liquidity/stop-mode fields remain offline research metadata,
+not live trading approval.
+
+FVG retest v2 WFO/OOS evaluation is governed by
+`docs/29_FVG_RETEST_V2_RESEARCH_PROTOCOL.md`. The protocol requires
+predeclared parameter ranges, realistic-cost evidence, all-variant reporting,
+and locked holdout discipline before any future paper-only decision task.
 
 Canonical strategy runs also expose opt-in workflow controls:
 `--enforce-candle-continuity` rejects interval gaps during candle loading,

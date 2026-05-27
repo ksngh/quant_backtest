@@ -41,6 +41,7 @@ from quant_bitcoin.patterns.fair_value_gap_risk_exit import (
     FairValueGapReactionFailureRule,
     FairValueGapRiskExitConfig,
     FairValueGapRiskExitPlan,
+    FairValueGapStopMode,
     create_fair_value_gap_risk_exit_plan,
 )
 from quant_bitcoin.patterns.order_block_risk_exit import (
@@ -148,6 +149,7 @@ __all__ = [
     "create_fair_value_gap_risk_exit_plan",
     "FairValueGapRiskExitPlan",
     "FairValueGapRiskExitConfig",
+    "FairValueGapStopMode",
     "FairValueGapReactionFailureRule",
     "create_order_block_risk_exit_plan",
     "OrderBlockRiskExitPlan",

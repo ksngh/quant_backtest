@@ -5,6 +5,7 @@ import pytest
 
 from quant_bitcoin.patterns import (
     FairValueGapRiskExitConfig,
+    FairValueGapStopMode,
     RiskExitPlanStatus,
     create_fair_value_gap_risk_exit_plan,
 )
@@ -68,6 +69,8 @@ def test_bullish_fvg_low_stop_with_atr_buffer() -> None:
     assert plan.risk_plan.risk_per_unit == pytest.approx(7.0)
     assert plan.risk_plan.atr_metadata["period"] == 2
     assert plan.risk_plan.atr_metadata["smoothing_method"] == "SMA"
+    assert plan.stop_mode == "FVG_BOUNDARY_ATR_BUFFER"
+    assert plan.stop_metadata["selected_stop"] == pytest.approx(100.0)
 
 
 def test_bearish_fvg_high_stop_with_atr_buffer() -> None:
@@ -78,6 +81,48 @@ def test_bearish_fvg_high_stop_with_atr_buffer() -> None:
     assert plan.risk_plan.atr_buffer == pytest.approx(2.0)
     assert plan.risk_plan.stop_price == pytest.approx(112.0)
     assert plan.risk_plan.risk_per_unit == pytest.approx(7.0)
+
+
+def test_swing_pivot_stop_mode_uses_supplied_prior_swing_stop() -> None:
+    plan = create_fair_value_gap_risk_exit_plan(
+        _event("BULLISH"),
+        swing_stop=96.0,
+        config=FairValueGapRiskExitConfig(stop_mode=FairValueGapStopMode.SWING_PIVOT),
+    )
+
+    assert plan.structural_stop_source == "confirmed_swing_pivot"
+    assert plan.risk_plan.structural_stop == pytest.approx(96.0)
+    assert plan.risk_plan.stop_price == pytest.approx(94.0)
+    assert plan.stop_metadata["stop_mode"] == "SWING_PIVOT"
+
+
+def test_wider_stop_mode_selects_more_conservative_stop() -> None:
+    long_plan = create_fair_value_gap_risk_exit_plan(
+        _event("BULLISH"),
+        swing_stop=96.0,
+        config=FairValueGapRiskExitConfig(stop_mode=FairValueGapStopMode.WIDER_OF_FVG_AND_SWING),
+    )
+    short_plan = create_fair_value_gap_risk_exit_plan(
+        _event("BEARISH"),
+        swing_stop=114.0,
+        config=FairValueGapRiskExitConfig(stop_mode=FairValueGapStopMode.WIDER_OF_FVG_AND_SWING),
+    )
+
+    assert long_plan.risk_plan.structural_stop == pytest.approx(96.0)
+    assert long_plan.risk_plan.risk_per_unit >= create_fair_value_gap_risk_exit_plan(_event("BULLISH")).risk_plan.risk_per_unit
+    assert short_plan.risk_plan.structural_stop == pytest.approx(114.0)
+    assert short_plan.risk_plan.risk_per_unit >= create_fair_value_gap_risk_exit_plan(_event("BEARISH")).risk_plan.risk_per_unit
+
+
+def test_missing_swing_stop_mode_produces_invalid_risk_plan() -> None:
+    plan = create_fair_value_gap_risk_exit_plan(
+        _event("BULLISH"),
+        config=FairValueGapRiskExitConfig(stop_mode=FairValueGapStopMode.SWING_PIVOT),
+    )
+
+    assert plan.risk_plan.status == RiskExitPlanStatus.INVALID
+    assert plan.structural_stop_source == "missing_swing_pivot_stop"
+    assert plan.stop_metadata["selected_stop"] is None
 
 
 def test_fvg_midpoint_reaction_rule_metadata_for_long_and_short() -> None:
@@ -94,6 +139,7 @@ def test_fvg_midpoint_reaction_rule_metadata_for_long_and_short() -> None:
     assert long_plan.reaction_failure.rule == "fvg_midpoint_reaction_failure"
     assert long_plan.reaction_failure.midpoint_price == pytest.approx(105.0)
     assert long_plan.reaction_failure.favorable_close_condition == "close > fvg_midpoint"
+    assert long_plan.reaction_failure.action == "SOFT_INVALIDATION_EXIT"
     assert long_plan.reaction_failure.max_bars_after_entry == 6
     assert long_plan.risk_plan.time_stop.max_bars_in_trade == 6
     assert short_plan.reaction_failure.favorable_close_condition == "close < fvg_midpoint"
@@ -117,6 +163,24 @@ def test_targets_include_r_multiple_fvg_boundary_and_structure_candidates() -> N
     assert plan.risk_plan.targets[1].metadata["target_source"] == "STRUCTURE"
     assert plan.risk_plan.target_semantics["detector_target_reference"] == pytest.approx(119.0)
     assert plan.risk_plan.target_semantics["structural_targets"][0]["price"] == pytest.approx(110.0)
+
+
+def test_fvg_risk_plan_records_liquidity_target_metadata() -> None:
+    metadata = {
+        "schema_version": "fvg_liquidity_targets_v1",
+        "target_count": 1,
+        "targets": ({"price": 116.0, "target_r": 1.5},),
+    }
+    plan = create_fair_value_gap_risk_exit_plan(
+        _event("BULLISH"),
+        structural_targets=[116.0],
+        liquidity_target_metadata=metadata,
+        config=FairValueGapRiskExitConfig(use_liquidity_targets=True),
+    )
+
+    assert plan.structural_targets == pytest.approx((110.0, 116.0, 119.0))
+    assert plan.liquidity_target_metadata["schema_version"] == "fvg_liquidity_targets_v1"
+    assert plan.risk_plan.targets[1].source == RiskExitTargetSource.STRUCTURE
 
 
 def test_missing_liquidity_targets_are_optional_and_not_fabricated() -> None:

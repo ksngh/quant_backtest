@@ -25,7 +25,7 @@ from quant_bitcoin.backtesting.fvg_detection_cache import (
     IndicatorCache,
     PatternEvaluationContext,
 )
-from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus
+from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus, PatternEntryTrigger
 from quant_bitcoin.backtesting.strategy_engine import (
     StrategyEngineConfig,
     run_strategy_backtest_engine,
@@ -102,6 +102,12 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--pattern-entry-custom-price", type=_positive_finite_float, default=None)
     parser.add_argument("--fvg-entry-max-wait-bars", type=int, default=None)
     parser.add_argument(
+        "--fvg-entry-trigger",
+        choices=[trigger.value.lower() for trigger in PatternEntryTrigger],
+        default=PatternEntryTrigger.TOUCH.value.lower(),
+        help="FVG limit-entry trigger. Default TOUCH preserves historical limit-touch fill behavior.",
+    )
+    parser.add_argument(
         "--fvg-entry-expire-status",
         choices=[PatternEntryStatus.NOT_FILLED.value.lower(), PatternEntryStatus.CANCELLED.value.lower()],
         default=PatternEntryStatus.NOT_FILLED.value.lower(),
@@ -117,6 +123,17 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
         action="store_true",
         help="Run read-only pattern entry-mode comparison diagnostics for the selected pattern.",
     )
+    parser.add_argument("--enable-fvg-v2", action="store_true", help="Enable experimental FVG retest v2 diagnostics metadata.")
+    parser.add_argument("--fvg-use-trend-score", action="store_true", help="Record FVG v2 trend-score research setting.")
+    parser.add_argument("--fvg-trend-fast-period", type=int, default=9)
+    parser.add_argument("--fvg-trend-slow-period", type=int, default=21)
+    parser.add_argument("--fvg-trend-weight-1m", type=float, default=0.20)
+    parser.add_argument("--fvg-trend-weight-5m", type=float, default=0.30)
+    parser.add_argument("--fvg-trend-weight-15m", type=float, default=0.50)
+    parser.add_argument("--fvg-min-bullish-trend-score", type=float, default=0.10)
+    parser.add_argument("--fvg-use-fibonacci-confluence", action="store_true")
+    parser.add_argument("--fvg-require-liquidity-target", action="store_true")
+    parser.add_argument("--fvg-stop-mode", default="fvg_boundary_atr_buffer")
     parser.add_argument("--start-time", type=_optional_timestamp, default=None)
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
     parser.add_argument("--starting-cash", type=float, default=10000.0)
@@ -215,6 +232,7 @@ def _build_strategy_parameters(
     simulated_margin: SimulatedMarginConfig,
     risk_free_rate: float,
     fvg_entry_metadata: dict[str, object] | None = None,
+    fvg_v2_metadata: dict[str, object] | None = None,
     pattern_execution_policy: dict[str, object] | None = None,
     workflow_settings: dict[str, object] | None = None,
     cost_profile_metadata: dict[str, object] | None = None,
@@ -244,6 +262,7 @@ def _build_strategy_parameters(
             PatternEntryConfig(),
             None,
         ),
+        "fvg_v2": fvg_v2_metadata,
         "pattern_execution_policy": pattern_execution_policy,
         "pattern_regime_thresholds": (
             pattern_regime_thresholds.to_metadata()
@@ -709,9 +728,11 @@ def _selected_entry_custom_price(args: argparse.Namespace) -> float | None:
 
 def _selected_fvg_entry_config(args: argparse.Namespace) -> PatternEntryConfig:
     expire_status = PatternEntryStatus(str(args.fvg_entry_expire_status).upper())
+    entry_trigger = PatternEntryTrigger(str(args.fvg_entry_trigger).upper())
     return PatternEntryConfig(
         max_wait_bars=args.fvg_entry_max_wait_bars,
         expire_status=expire_status,
+        entry_trigger=entry_trigger,
     )
 
 
@@ -725,10 +746,47 @@ def _build_fvg_entry_metadata(
         "mode": mode.value,
         "max_wait_bars": config.max_wait_bars,
         "expire_status": config.expire_status.value,
+        "entry_trigger": config.entry_trigger.value if hasattr(config.entry_trigger, "value") else str(config.entry_trigger),
         "custom_price": custom_price,
         "economic_interpretation": _fvg_entry_economic_interpretation(mode),
         "default_behavior_preserved": mode is PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
         "scope": "backtest_research_only",
+    }
+
+
+def _build_fvg_v2_metadata(args: argparse.Namespace) -> dict[str, object]:
+    enabled = bool(
+        getattr(args, "enable_fvg_v2", False)
+        or getattr(args, "fvg_use_trend_score", False)
+        or getattr(args, "fvg_use_fibonacci_confluence", False)
+        or getattr(args, "fvg_require_liquidity_target", False)
+        or str(getattr(args, "fvg_stop_mode", "fvg_boundary_atr_buffer")).upper() != "FVG_BOUNDARY_ATR_BUFFER"
+        or str(getattr(args, "fvg_entry_trigger", "touch")).upper() != "TOUCH"
+    )
+    return {
+        "schema_version": "fvg_retest_v2_settings_v1",
+        "enabled": enabled,
+        "experimental_scope": "offline_research_only",
+        "trend_score": {
+            "enabled": bool(getattr(args, "fvg_use_trend_score", False)),
+            "fast_period": int(getattr(args, "fvg_trend_fast_period", 9)),
+            "slow_period": int(getattr(args, "fvg_trend_slow_period", 21)),
+            "weights": {
+                "1m": float(getattr(args, "fvg_trend_weight_1m", 0.20)),
+                "5m": float(getattr(args, "fvg_trend_weight_5m", 0.30)),
+                "15m": float(getattr(args, "fvg_trend_weight_15m", 0.50)),
+            },
+            "minimum_bullish_trend_score": float(getattr(args, "fvg_min_bullish_trend_score", 0.10)),
+        },
+        "fibonacci_confluence": {
+            "enabled": bool(getattr(args, "fvg_use_fibonacci_confluence", False)),
+        },
+        "liquidity_targets": {
+            "require_liquidity_target": bool(getattr(args, "fvg_require_liquidity_target", False)),
+        },
+        "stop_mode": str(getattr(args, "fvg_stop_mode", "fvg_boundary_atr_buffer")).upper(),
+        "entry_trigger": str(getattr(args, "fvg_entry_trigger", "touch")).upper(),
+        "default_behavior_preserved": not enabled,
     }
 
 
@@ -1248,6 +1306,7 @@ def run(
         fvg_entry_config,
         pattern_entry_custom_price,
     )
+    fvg_v2_metadata = _build_fvg_v2_metadata(args)
     pattern_execution_policy = validate_pattern_entry_mode(strategy_key, pattern_entry_mode).to_metadata(
         selected_entry_mode=pattern_entry_mode
     )
@@ -1335,6 +1394,7 @@ def run(
         simulated_margin=simulated_margin,
         risk_free_rate=args.risk_free_rate,
         fvg_entry_metadata=fvg_entry_metadata,
+        fvg_v2_metadata=fvg_v2_metadata,
         pattern_execution_policy=pattern_execution_policy,
         workflow_settings=workflow_settings,
         cost_profile_metadata=_cost_profile_metadata(args, transaction_cost_config),
@@ -1423,7 +1483,19 @@ def run(
     output["summary"]["metadata"]["trendline_false_breakout_forensics"] = trendline_forensics
     fvg_entry_diagnostics = _build_fvg_entry_mode_diagnostics(actions, result, pattern_entry_mode, pattern_key=strategy.strategy_key)
     output["diagnostics"]["fvg_entry_mode"] = fvg_entry_diagnostics
+    output["diagnostics"]["fvg_retest_v2"] = {
+        "schema_version": "fvg_retest_v2_diagnostics_v1",
+        "settings": fvg_v2_metadata,
+        "entry_trigger": fvg_v2_metadata["entry_trigger"],
+        "stop_mode": fvg_v2_metadata["stop_mode"],
+        "experimental_scope": "offline_research_only",
+        "counts": {
+            "filled_entry_count": fvg_entry_diagnostics.get("filled_entry_count"),
+            "skipped_entry_count": fvg_entry_diagnostics.get("skipped_entry_count"),
+        },
+    }
     output["summary"]["metadata"]["fvg_entry_mode"] = fvg_entry_diagnostics
+    output["summary"]["metadata"]["fvg_retest_v2"] = output["diagnostics"]["fvg_retest_v2"]
     output["diagnostics"]["pattern_entry_mode"] = fvg_entry_diagnostics
     output["summary"]["metadata"]["pattern_entry_mode"] = fvg_entry_diagnostics
     if args.compare_fvg_entry_modes:
@@ -1464,6 +1536,8 @@ def run(
         output["warnings"].append("candle_continuity_not_enforced")
     if not args.enable_market_regime:
         output["warnings"].append("market_regime_disabled")
+    if fvg_v2_metadata["enabled"]:
+        output["warnings"].append("fvg_retest_v2_experimental_scope")
 
     timings["json_output_ms"] = _ms(start_json, time.perf_counter())
     timings["total_elapsed_ms"] = _ms(start_total, time.perf_counter())

@@ -104,6 +104,26 @@ def test_repeated_runs_are_stable() -> None:
     assert first == second
 
 
+def test_fvg_v2_grid_can_enumerate_entry_trigger_and_stop_mode() -> None:
+    payload = run_pattern_parameter_grid(
+        _candles(),
+        pattern="FAIR_VALUE_GAP",
+        grid={
+            "entry.mode": ("limit_at_pattern_midpoint",),
+            "entry.trigger": ("touch", "touch_and_reaction_close"),
+            "risk.stop_mode": ("fvg_boundary_atr_buffer", "wider_of_fvg_and_swing"),
+        },
+        config=PatternParameterGridConfig(max_combinations=4, dry_run=True),
+    )
+
+    assert payload["combination_count"] == 4
+    assert [row["status"] for row in payload["rows"]] == ["DRY_RUN"] * 4
+    assert {row["parameters"]["entry.trigger"] for row in payload["rows"]} == {
+        "touch",
+        "touch_and_reaction_close",
+    }
+
+
 def test_warning_emitted_when_grid_reaches_warning_threshold() -> None:
     payload = run_pattern_parameter_grid(
         _candles(),

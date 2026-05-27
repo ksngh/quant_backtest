@@ -326,7 +326,7 @@ def test_pattern_strategy_raw_signal_is_explicit_legacy_input_for_canonical_expa
     if pattern_key in {"TRENDLINE_BREAK", "DIAMOND"}:
         monkeypatch.setattr(f"quant_bitcoin.strategies.patterns.{planner_name}", lambda event, candles=None, config=None: Wrapper())
     else:
-        monkeypatch.setattr(f"quant_bitcoin.strategies.patterns.{planner_name}", lambda event, config=None: Wrapper())
+        monkeypatch.setattr(f"quant_bitcoin.strategies.patterns.{planner_name}", lambda event, config=None, **kwargs: Wrapper())
 
     actions = strategy.evaluate(_candles(), {})
 
