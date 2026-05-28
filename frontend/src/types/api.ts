@@ -121,6 +121,23 @@ export type BacktestTrade = {
   execution_side?: string | null;
   position_side?: string | null;
   price: number;
+  raw_price?: number | null;
+  effective_price?: number | null;
+  price_semantics?: string | null;
+  effective_price_semantics?: string | null;
+  cost_breakdown?: {
+    fee_cost?: number | null;
+    spread_cost?: number | null;
+    slippage_cost?: number | null;
+    total_cost?: number | null;
+    fee_bps?: number | null;
+    spread_bps?: number | null;
+    slippage_bps?: number | null;
+    effective_slippage_bps?: number | null;
+    volatility_bps?: number | null;
+    cost_profile_name?: string | null;
+    cost_currency?: string | null;
+  } | null;
   quantity: number;
   cash_after: number;
   cash_balance_after?: number | null;

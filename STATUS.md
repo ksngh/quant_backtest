@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 282: FVG retest v2 research batch complete through Task 237 (2026-05-27).
+Phase 284: Dashboard UX/API filter planning created through Task 246 (2026-05-28).
 
 ## Current Step
-Task 237 `FVG_RETEST_V2_DOCUMENTATION_LEDGER_RECONCILIATION_AND_ARCHIVE_CHECK` is complete. No next task is currently assigned.
+Tasks 242-246 have been created from owner dashboard feedback. No implementation has started for these tasks.
 
 ## Current Goal
-Keep the completed offline, no-lookahead FVG retest v2 research batch documented, reproducible, and clearly separated from live-trading approval.
+Improve saved-backtest dashboard usability while keeping it read-only: chart-first inspection, collapsible diagnostics, filterable saved-run navigation, and per-trade cost detail visibility.
 
 ## Current Active Task
-No active task is assigned after Task 237.
+No active implementation task is in progress. Task 242 is the recommended next assigned task.
 
 ## Last Completed Step (Short)
-Completed Task 237: reconciled FVG v2 documentation, status, history, backlog, and archive state; no 201-250 archive is required yet.
+Created Tasks 242-246: chart interaction/layout, collapsible indicator diagnostics, backend run-list filters, frontend filter UI, and trade-row cost detail disclosure.
 
 ## Recommended Next Step
-Owner should assign the next explicit task before implementation continues. Candidate next work: run the FVG v2 WFO/OOS protocol on an approved fixed dataset or defer until a new research/data task is created.
+Assign Task 242 `DASHBOARD_CHART_INTERACTION_AND_LAYOUT` first, then Task 243, Task 244, Task 245, and Task 246. Task 244 should be completed before Task 245 unless both are explicitly assigned together.
 
 ## Current Blockers (Short)
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.

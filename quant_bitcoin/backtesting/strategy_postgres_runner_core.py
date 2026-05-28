@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 import pandas as pd
 
 from quant_bitcoin.backtesting.json_metadata import json_ready, metadata_hash as json_metadata_hash
-from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.backtesting.pattern_action_builder import CostAwareEntryFilterConfig, build_pattern_trade_actions
 from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
 from quant_bitcoin.backtesting.cost_profiles import COST_PROFILES, break_even_cost_bps, cost_profile, manual_cost_overrides_present
 from quant_bitcoin.backtesting.performance_metrics import calculate_performance_metrics
@@ -171,6 +171,9 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--volatility-slippage-multiplier", type=_non_negative_finite_float, default=0.0)
     parser.add_argument("--cost-profile", choices=sorted(COST_PROFILES), default=None)
     parser.add_argument("--allow-cost-profile-overrides", action="store_true")
+    parser.add_argument("--enable-cost-aware-entry-filter", action="store_true")
+    parser.add_argument("--min-net-reward-bps", type=_non_negative_finite_float, default=20.0)
+    parser.add_argument("--min-net-rr", type=_positive_finite_float, default=1.5)
     parser.add_argument("--strict-cost-mode", action="store_true")
     parser.add_argument("--cost-sensitivity-report", action="store_true")
     parser.add_argument("--liquidity-role", type=_liquidity_role, default=LiquidityRole.TAKER.value)
@@ -236,6 +239,7 @@ def _build_strategy_parameters(
     pattern_execution_policy: dict[str, object] | None = None,
     workflow_settings: dict[str, object] | None = None,
     cost_profile_metadata: dict[str, object] | None = None,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
     pattern_regime_thresholds: PatternRegimeThresholdConfig | None = None,
 ) -> dict[str, object]:
     return {
@@ -256,6 +260,7 @@ def _build_strategy_parameters(
             "liquidity_role": default_liquidity_role.value,
         },
         "cost_profile": cost_profile_metadata,
+        "cost_aware_entry_filter": _cost_aware_entry_filter_metadata(cost_aware_entry_filter_config),
         "position_sizing": position_sizing.to_metadata(),
         "fvg_entry": fvg_entry_metadata or _build_fvg_entry_metadata(
             PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
@@ -273,6 +278,22 @@ def _build_strategy_parameters(
         "short_exposure_policy": policy_metadata["short_exposure_policy"],
         "simulated_margin": simulated_margin.to_metadata(),
         "risk_free_rate": risk_free_rate,
+    }
+
+
+def _cost_aware_entry_filter_metadata(config: CostAwareEntryFilterConfig | None) -> dict[str, object]:
+    if config is None:
+        return {
+            "schema_version": "cost_aware_entry_filter_config_v1",
+            "enabled": False,
+        }
+    return {
+        "schema_version": "cost_aware_entry_filter_config_v1",
+        "enabled": config.enabled,
+        "min_net_reward_bps": config.min_net_reward_bps,
+        "min_net_rr": config.min_net_rr,
+        "cost_profile_name": config.cost_profile_name,
+        "liquidity_role": config.liquidity_role.value,
     }
 
 
@@ -488,6 +509,21 @@ def _build_transaction_cost_config(args: argparse.Namespace) -> tuple[Transactio
     )
 
 
+def _build_cost_aware_entry_filter_config(
+    args: argparse.Namespace,
+    transaction_cost_config: TransactionCostConfig,
+    default_liquidity_role: LiquidityRole,
+) -> CostAwareEntryFilterConfig:
+    return CostAwareEntryFilterConfig(
+        enabled=bool(args.enable_cost_aware_entry_filter),
+        min_net_reward_bps=float(args.min_net_reward_bps),
+        min_net_rr=float(args.min_net_rr),
+        transaction_cost_config=transaction_cost_config,
+        liquidity_role=default_liquidity_role,
+        cost_profile_name=args.cost_profile,
+    )
+
+
 def _cost_profile_metadata(args: argparse.Namespace, config: TransactionCostConfig, result=None) -> dict[str, object]:
     profile = cost_profile(args.cost_profile) if args.cost_profile else ("manual" if any([
         config.maker_fee_bps,
@@ -621,6 +657,12 @@ def _workflow_settings_metadata(args: argparse.Namespace, guardrails: BacktestGu
             "minimum_average_trading_value": args.market_regime_min_trading_value,
         },
         "pattern_regime_thresholds": regime_thresholds.to_metadata(),
+        "cost_aware_entry_filter": {
+            "schema_version": "cost_aware_entry_filter_config_v1",
+            "enabled": bool(args.enable_cost_aware_entry_filter),
+            "min_net_reward_bps": args.min_net_reward_bps,
+            "min_net_rr": args.min_net_rr,
+        },
         "guardrails": guardrails.to_metadata(),
     }
 
@@ -817,6 +859,7 @@ def _build_actions(
     fvg_entry_config: PatternEntryConfig | None = None,
     fvg_entry_custom_price: float | None = None,
     pattern_policy_metadata: dict[str, object] | None = None,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
 ):
     strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     actions: list[StrategyAction] = []
@@ -850,6 +893,7 @@ def _build_actions(
                 fvg_entry_config=fvg_entry_config,
                 fvg_entry_custom_price=fvg_entry_custom_price,
                 pattern_policy_metadata=pattern_policy_metadata,
+                cost_aware_entry_filter_config=cost_aware_entry_filter_config,
             )
         )
 
@@ -887,6 +931,7 @@ def _expand_raw_actions(
     fvg_entry_config: PatternEntryConfig | None = None,
     fvg_entry_custom_price: float | None = None,
     pattern_policy_metadata: dict[str, object] | None = None,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
 ) -> list[StrategyAction]:
     expanded: list[StrategyAction] = []
     for action in raw_actions:
@@ -923,6 +968,7 @@ def _expand_raw_actions(
             entry_mode=pattern_entry_mode or PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
             entry_config=fvg_entry_config,
             entry_custom_price=fvg_entry_custom_price,
+            cost_aware_entry_filter_config=cost_aware_entry_filter_config,
         )
         expanded.extend(_actions_with_policy_metadata(built_actions, pattern_policy_metadata))
     return expanded
@@ -1049,6 +1095,12 @@ def _serialize_execution(execution) -> dict[str, object]:
         "cash_after_semantics": execution.cash_after_semantics,
         "raw_price": execution.raw_price,
         "effective_price": execution.effective_price,
+        "price_semantics": (execution.metadata or {}).get("price_semantics", "raw_fill_price"),
+        "effective_price_semantics": (execution.metadata or {}).get(
+            "effective_price_semantics",
+            "spread_slippage_adjusted_diagnostic_price",
+        ),
+        "cost_breakdown": (execution.metadata or {}).get("cost_breakdown"),
         "fee_cost": execution.fee_cost,
         "spread_cost": execution.spread_cost,
         "slippage_cost": execution.slippage_cost,
@@ -1192,6 +1244,7 @@ def _build_fvg_entry_mode_comparison(
     entry_config: PatternEntryConfig,
     custom_price: float | None,
     engine_config: StrategyEngineConfig,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
 ) -> dict[str, object]:
     if strategy_key != "FAIR_VALUE_GAP":
         return {
@@ -1218,6 +1271,7 @@ def _build_fvg_entry_mode_comparison(
             fvg_entry_mode=mode,
             fvg_entry_config=entry_config,
             fvg_entry_custom_price=custom_price if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE else None,
+            cost_aware_entry_filter_config=cost_aware_entry_filter_config,
         )
         result = run_strategy_backtest_engine(candles, actions, config=engine_config)
         modes[mode.value] = _build_fvg_entry_mode_diagnostics(actions, result, mode, pattern_key=strategy_key)
@@ -1235,6 +1289,7 @@ def _build_pattern_entry_mode_comparison(
     entry_config: PatternEntryConfig,
     custom_price: float | None,
     engine_config: StrategyEngineConfig,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
 ) -> dict[str, object]:
     policy = policy_for_pattern(strategy_key)
     modes: dict[str, object] = {}
@@ -1247,6 +1302,7 @@ def _build_pattern_entry_mode_comparison(
             fvg_entry_config=entry_config,
             fvg_entry_custom_price=custom_price if mode is PatternEntryMode.LIMIT_AT_CUSTOM_PRICE else None,
             pattern_policy_metadata=policy.to_metadata(selected_entry_mode=mode),
+            cost_aware_entry_filter_config=cost_aware_entry_filter_config,
         )
         result = run_strategy_backtest_engine(candles, actions, config=engine_config)
         modes[mode.value] = _build_fvg_entry_mode_diagnostics(actions, result, mode, pattern_key=strategy_key)
@@ -1311,6 +1367,11 @@ def run(
         selected_entry_mode=pattern_entry_mode
     )
     transaction_cost_config, default_liquidity_role = _build_transaction_cost_config(args)
+    cost_aware_entry_filter_config = _build_cost_aware_entry_filter_config(
+        args,
+        transaction_cost_config,
+        default_liquidity_role,
+    )
     position_sizing = _build_position_sizing_config(args)
     short_exposure_mode, simulated_margin = _build_simulated_margin_config(args)
     guardrails = _build_guardrail_config(args)
@@ -1377,6 +1438,7 @@ def run(
         fvg_entry_config=fvg_entry_config,
         fvg_entry_custom_price=pattern_entry_custom_price,
         pattern_policy_metadata=pattern_execution_policy,
+        cost_aware_entry_filter_config=cost_aware_entry_filter_config,
     )
     if profiler is not None:
         profiler.disable()
@@ -1398,6 +1460,7 @@ def run(
         pattern_execution_policy=pattern_execution_policy,
         workflow_settings=workflow_settings,
         cost_profile_metadata=_cost_profile_metadata(args, transaction_cost_config),
+        cost_aware_entry_filter_config=cost_aware_entry_filter_config,
         pattern_regime_thresholds=pattern_regime_thresholds,
     )
     reproducibility_metadata = _build_reproducibility_metadata(
@@ -1471,6 +1534,7 @@ def run(
     output["summary"]["metadata"]["pattern_execution_policy"] = pattern_execution_policy
     output["summary"]["metadata"]["workflow_settings"] = workflow_settings
     output["summary"]["metadata"]["cost_profile"] = _cost_profile_metadata(args, transaction_cost_config, result)
+    output["summary"]["metadata"]["cost_aware_entry_filter"] = _cost_aware_entry_filter_metadata(cost_aware_entry_filter_config)
     retest_opportunity = build_fvg_ob_retest_opportunity_report(
         actions,
         candles,
@@ -1506,6 +1570,7 @@ def run(
             fvg_entry_config,
             pattern_entry_custom_price,
             engine_config,
+            cost_aware_entry_filter_config,
         )
     if args.compare_pattern_entry_modes:
         output["diagnostics"]["pattern_entry_mode_comparison"] = _build_pattern_entry_mode_comparison(
@@ -1515,6 +1580,7 @@ def run(
             fvg_entry_config,
             pattern_entry_custom_price,
             engine_config,
+            cost_aware_entry_filter_config,
         )
     if persisted_run_id is not None:
         output["backtest_run_id"] = persisted_run_id

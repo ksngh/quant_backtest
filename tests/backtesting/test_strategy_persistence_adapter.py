@@ -5,7 +5,8 @@ from decimal import Decimal
 
 import pandas as pd
 
-from quant_bitcoin.backtesting.strategy_engine import run_strategy_backtest_engine
+from quant_bitcoin.backtesting.costs import TransactionCostConfig
+from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
 from quant_bitcoin.backtesting.strategy_persistence_adapter import build_strategy_engine_persistence_payload
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType, StrategyQuantityMode
 
@@ -74,6 +75,47 @@ def test_trade_metadata_preserves_action_and_position_side() -> None:
     assert payload.result.metadata["performance_metrics"]["interval"] == "1m"
     assert payload.result.metadata["trade_attribution"]["trade_metrics"]["completed_trade_count"] == 1
     assert payload.result.metadata["trade_attribution"]["attribution"]["by_position_side"]["LONG"]["net_pnl"] == 10.0
+
+
+def test_trade_payload_price_is_raw_and_metadata_preserves_effective_cost_breakdown() -> None:
+    candles = _candles()
+    result = run_strategy_backtest_engine(
+        candles,
+        [
+            StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0),
+            StrategyAction(StrategyActionType.EXIT_LONG, timestamp=candles.iloc[1]["timestamp"], quantity=1.0),
+        ],
+        config=StrategyEngineConfig(
+            transaction_cost_config=TransactionCostConfig(taker_fee_bps=10.0, spread_bps=10.0, slippage_bps=10.0)
+        ),
+    )
+
+    payload = build_strategy_engine_persistence_payload(
+        result,
+        candles,
+        source="postgres",
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_time=datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc),
+        strategy_key="TEST",
+        strategy_name="TEST_STRATEGY",
+        strategy_version="v1",
+        strategy_parameters={"window": 14},
+        starting_cash=10000.0,
+        trade_quantity=1.0,
+        engine_name="strategy_engine",
+        engine_version="v1",
+    )
+
+    entry_execution = result.executions[0]
+    entry_trade = payload.trades[0]
+    assert entry_trade.price == entry_execution.raw_price
+    assert entry_trade.metadata["price_semantics"] == "raw_fill_price"
+    assert entry_trade.metadata["raw_price"] == entry_execution.raw_price
+    assert entry_trade.metadata["effective_price"] == entry_execution.effective_price
+    assert entry_trade.metadata["cost_breakdown"]["fee_cost"] == entry_execution.fee_cost
+    assert entry_trade.metadata["cost_breakdown"]["total_cost"] == entry_execution.total_cost
 
 
 def test_trade_metadata_preserves_unknown_json_safe_diagnostics() -> None:

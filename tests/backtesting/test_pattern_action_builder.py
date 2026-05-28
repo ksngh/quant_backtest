@@ -3,7 +3,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from quant_bitcoin.backtesting.pattern_action_builder import build_pattern_trade_actions
+from quant_bitcoin.backtesting.costs import LiquidityRole, TransactionCostConfig
+from quant_bitcoin.backtesting.pattern_action_builder import CostAwareEntryFilterConfig, build_pattern_trade_actions
 from quant_bitcoin.backtesting.intrabar_policy import IntrabarPolicyConfig, IntrabarSequencingMode
 from quant_bitcoin.backtesting.sizing import PositionSizingConfig, PositionSizingMode
 from quant_bitcoin.backtesting.strategy_engine import StrategyEngineConfig, run_strategy_backtest_engine
@@ -60,6 +61,55 @@ def test_long_event_emits_entry_and_exit() -> None:
     assert actions[0].metadata["engine_sizing_allowed"] is True
     assert actions[-1].action_type == StrategyActionType.EXIT_LONG
     assert actions[-1].metadata["exit_reason"] == "TAKE_PROFIT"
+
+
+def test_cost_aware_entry_filter_blocks_infeasible_net_reward() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"high": 116.0, "low": 100.0, "close": 100.0}]),
+        entry_action_timestamp=0,
+        position_side="LONG",
+        cost_aware_entry_filter_config=CostAwareEntryFilterConfig(
+            enabled=True,
+            min_net_reward_bps=20.0,
+            min_net_rr=0.9,
+            transaction_cost_config=TransactionCostConfig(taker_fee_bps=200.0, spread_bps=200.0, slippage_bps=200.0),
+            liquidity_role=LiquidityRole.TAKER,
+        ),
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type == StrategyActionType.SKIP
+    assert actions[0].reason == "COST_INFEASIBLE_NET_RR"
+    filter_metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert filter_metadata["blocked"] is True
+    assert filter_metadata["estimated_round_trip_cost_bps"] == pytest.approx(1200.0)
+    assert filter_metadata["net_reward_bps"] < 20.0
+
+
+def test_cost_aware_entry_filter_metadata_is_attached_to_accepted_trade() -> None:
+    actions = build_pattern_trade_actions(
+        _Event("BULLISH"),
+        _plan("LONG"),
+        _candles([{"high": 116.0, "low": 100.0, "close": 100.0}]),
+        entry_action_timestamp=0,
+        position_side="LONG",
+        cost_aware_entry_filter_config=CostAwareEntryFilterConfig(
+            enabled=True,
+            min_net_reward_bps=20.0,
+            min_net_rr=0.9,
+            transaction_cost_config=TransactionCostConfig(taker_fee_bps=1.0, spread_bps=1.0, slippage_bps=1.0),
+            liquidity_role=LiquidityRole.TAKER,
+        ),
+    )
+
+    entry = actions[0]
+    filter_metadata = entry.metadata["cost_aware_entry_filter"]
+    assert entry.action_type == StrategyActionType.ENTER_LONG
+    assert filter_metadata["blocked"] is False
+    assert filter_metadata["net_reward_bps"] > 20.0
+    assert filter_metadata["net_rr"] > 0.9
 
 
 def test_entry_quantity_override_is_preserved() -> None:

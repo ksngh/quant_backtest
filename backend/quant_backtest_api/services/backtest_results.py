@@ -163,6 +163,11 @@ class BacktestResultsService:
             "short_collateral_locked_after",
             "available_buying_power_after",
             "cash_after_semantics",
+            "raw_price",
+            "effective_price",
+            "price_semantics",
+            "effective_price_semantics",
+            "cost_breakdown",
         ):
             if key in metadata and key not in data:
                 data[key] = metadata[key]

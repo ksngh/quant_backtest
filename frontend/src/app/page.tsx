@@ -131,6 +131,22 @@ function tradePnl(trade: BacktestTrade): number | undefined {
   return valueNum(trade.metadata, "net_pnl") ?? valueNum(trade.metadata, "gross_pnl");
 }
 
+function tradeRawPrice(trade: BacktestTrade): number | undefined {
+  return trade.raw_price ?? valueNum(trade.metadata, "raw_price") ?? trade.price;
+}
+
+function tradeEffectivePrice(trade: BacktestTrade): number | undefined {
+  return trade.effective_price ?? valueNum(trade.metadata, "effective_price");
+}
+
+function tradeCostBreakdown(trade: BacktestTrade): AnyRecord | null {
+  return asRecord(trade.cost_breakdown) ?? asRecord(asRecord(trade.metadata)?.cost_breakdown);
+}
+
+function tradeCost(trade: BacktestTrade, key: string): number | undefined {
+  return valueNum(tradeCostBreakdown(trade), key) ?? valueNum(trade.metadata, key);
+}
+
 function signalClass(signal: string): string {
   if (signal.includes("LONG") && signal.includes("ENTRY")) return "signal long-entry";
   if (signal.includes("LONG")) return "signal long-exit";
@@ -1175,8 +1191,13 @@ function TradeTable({ trades }: { trades: BacktestTrade[] }) {
               <th>Time</th>
               <th>Signal</th>
               <th>Exec</th>
-              <th>Price</th>
+              <th>Raw Price</th>
+              <th>Effective Price</th>
               <th>Qty</th>
+              <th>Fee</th>
+              <th>Spread</th>
+              <th>Slippage</th>
+              <th>Total Cost</th>
               <th>Free Cash</th>
               <th>Cash Balance</th>
               <th>Equity</th>
@@ -1194,8 +1215,13 @@ function TradeTable({ trades }: { trades: BacktestTrade[] }) {
                     <span className={signalClass(signal)}>{signal}</span>
                   </td>
                   <td>{tradeExecutionSide(trade)}</td>
-                  <td>{fmtNum(trade.price)}</td>
+                  <td>{fmtNum(tradeRawPrice(trade))}</td>
+                  <td>{fmtNum(tradeEffectivePrice(trade))}</td>
                   <td>{fmtNum(trade.quantity)}</td>
+                  <td>{fmtNum(tradeCost(trade, "fee_cost"))}</td>
+                  <td>{fmtNum(tradeCost(trade, "spread_cost"))}</td>
+                  <td>{fmtNum(tradeCost(trade, "slippage_cost"))}</td>
+                  <td>{fmtNum(tradeCost(trade, "total_cost"))}</td>
                   <td className="primary-money">{fmtNum(tradeBuyingPower(trade))}</td>
                   <td>{fmtNum(tradeCashBalance(trade))}</td>
                   <td>{fmtNum(tradeEquity(trade))}</td>
@@ -1213,6 +1239,8 @@ function TradeTable({ trades }: { trades: BacktestTrade[] }) {
             { label: "Signal Source", value: "position_signal preferred, legacy signal fallback" },
             { label: "Cash Display", value: "free cash or buying power is primary; cash balance is audit context" },
             { label: "Execution Side", value: "BUY/SELL raw cashflow side retained separately" },
+            { label: "Raw Price", value: "market-reachable fill price stored in trade.price for new runs" },
+            { label: "Effective Price", value: "spread/slippage-adjusted diagnostic price; not the persisted fill price" },
           ]}
         />
       </details>

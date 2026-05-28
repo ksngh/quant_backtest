@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
 import pandas as pd
 
+from quant_bitcoin.backtesting.costs import (
+    LiquidityRole,
+    TransactionCostConfig,
+    effective_slippage_bps,
+    is_zero_transaction_cost_config,
+)
+from quant_bitcoin.backtesting.cost_profiles import COST_PROFILES
 from quant_bitcoin.backtesting.intrabar_policy import IntrabarPolicyConfig, detect_intrabar_touches, resolve_intrabar_decision
 from quant_bitcoin.backtesting.pattern_invalidation import (
     PATTERN_SOFT_INVALIDATION_SCHEMA_VERSION,
@@ -38,6 +46,16 @@ _UNSET = object()
 PATTERN_EXECUTION_PATH_CANONICAL_FILL_AWARE = "CANONICAL_FILL_AWARE_ACTION_BUILDER"
 
 
+@dataclass(frozen=True)
+class CostAwareEntryFilterConfig:
+    enabled: bool = False
+    min_net_reward_bps: float = 20.0
+    min_net_rr: float = 1.5
+    transaction_cost_config: TransactionCostConfig | None = None
+    liquidity_role: LiquidityRole = LiquidityRole.TAKER
+    cost_profile_name: str | None = None
+
+
 def build_pattern_trade_actions(
     event: Any,
     risk_plan: RiskExitPlan,
@@ -53,6 +71,7 @@ def build_pattern_trade_actions(
     entry_custom_price: float | None = None,
     intrabar_policy_config: IntrabarPolicyConfig | None = None,
     max_wait_bars: int | None = None,
+    cost_aware_entry_filter_config: CostAwareEntryFilterConfig | None = None,
 ) -> list[StrategyAction]:
     side = str(position_side).upper()
     if side not in {"LONG", "SHORT"}:
@@ -181,6 +200,33 @@ def build_pattern_trade_actions(
             )
         ]
 
+    cost_filter = _cost_aware_entry_filter_decision(
+        aligned_risk_plan,
+        frame,
+        entry.fill_candle_index,
+        cost_aware_entry_filter_config,
+    )
+    if cost_filter:
+        event_metadata["cost_aware_entry_filter"] = cost_filter
+        if cost_filter.get("blocked"):
+            return [
+                StrategyAction(
+                    action_type=StrategyActionType.SKIP,
+                    timestamp=entry.fill_timestamp,
+                    quantity=0.0,
+                    reason="COST_INFEASIBLE_NET_RR",
+                    metadata={
+                        **_metadata_with_aligned_risk_plan(event_metadata, risk_plan, aligned_risk_plan),
+                        "entry_status": entry.status.value,
+                        "fill_price": entry.fill_price,
+                        "fill_timestamp": entry.fill_timestamp,
+                        "fill_candle_index": entry.fill_candle_index,
+                        "bars_waited": entry.bars_waited,
+                        "cost_aware_entry_filter": cost_filter,
+                    },
+                )
+            ]
+
     active_soft_invalidation, pattern_soft_invalidation_metadata = _resolve_pattern_soft_invalidation(
         event,
         aligned_risk_plan,
@@ -256,6 +302,95 @@ def build_pattern_trade_actions(
     for exit_event in simulation.events:
         actions.append(_to_exit_action(exit_event, aligned_risk_plan, side, event_metadata))
     return actions
+
+
+def _cost_aware_entry_filter_decision(
+    risk_plan: RiskExitPlan,
+    frame: pd.DataFrame,
+    fill_candle_index: int | None,
+    config: CostAwareEntryFilterConfig | None,
+) -> dict[str, Any]:
+    if config is None or not config.enabled:
+        return {}
+
+    entry_price = _positive_float(risk_plan.entry_price)
+    stop_price = _positive_float(risk_plan.stop_price)
+    if entry_price is None or stop_price is None or not risk_plan.targets:
+        return {
+            "schema_version": "cost_aware_entry_filter_v1",
+            "enabled": True,
+            "blocked": True,
+            "block_reason": "COST_FILTER_INVALID_RISK_PLAN",
+        }
+
+    direction = _coerce_direction(risk_plan.direction)
+    target_price = float(risk_plan.targets[0].price)
+    if direction == RiskExitDirection.LONG:
+        gross_reward_bps = ((target_price - entry_price) / entry_price) * 10_000.0
+        gross_risk_bps = ((entry_price - stop_price) / entry_price) * 10_000.0
+    else:
+        gross_reward_bps = ((entry_price - target_price) / entry_price) * 10_000.0
+        gross_risk_bps = ((stop_price - entry_price) / entry_price) * 10_000.0
+
+    volatility_bps = _entry_candle_volatility_bps(frame, fill_candle_index)
+    cost_config = config.transaction_cost_config or TransactionCostConfig()
+    fee_bps = cost_config.maker_fee_bps if config.liquidity_role is LiquidityRole.MAKER else cost_config.taker_fee_bps
+    slippage_bps = effective_slippage_bps(cost_config, volatility_bps)
+    one_side_cost_bps = fee_bps + cost_config.spread_bps + slippage_bps
+    round_trip_cost_bps = 2.0 * one_side_cost_bps
+    net_reward_bps = gross_reward_bps - round_trip_cost_bps
+    net_risk_bps = gross_risk_bps + round_trip_cost_bps
+    net_rr = None if net_risk_bps <= 0 else net_reward_bps / net_risk_bps
+    blocked = (
+        gross_reward_bps <= 0
+        or gross_risk_bps <= 0
+        or net_reward_bps < config.min_net_reward_bps
+        or net_rr is None
+        or net_rr < config.min_net_rr
+    )
+    return {
+        "schema_version": "cost_aware_entry_filter_v1",
+        "enabled": True,
+        "blocked": blocked,
+        "block_reason": "COST_INFEASIBLE_NET_RR" if blocked else None,
+        "min_net_reward_bps": config.min_net_reward_bps,
+        "min_net_rr": config.min_net_rr,
+        "gross_reward_bps": gross_reward_bps,
+        "gross_risk_bps": gross_risk_bps,
+        "estimated_one_side_cost_bps": one_side_cost_bps,
+        "estimated_round_trip_cost_bps": round_trip_cost_bps,
+        "net_reward_bps": net_reward_bps,
+        "net_risk_bps": net_risk_bps,
+        "net_rr": net_rr,
+        "fee_bps": fee_bps,
+        "spread_bps": cost_config.spread_bps,
+        "slippage_bps": slippage_bps,
+        "effective_slippage_bps": slippage_bps,
+        "volatility_bps": volatility_bps,
+        "cost_profile_name": config.cost_profile_name or _cost_profile_name(cost_config),
+        "liquidity_role": config.liquidity_role.value,
+    }
+
+
+def _entry_candle_volatility_bps(frame: pd.DataFrame, fill_candle_index: int | None) -> float | None:
+    if fill_candle_index is None or fill_candle_index < 0 or fill_candle_index >= len(frame):
+        return None
+    candle = frame.iloc[fill_candle_index]
+    high = _positive_float(candle.get("high"))
+    low = _positive_float(candle.get("low"))
+    close = _positive_float(candle.get("close"))
+    if high is None or low is None or close is None:
+        return None
+    return ((high - low) / close) * 10_000.0
+
+
+def _cost_profile_name(config: TransactionCostConfig | None) -> str:
+    if is_zero_transaction_cost_config(config):
+        return "zero"
+    for key, profile in COST_PROFILES.items():
+        if profile.config == config:
+            return key
+    return "manual"
 
 
 def _to_exit_action(exit_event: PatternExitEvent, risk_plan: RiskExitPlan, position_side: str, base_metadata: dict[str, Any]) -> StrategyAction:

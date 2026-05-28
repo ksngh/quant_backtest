@@ -105,6 +105,13 @@ account-state metadata (`free_cash_after`, `margin_used_after`,
 `short_proceeds_locked_after`). When shorts are open, cash balance can include
 short-sale proceeds and must not be presented as unrestricted free cash.
 
+Execution price semantics are split for new strategy-engine runs:
+
+- `price` and `raw_price` are the raw market-reachable simulated fill price.
+- `effective_price` is a spread/slippage-adjusted diagnostic reference, not the visible raw fill.
+- Fees, spread, and slippage are explicit costs in `cost_breakdown`; net PnL reconciles from raw price movement minus those explicit costs.
+- Pattern entries may optionally use the cost-aware net reward/RR filter before emission; blocked entries remain `SKIP` actions with diagnostic metadata and do not execute.
+
 ## Single-Pattern Strategy Naming Convention
 
 Single-pattern strategy classes should follow:
