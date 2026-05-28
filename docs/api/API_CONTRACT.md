@@ -242,6 +242,10 @@ Field mapping notes:
       "execution_side": "BUY",
       "position_side": "LONG",
       "price": 50000.0,
+      "raw_price": 50000.0,
+      "effective_price": 50020.0,
+      "price_semantics": "raw_fill_price",
+      "effective_price_semantics": "spread_slippage_adjusted_diagnostic_price",
       "quantity": 0.01,
       "cash_after": 9500.0,
       "cash_balance_after": 9500.0,
@@ -258,7 +262,21 @@ Field mapping notes:
         "short_proceeds_locked_after": 0.0,
         "short_collateral_locked_after": 0.0,
         "available_buying_power_after": 9500.0,
-        "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value"
+        "cash_after_semantics": "cash_after is cash balance; equity_after includes long position market value",
+        "cost_breakdown": {
+          "schema_version": "execution_cost_breakdown_v1",
+          "fee_cost": 0.5,
+          "spread_cost": 0.15,
+          "slippage_cost": 0.1,
+          "total_cost": 0.75,
+          "fee_bps": 10.0,
+          "spread_bps": 3.0,
+          "slippage_bps": 2.0,
+          "effective_slippage_bps": 2.0,
+          "volatility_bps": 10.0,
+          "cost_profile_name": "conservative_crypto_1m",
+          "cost_currency": "quote"
+        }
       }
     }
   ],
@@ -362,6 +380,9 @@ Cash/equity semantics:
 
 - `signal` is the preferred semantic position signal for new strategy-engine runs. Expected values include `LONG_ENTRY`, `LONG_EXIT`, `LONG_PARTIAL_EXIT`, `SHORT_ENTRY`, `SHORT_EXIT`, and `SHORT_PARTIAL_EXIT`.
 - Raw execution side remains available separately as `execution_side` (`BUY`/`SELL`) and may also appear in trade metadata as `side` for audit/cashflow compatibility.
+- For new strategy-engine runs, trade `price` and `raw_price` are the market-reachable raw fill price. `effective_price` is a spread/slippage-adjusted diagnostic reference and may sit outside the candle high/low range; clients must not label it as the raw execution price. Older persisted runs may have ambiguous `price` semantics if they were produced before this contract split.
+- New strategy-engine trade metadata may include `price_semantics=raw_fill_price`, `effective_price_semantics=spread_slippage_adjusted_diagnostic_price`, and `cost_breakdown` using schema `execution_cost_breakdown_v1`. Cost breakdown fields include `fee_cost`, `spread_cost`, `slippage_cost`, `total_cost`, `fee_bps`, `spread_bps`, `slippage_bps`, `effective_slippage_bps`, `volatility_bps`, `cost_profile_name`, and `cost_currency`; legacy rows may omit the object.
+- New cost-aware pattern runs may include `strategy_config.parameters.cost_aware_entry_filter`, `summary.metadata.cost_aware_entry_filter`, and per-entry `metadata.cost_aware_entry_filter`. When enabled, entries that fail the deterministic net reward/RR gate are emitted as `SKIP` with reason `COST_INFEASIBLE_NET_RR`.
 - Legacy persisted runs may still have `signal=BUY` or `signal=SELL`; clients should prefer `position_signal` when present and fall back to `signal` for older runs.
 - `ending_cash`, `cash_after`, and graph `cash` are cash-balance fields, not always spendable free cash.
 - `cash_balance_after` is the explicit alias for the same cash-balance accounting value retained for compatibility.

@@ -304,7 +304,7 @@ def _new_open_trade(execution: StrategyExecution, side: str) -> dict[str, Any]:
         "spread_regime": _metadata_key(metadata, "spread_regime"),
         "weekday_tag": _metadata_key(metadata, "weekday_tag"),
         "gross_pnl": 0.0,
-        "net_pnl": 0.0,
+        "net_pnl": -float(execution.total_cost or 0.0),
         "r_values": [],
         "exit_reasons": [],
         "exit_execution_count": 0,

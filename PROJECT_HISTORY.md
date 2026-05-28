@@ -8,7 +8,7 @@ Older history is preserved in fixed 50-task segmented archives:
 - `docs/ledger_archives/project_history_task_101_150.md`
 - `docs/ledger_archives/project_history_task_151_200.md`
 
-## Recent Completion Window (Tasks 201-237)
+## Recent Completion Window (Tasks 201-246)
 - 2026-05-24: Completed Task 201 `MARKET_REGIME_CONDITIONED_PATTERN_THRESHOLDS`; added opt-in pattern-regime threshold config, high-vol threshold overrides, low-liquidity/wide-spread entry blocking, strategy-level SKIP behavior, engine-level blocked-entry execution metadata, and CLI workflow/parameter reporting.
 - 2026-05-24: Completed Task 202 `INDICATOR_CURRENT_INCLUSION_AND_PRIOR_BASELINE_CONTRACT`; added `indicator_timing_metadata_v1` helpers for ATR, Volume Ratio, Market Regime, and Pivots, prior-only volume/regime baseline options, and timing contract documentation.
 - 2026-05-24: Completed Task 203 `VOLUME_RATIO_PRIOR_ONLY_AND_NOTIONAL_BASELINE`; added explicit `VolumeRatioBaselineMode`, `VolumeInputMode`, quote-volume fallback, trading-value input, and detector config propagation.
@@ -46,6 +46,11 @@ Older history is preserved in fixed 50-task segmented archives:
 - 2026-05-27: Completed Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGNOSTICS`; exposed saved-run FVG v2 trend/Fibonacci/liquidity/entry/stop diagnostics through backend metadata, research reports, frontend helper/UI presentation, and read-only API/README documentation.
 - 2026-05-27: Completed Task 236 `FVG_RETEST_V2_WALK_FORWARD_AND_OOS_RESEARCH_PROTOCOL`; added FVG v2 parameter-declaration validation, WFO/OOS research protocol JSON/markdown evidence packaging, FVG v2 WFO grouping dimensions, and protocol documentation.
 - 2026-05-27: Completed Task 237 `FVG_RETEST_V2_DOCUMENTATION_LEDGER_RECONCILIATION_AND_ARCHIVE_CHECK`; reconciled FVG v2 README/API/FVG/protocol docs, root status/history/backlog, and confirmed the active Tasks 201-237 window does not yet require a 201-250 archive.
+- 2026-05-28: Completed Task 238 `BACKTEST_EXECUTION_PRICE_SEMANTICS_SPLIT`; changed new strategy-engine executions so `price`/persisted trade `price` are raw fill prices, retained `effective_price` as spread/slippage-adjusted diagnostics, and reconciled summary net PnL from raw gross PnL minus explicit transaction costs.
+- 2026-05-28: Completed Task 239 `COST_AWARE_NET_RR_ENTRY_FILTER`; added an opt-in pattern entry gate using fee/spread/effective-slippage estimates, net reward bps, and net R/R, with CLI flags and `COST_INFEASIBLE_NET_RR` SKIP metadata.
+- 2026-05-28: Completed Task 240 `TRADE_COST_BREAKDOWN_PERSISTENCE`; added structured `execution_cost_breakdown_v1` metadata to executions, CLI JSON, persistence payloads, API trade serialization, and frontend trade table/type coverage.
+- 2026-05-28: Completed Task 241 `REFACTOR_COST_SEMANTICS_LEDGER_RECONCILIATION`; documented raw/effective price and cost-breakdown semantics in API/architecture docs, updated root status/backlog/history, and confirmed no 201-250 archive is required yet.
+- 2026-05-28: Created Tasks 242-246 from owner dashboard feedback: chart-first drag/zoom UX, collapsible indicator diagnostics, backend run-list filters, frontend filter controls, and per-trade cost detail disclosure. No implementation was executed in this task-creation step.
 
 ## Active Historical Notes
 - Live trading approval/credential policy/endpoint allowlist/kill-switch design remains unresolved and blocks Task 138.
@@ -54,4 +59,4 @@ Older history is preserved in fixed 50-task segmented archives:
 - 2026-05-24: Ledger range cleanup reconciled root `BACKLOG.md` and `PROJECT_HISTORY.md` with the fixed 50-task archive rule by replacing partial archives with `*_task_051_100.md` archives and keeping root ledgers focused on Tasks 101-148.
 - 2026-05-24: Task 171 archived Tasks 101-150 into `docs/ledger_archives/backlog_task_101_150.md` and `docs/ledger_archives/project_history_task_101_150.md`.
 - 2026-05-24: Task 225 archived Tasks 151-200 into `docs/ledger_archives/backlog_task_151_200.md` and `docs/ledger_archives/project_history_task_151_200.md`.
-- 2026-05-27: Task 237 checked the fixed 50-task archive rule; Tasks 201-237 remain in the active root ledger window, so 201-250 archive files were not created.
+- 2026-05-28: Tasks 242-246 were added to the active root ledger window; Tasks 201-246 remain below the 201-250 archive boundary, so 201-250 archive files were not created.

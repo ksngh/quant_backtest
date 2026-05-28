@@ -277,7 +277,7 @@ def _action_type(execution: Any) -> str:
 
 
 def _execution_price(execution: Any) -> float | None:
-    return _number(_field(execution, "effective_price")) or _number(_field(execution, "fill_price")) or _number(_field(execution, "price"))
+    return _number(_field(execution, "raw_price")) or _number(_field(execution, "fill_price")) or _number(_field(execution, "price"))
 
 
 def _metadata_number(execution: Any, key: str) -> float | None:

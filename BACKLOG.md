@@ -10,7 +10,16 @@ Older items are preserved in fixed 50-task segmented archives:
 
 All items below are candidate/planning pointers unless marked completed.
 
-## Recent Task Window (Tasks 201-237)
+## Recent Task Window (Tasks 201-246)
+- Created (2026-05-28): Task 246 `TRADE_ROW_COST_DETAIL_DISCLOSURE` (planned per-trade expandable fee/spread/slippage/cost detail UX without DB schema changes).
+- Created (2026-05-28): Task 245 `FRONTEND_BACKTEST_RUN_LIST_FILTER_UI` (planned frontend left-side saved-run filter controls wired to backend query parameters).
+- Created (2026-05-28): Task 244 `BACKEND_BACKTEST_RUN_LIST_FILTERS` (planned read-only backend/API/persistence filters for saved backtest run list).
+- Created (2026-05-28): Task 243 `DASHBOARD_COLLAPSIBLE_INDICATOR_DIAGNOSTICS` (planned collapsible/progressive-disclosure indicator and diagnostics panels).
+- Created (2026-05-28): Task 242 `DASHBOARD_CHART_INTERACTION_AND_LAYOUT` (planned chart-first layout with drag/pan/zoom/reset interactions).
+- Completed (2026-05-28): Task 241 `REFACTOR_COST_SEMANTICS_LEDGER_RECONCILIATION` (reconciled price/cost semantics vocabulary across engine, persistence/API/frontend, docs, status, history, backlog, and tests).
+- Completed (2026-05-28): Task 240 `TRADE_COST_BREAKDOWN_PERSISTENCE` (added structured per-execution `cost_breakdown` metadata through execution serialization, persistence payloads, API flattening, and frontend display/type coverage).
+- Completed (2026-05-28): Task 239 `COST_AWARE_NET_RR_ENTRY_FILTER` (added opt-in deterministic cost-aware entry filter with net reward/RR gating, CLI parameters, metadata, and SKIP reason `COST_INFEASIBLE_NET_RR`).
+- Completed (2026-05-28): Task 238 `BACKTEST_EXECUTION_PRICE_SEMANTICS_SPLIT` (made new execution `price`/persisted trade `price` raw fill price, kept `effective_price` diagnostic, and reconciled net PnL from raw gross movement minus explicit costs).
 - Completed (2026-05-27): Task 237 `FVG_RETEST_V2_DOCUMENTATION_LEDGER_RECONCILIATION_AND_ARCHIVE_CHECK` (reconciled FVG v2 docs/status/history/backlog and confirmed no 201-250 archive is required yet).
 - Completed (2026-05-27): Task 236 `FVG_RETEST_V2_WALK_FORWARD_AND_OOS_RESEARCH_PROTOCOL` (added FVG v2 parameter-declaration validation, WFO/OOS research protocol evidence packaging, FVG v2 WFO grouping dimensions, and docs).
 - Completed (2026-05-27): Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGNOSTICS` (exposed saved-run FVG v2 diagnostics through backend metadata/research reports, frontend read-only panel/helper, and API/README docs).
@@ -53,7 +62,8 @@ All items below are candidate/planning pointers unless marked completed.
 - Blocked: Task 138 `GUARDED_BINANCE_SPOT_LIVE_EXECUTION_WITH_OWNER_APPROVAL` remains blocked pending explicit owner approval for live order execution and the live-readiness prerequisites documented in `docs/25_EXECUTION_READINESS_SAFETY_AUDIT.md`.
 
 ## Current Candidates / Follow-ups
-- Next explicit task: none assigned. Project rules require a new task document before additional implementation.
+- Next explicit task: Task 242 `DASHBOARD_CHART_INTERACTION_AND_LAYOUT` is the recommended first implementation task because chart placement/interactions should establish the new dashboard layout before the lower diagnostic sections are reorganized.
+- Follow-up candidate: `RAW_FILL_RANGE_VALIDATION_AND_FVG_FIXED_FIXTURE` (add deterministic fixture coverage and warning/error metadata when requested/raw simulated fills fall outside the source candle high-low range).
 - Follow-up candidate: `RUN_FVG_RETEST_V2_WFO_OOS_ON_APPROVED_DATASET` (execute the Task 236 protocol on a fixed dataset with predeclared splits and realistic costs; keep strategy research-only unless a later task explicitly changes status).
 - Follow-up candidate: `LIVE_EXECUTION_KILL_SWITCH_AND_MAX_NOTIONAL_GUARDS` (prerequisite before any future live execution task).
 - Follow-up candidate: `LIVE_EXECUTION_SYMBOL_FILTER_AND_STALE_DATA_PRECHECKS` (exchange filter, stale candle, and clock-skew checks before live intent submission).
@@ -81,4 +91,4 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-24): Reconciled root backlog archive pointers to fixed 50-task ranges and moved Tasks 088-100 entries into `docs/ledger_archives/backlog_task_051_100.md`.
 - Completed (2026-05-24): Task 171 created `docs/ledger_archives/backlog_task_101_150.md` and reduced root backlog to the Tasks 151-171 recent window.
 - Completed (2026-05-24): Task 225 created `docs/ledger_archives/backlog_task_151_200.md` and reduced root backlog to the Tasks 201-225 recent window.
-- Completed (2026-05-27): Task 237 checked the fixed 50-task archive rule; Tasks 201-237 remain in the active 201-250 root window, so `backlog_task_201_250.md` is not created yet.
+- Created (2026-05-28): Tasks 242-246 remain in the active 201-250 root window, so `backlog_task_201_250.md` is not created yet.

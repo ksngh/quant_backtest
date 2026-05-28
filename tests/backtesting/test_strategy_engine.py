@@ -404,6 +404,95 @@ def test_engine_records_cost_summary_and_volatility_slippage() -> None:
     assert result.summary.metadata["transaction_cost"]["zero_transaction_cost_assumption"] is False
 
 
+def test_execution_price_is_raw_fill_and_effective_price_is_diagnostic() -> None:
+    from quant_bitcoin.backtesting.costs import TransactionCostConfig
+
+    candles = pd.DataFrame(
+        [
+            {"timestamp": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10},
+            {"timestamp": 2, "open": 110, "high": 111, "low": 109, "close": 110, "volume": 10},
+        ]
+    )
+    actions = [
+        StrategyAction(StrategyActionType.ENTER_LONG, timestamp=1, quantity=1.0, requested_price=100.0),
+        StrategyAction(StrategyActionType.EXIT_LONG, timestamp=2, quantity=1.0, requested_price=110.0),
+    ]
+
+    result = run_strategy_backtest_engine(
+        candles,
+        actions,
+        config=StrategyEngineConfig(
+            starting_cash=1000.0,
+            transaction_cost_config=TransactionCostConfig(taker_fee_bps=10.0, spread_bps=10.0, slippage_bps=10.0),
+        ),
+    )
+
+    entry, exit_ = result.executions
+    assert entry.price == pytest.approx(100.0)
+    assert entry.raw_price == pytest.approx(100.0)
+    assert entry.effective_price == pytest.approx(100.2)
+    assert entry.metadata["price_semantics"] == "raw_fill_price"
+    assert entry.metadata["cost_breakdown"]["effective_price"] == pytest.approx(100.2)
+    assert exit_.price == pytest.approx(110.0)
+    assert exit_.raw_price == pytest.approx(110.0)
+    assert exit_.effective_price == pytest.approx(109.78)
+    assert result.summary.gross_pnl == pytest.approx(10.0)
+    assert result.summary.net_pnl == pytest.approx(10.0 - entry.total_cost - exit_.total_cost)
+
+
+def test_fvg_same_timestamp_short_case_keeps_raw_prices_inside_candle_range() -> None:
+    from quant_bitcoin.backtesting.cost_profiles import cost_profile
+
+    candles = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2026-05-20T02:17:00Z"),
+                "open": 76817.41,
+                "high": 76817.42,
+                "low": 76787.83,
+                "close": 76793.42,
+                "volume": 10,
+            }
+        ]
+    )
+    actions = [
+        StrategyAction(
+            StrategyActionType.ENTER_SHORT,
+            timestamp=candles.iloc[0]["timestamp"],
+            quantity=0.129679,
+            requested_price=76793.42,
+        ),
+        StrategyAction(
+            StrategyActionType.EXIT_SHORT,
+            timestamp=candles.iloc[0]["timestamp"],
+            quantity=0.129679,
+            requested_price=76804.41459133071,
+            metadata={"exit_reason": "HARD_STOP"},
+        ),
+    ]
+
+    result = run_strategy_backtest_engine(
+        candles,
+        actions,
+        config=StrategyEngineConfig(
+            starting_cash=20000.0,
+            transaction_cost_config=cost_profile("conservative_crypto_1m").config,
+        ),
+    )
+
+    entry, exit_ = result.executions
+    candle_low = float(candles.iloc[0]["low"])
+    candle_high = float(candles.iloc[0]["high"])
+    assert candle_low <= entry.raw_price <= candle_high
+    assert candle_low <= exit_.raw_price <= candle_high
+    assert entry.price == pytest.approx(entry.raw_price)
+    assert exit_.price == pytest.approx(exit_.raw_price)
+    assert entry.effective_price < candle_low
+    assert exit_.effective_price > candle_high
+    assert entry.metadata["cost_breakdown"]["cost_profile_name"] == "conservative_crypto_1m"
+    assert exit_.metadata["price_semantics"] == "raw_fill_price"
+
+
 def test_engine_marks_zero_cost_assumption() -> None:
     result = run_strategy_backtest_engine(
         _candles(),

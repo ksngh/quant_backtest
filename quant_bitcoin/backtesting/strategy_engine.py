@@ -59,7 +59,7 @@ from quant_bitcoin.strategies.actions import (
 
 _CANDLE_CLOSE_EQUITY_SEMANTICS = "candle-close mark-to-market equity after applying actions at this timestamp"
 _ENTRY_EXECUTION_EQUITY_SEMANTICS = (
-    "entry-candle execution-price equity; subsequent candles use candle-close mark-to-market"
+    "entry-candle execution-price equity using raw fill price; subsequent candles use candle-close mark-to-market"
 )
 _ENTRY_SIZING_PRICE_POLICY = "CONSERVATIVE_MAX_EXECUTION_OR_CLOSE"
 
@@ -206,7 +206,7 @@ def run_strategy_backtest_engine(
                 and execution.action_type in (StrategyActionType.ENTER_LONG.value, StrategyActionType.ENTER_SHORT.value)
                 and execution.position_after != 0
             ):
-                entry_equity_mark_price = float(execution.effective_price or execution.price)
+                entry_equity_mark_price = float(execution.raw_price or execution.price)
 
         forced_exit = _apply_forced_guardrail_exit(
             cash,
@@ -300,7 +300,7 @@ def run_strategy_backtest_engine(
     total_cost = sum(e.total_cost for e in executions)
     total_notional = sum(e.notional for e in executions)
     gross_pnl_total = sum(e.gross_pnl for e in executions if e.gross_pnl is not None)
-    net_pnl_total = sum(e.net_pnl for e in executions if e.net_pnl is not None) - total_short_carrying_cost
+    net_pnl_total = gross_pnl_total - total_cost - total_short_carrying_cost
     win_count = len([e for e in closing_execs if (e.net_pnl or 0.0) > 0])
     loss_count = len([e for e in closing_execs if (e.net_pnl or 0.0) < 0])
     short_closing_execs = [e for e in closing_execs if e.position_side == "SHORT"]
@@ -640,7 +640,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
     raw_price = explicit_price if explicit_price is not None else close
     cost = _cost(raw_price, qty, side, cfg, volatility_bps=volatility_bps)
     effective_price = cost.effective_price
-    notional = effective_price * qty
+    notional = raw_price * qty
     reason = None
     extra_metadata = dict(sizing_metadata or {})
     extra_metadata["requested_quantity"] = requested_qty
@@ -670,7 +670,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
             account_state=account_state,
         )
         return cash, 0.0, 0.0, execution, 0.0
-    notional = cost.effective_price * qty
+    notional = raw_price * qty
     if not is_short:
         qty, cost, reason, affordability_metadata = _apply_entry_affordability(
             cash,
@@ -678,7 +678,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
             qty,
             side,
             cfg,
-            required_cash=notional + cost.fee_cost,
+            required_cash=notional + cost.total_cost,
             reason="INSUFFICIENT_CASH_FOR_LONG",
             policy=cfg.position_sizing.insufficient_funds_policy,
             volatility_bps=volatility_bps,
@@ -691,7 +691,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
             qty,
             side,
             cfg,
-            required_cash=notional + cost.fee_cost,
+            required_cash=notional + cost.total_cost,
             reason="INSUFFICIENT_BUYING_POWER_FOR_SHORT",
             policy=cfg.position_sizing.insufficient_funds_policy,
             volatility_bps=volatility_bps,
@@ -706,7 +706,7 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
             qty,
             side,
             cfg,
-            required_cash=required_margin + cost.fee_cost,
+            required_cash=required_margin + cost.total_cost,
             reason="INSUFFICIENT_INITIAL_MARGIN",
             policy=margin.insufficient_margin_policy,
             required_margin=required_margin,
@@ -733,17 +733,17 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
         return cash, 0.0, 0.0, execution, 0.0
 
     effective_price = cost.effective_price
-    notional = effective_price * qty
+    notional = raw_price * qty
     signed_qty = -qty if is_short else qty
     extra_metadata["filled_quantity"] = qty
     if requested_qty != qty:
         extra_metadata["quantity_was_resized"] = True
 
-    cash_after = cash + notional - cost.fee_cost if is_short else cash - notional - cost.fee_cost
+    cash_after = cash + notional - cost.total_cost if is_short else cash - notional - cost.total_cost
     position_after = signed_qty
-    avg_entry_after = effective_price
+    avg_entry_after = raw_price
     equity_after = cash_after + (position_after * close)
-    execution_equity_after = cash_after + (position_after * effective_price)
+    execution_equity_after = cash_after + (position_after * raw_price)
     execution = _execution_record(
         action,
         side,
@@ -755,11 +755,11 @@ def _open_position(cash, close, qty, action, cfg, *, explicit_price=None, sizing
         position_after,
         equity_after,
         cost=cost,
-        extra_metadata=extra_metadata,
+        extra_metadata=extra_metadata | _cost_metadata(cost, cfg, raw_price=raw_price, quantity=qty),
         account_state=_account_state(cash_after, position_after, close, avg_entry_after, cfg),
         execution_equity_after=execution_equity_after,
     )
-    return cash_after, position_after, avg_entry_after, execution, 0.0
+    return cash_after, position_after, avg_entry_after, execution, -float(cost.total_cost)
 
 
 def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, explicit_price=None, quantity_metadata=None, volatility_bps=None):
@@ -769,18 +769,18 @@ def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, expli
     raw_price = explicit_price if explicit_price is not None else close
     cost = _cost(raw_price, close_qty, side, cfg, volatility_bps=volatility_bps)
     effective_price = cost.effective_price
-    notional = effective_price * close_qty
-    cash_after = cash - notional - cost.fee_cost if is_short else cash + notional - cost.fee_cost
+    notional = raw_price * close_qty
+    cash_after = cash - notional - cost.total_cost if is_short else cash + notional - cost.total_cost
     if is_short:
-        gross = (avg_entry - effective_price) * close_qty
+        gross = (avg_entry - raw_price) * close_qty
         position_after = position + close_qty
     else:
-        gross = (effective_price - avg_entry) * close_qty
+        gross = (raw_price - avg_entry) * close_qty
         position_after = position - close_qty
     net = gross - cost.total_cost
     avg_entry_after = 0.0 if position_after == 0 else avg_entry
     equity_after = cash_after + (position_after * close)
-    execution_equity_after = cash_after + (position_after * effective_price)
+    execution_equity_after = cash_after + (position_after * raw_price)
     execution = _execution_record(
         action,
         side,
@@ -794,7 +794,7 @@ def _close_position(cash, position, avg_entry, close, qty, action, cfg, *, expli
         gross=gross,
         net=net,
         cost=cost,
-        extra_metadata=quantity_metadata,
+        extra_metadata=dict(quantity_metadata or {}) | _cost_metadata(cost, cfg, raw_price=raw_price, quantity=close_qty),
         account_state=_account_state(cash_after, position_after, close, avg_entry_after, cfg),
         execution_equity_after=execution_equity_after,
     )
@@ -1101,7 +1101,7 @@ def _apply_entry_affordability(
         }
     )
     if required_margin is not None:
-        metadata["required_initial_margin"] = cfg.simulated_margin.required_initial_margin(resized_cost.effective_price * resized_qty)
+        metadata["required_initial_margin"] = cfg.simulated_margin.required_initial_margin(raw_price * resized_qty)
     return resized_qty, resized_cost, None, metadata
 
 
@@ -1115,7 +1115,7 @@ def _apply_entry_exposure_caps(
     volatility_bps: float | None = None,
 ):
     cost = _cost(raw_price, qty, side, cfg, volatility_bps=volatility_bps)
-    notional = cost.effective_price * qty
+    notional = raw_price * qty
     guardrails = cfg.guardrails
     caps: list[tuple[float, str, str]] = []
     if guardrails.max_position_notional is not None:
@@ -1143,7 +1143,7 @@ def _apply_entry_exposure_caps(
         metadata["block_reason"] = reason
         return qty, cost, reason, metadata
 
-    resized_qty = cap_value / cost.effective_price if cost.effective_price > 0 else 0.0
+    resized_qty = cap_value / raw_price if raw_price > 0 else 0.0
     if resized_qty <= 0:
         metadata["block_reason"] = reason
         return qty, cost, reason, metadata
@@ -1153,7 +1153,7 @@ def _apply_entry_exposure_caps(
             "resize_reason": reason,
             "requested_quantity_before_exposure_cap": qty,
             "filled_quantity_after_exposure_cap": resized_qty,
-            "resized_notional_after_exposure_cap": resized_cost.effective_price * resized_qty,
+            "resized_notional_after_exposure_cap": raw_price * resized_qty,
         }
     )
     return resized_qty, resized_cost, None, metadata
@@ -1162,7 +1162,7 @@ def _apply_entry_exposure_caps(
 def _cost(raw_price, qty, side, cfg, *, volatility_bps=None):
     if cfg.transaction_cost_config is None:
         class _C: pass
-        c = _C(); c.fee_cost = 0.0; c.spread_cost = 0.0; c.slippage_cost = 0.0; c.total_cost = 0.0; c.effective_price = raw_price; c.effective_slippage_bps = 0.0; c.volatility_bps = volatility_bps
+        c = _C(); c.gross_notional = raw_price * qty; c.fee_cost = 0.0; c.spread_cost = 0.0; c.slippage_cost = 0.0; c.total_cost = 0.0; c.effective_price = raw_price; c.effective_slippage_bps = 0.0; c.volatility_bps = volatility_bps
         return c
     return calculate_transaction_cost(raw_price, qty, CostExecutionSide(side), cfg.default_liquidity_role, cfg.transaction_cost_config, volatility_bps=volatility_bps)
 
@@ -1464,8 +1464,52 @@ def _cost_sensitivity_report(gross_pnl: float, total_notional: float) -> dict[st
     }
 
 
+def _cost_metadata(cost, cfg: StrategyEngineConfig, *, raw_price: float, quantity: float) -> dict[str, object]:
+    config = cfg.transaction_cost_config or TransactionCostConfig()
+    fee_bps = config.maker_fee_bps if cfg.default_liquidity_role is LiquidityRole.MAKER else config.taker_fee_bps
+    volatility_bps = getattr(cost, "volatility_bps", None)
+    effective_slippage = getattr(cost, "effective_slippage_bps", 0.0)
+    cost_breakdown = {
+        "schema_version": "execution_cost_breakdown_v1",
+        "price_semantics": "raw_fill_price",
+        "effective_price_semantics": "spread_slippage_adjusted_diagnostic_price",
+        "raw_price": float(raw_price),
+        "effective_price": float(getattr(cost, "effective_price", raw_price)),
+        "gross_notional": float(raw_price) * float(quantity),
+        "fee_cost": float(getattr(cost, "fee_cost", 0.0)),
+        "spread_cost": float(getattr(cost, "spread_cost", 0.0)),
+        "slippage_cost": float(getattr(cost, "slippage_cost", 0.0)),
+        "total_cost": float(getattr(cost, "total_cost", 0.0)),
+        "fee_bps": float(fee_bps),
+        "spread_bps": float(config.spread_bps),
+        "slippage_bps": float(effective_slippage),
+        "configured_slippage_bps": float(config.slippage_bps),
+        "effective_slippage_bps": float(effective_slippage),
+        "volatility_bps": volatility_bps,
+        "cost_profile_name": _cost_profile_name(config),
+        "cost_currency": "quote",
+        "liquidity_role": cfg.default_liquidity_role.value,
+    }
+    return {
+        "price_semantics": "raw_fill_price",
+        "effective_price_semantics": "spread_slippage_adjusted_diagnostic_price",
+        "cost_breakdown": cost_breakdown,
+    }
+
+
+def _cost_profile_name(config: TransactionCostConfig | None) -> str:
+    if is_zero_transaction_cost_config(config):
+        return "zero"
+    for key, profile in COST_PROFILES.items():
+        if profile.config == config:
+            return key
+    return "manual"
+
+
 def _execution_record(action, side, position_side, raw_price, effective_price, qty, cash_after, position_after, equity_after, reason=None, gross=None, net=None, cost=None, extra_metadata=None, account_state=None, execution_equity_after=None):
     metadata = dict(action.metadata) if isinstance(action.metadata, dict) else {}
+    metadata.setdefault("price_semantics", "raw_fill_price")
+    metadata.setdefault("effective_price_semantics", "spread_slippage_adjusted_diagnostic_price")
     if extra_metadata:
         metadata.update(extra_metadata)
     if cost:
@@ -1480,16 +1524,16 @@ def _execution_record(action, side, position_side, raw_price, effective_price, q
         position_signal=position_signal_for_action(action.action_type),
         execution_side=execution_side_for_action(action.action_type),
         position_side=position_side,
-        price=effective_price,
+        price=raw_price,
         raw_price=raw_price,
         effective_price=effective_price,
         quantity=qty,
-        notional=effective_price * qty,
+        notional=raw_price * qty,
         cash_after=cash_after,
         cash_balance_after=cash_after,
         position_after=position_after,
         equity_after=equity_after,
-        execution_equity_after=execution_equity_after if execution_equity_after is not None else cash_after + (position_after * effective_price),
+        execution_equity_after=execution_equity_after if execution_equity_after is not None else cash_after + (position_after * raw_price),
         mark_to_market_equity_after=equity_after,
         free_cash_after=account_state.get("free_cash_after"),
         margin_used_after=account_state.get("margin_used_after"),

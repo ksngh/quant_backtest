@@ -141,6 +141,16 @@ def effective_execution_price(
     return float(price) * (1.0 - spread_decimal - slippage_decimal)
 
 
+def effective_slippage_bps(
+    config: TransactionCostConfig,
+    volatility_bps: float | None,
+) -> float:
+    """Return configured slippage after the deterministic volatility adjustment."""
+
+    _validate_inputs(ExecutionSide.BUY, LiquidityRole.TAKER, config, volatility_bps)
+    return _effective_slippage_bps(config, volatility_bps)
+
+
 def calculate_transaction_cost(
     price: float,
     quantity: float,
