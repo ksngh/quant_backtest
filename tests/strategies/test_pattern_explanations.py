@@ -4,6 +4,7 @@ from quant_bitcoin.strategies.pattern_explanations import build_pattern_strategy
 PATTERNS = [
     "FAIR_VALUE_GAP",
     "ORDER_BLOCK",
+    "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL",
     "TRENDLINE_BREAK",
     "CUP_AND_HANDLE",
     "DIAMOND",

@@ -87,6 +87,37 @@ input {
   margin-bottom: 0;
 }
 
+.panel-group-disclosure {
+  margin-bottom: 16px;
+}
+
+.panel-group-disclosure > summary {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.panel-group-disclosure > summary span {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.panel-group-disclosure > summary small {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.panel-group-body {
+  padding-top: 12px;
+}
+
 .status-pill {
   background: #fee2e2;
   border: 1px solid #fecaca;
@@ -140,6 +171,40 @@ input {
 .run-list {
   display: grid;
   gap: 8px;
+}
+
+.run-filter-form {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+}
+
+.run-filter-grid {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: 1fr;
+}
+
+.run-filter-grid label {
+  color: var(--muted);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+}
+
+.filter-actions,
+.chart-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chart-controls {
+  margin-top: 10px;
 }
 
 .run-item {
@@ -424,8 +489,10 @@ input {
 }
 
 .chart {
+  cursor: crosshair;
   display: block;
   height: 320px;
+  touch-action: none;
   width: 100%;
 }
 
@@ -438,6 +505,44 @@ input {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.2;
+}
+
+.channel-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.channel-line.lower {
+  stroke: #16a34a;
+}
+
+.channel-line.upper {
+  stroke: #dc2626;
+}
+
+.channel-point circle {
+  fill: #ffffff;
+  stroke-width: 2;
+}
+
+.channel-point.lower-anchor circle {
+  stroke: #16a34a;
+}
+
+.channel-point.upper-touch circle,
+.channel-point.exit circle {
+  stroke: #dc2626;
+}
+
+.channel-point.entry circle {
+  stroke: #2563eb;
+}
+
+.channel-point text {
+  fill: #0f172a;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .grid-line {
@@ -472,6 +577,12 @@ input {
 .trade-marker {
   stroke: #ffffff;
   stroke-width: 1.5;
+}
+
+.drag-selection {
+  fill: rgba(37, 99, 235, 0.14);
+  stroke: rgba(37, 99, 235, 0.55);
+  stroke-width: 1;
 }
 
 .range-controls {
@@ -515,6 +626,12 @@ input {
   font-weight: 700;
   min-height: 32px;
   padding: 6px 10px;
+}
+
+.small-button.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
 }
 
 .small-button:disabled {
@@ -603,7 +720,7 @@ input {
 
 table {
   border-collapse: collapse;
-  min-width: 920px;
+  min-width: 1120px;
   width: 100%;
 }
 
@@ -628,6 +745,15 @@ th {
 .primary-money {
   color: #0f766e;
   font-weight: 800;
+}
+
+.trade-cost-row td {
+  background: #f8fafc;
+  white-space: normal;
+}
+
+.trade-cost-detail {
+  padding: 8px 0;
 }
 
 .signal {

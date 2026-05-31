@@ -139,6 +139,52 @@ def test_strategy_cli_warns_for_short_simulation_economics(monkeypatch, capsys) 
     assert output["summary"]["metadata"]["short_economics"]["real_futures_or_margin_execution"] is False
 
 
+def test_strategy_cli_accepts_session_range_liquidity_breakout_flags(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *args, **kwargs: FakeProvider(_candles()),
+    )
+    captured = {}
+
+    class StubStrategy:
+        strategy_name = "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL_PATTERN_STRATEGY"
+        strategy_key = "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL"
+
+    def fake_build_actions(candles, strategy_key, *args, **kwargs):
+        captured["strategy_key"] = strategy_key
+        captured["config"] = kwargs["session_range_liquidity_breakout_reversal_config"]
+        return StubStrategy(), []
+
+    monkeypatch.setattr(strategy_postgres_runner_core, "_build_actions", fake_build_actions)
+
+    assert (
+        strategy_postgres_runner_cli.main(
+            [
+                "--no-persist",
+                "--pattern",
+                "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL",
+                "--srlbr-range-lookback-bars",
+                "60",
+                "--srlbr-signal-mode",
+                "short_mix",
+                "--srlbr-direction-mode",
+                "short_only",
+                "--srlbr-target-r-multiple",
+                "6",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+
+    assert captured["strategy_key"] == "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL"
+    assert captured["config"].range_lookback_bars == 60
+    assert captured["config"].signal_mode == "SHORT_MIX"
+    assert captured["config"].direction_mode == "SHORT_ONLY"
+    assert output["summary"]["metadata"]["session_range_liquidity_breakout_reversal"]["target_r_multiple"] == 6.0
+
+
 def test_strategy_cli_no_exchange_network_calls(monkeypatch) -> None:
     def fail_socket(*args, **kwargs):
         raise AssertionError("strategy CLI tests must not open sockets")

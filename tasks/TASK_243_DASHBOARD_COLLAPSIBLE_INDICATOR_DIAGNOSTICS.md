@@ -59,18 +59,18 @@ The current dashboard exposes many diagnostics and indicator-derived panels at o
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read `BACKLOG.md`.
-- [ ] Read this assigned task file before coding.
-- [ ] Confirm no backend or backtest logic changes are needed.
+- [x] Read `AGENTS.md`.
+- [x] Read `STATUS.md`.
+- [x] Read `BACKLOG.md`.
+- [x] Read this assigned task file before coding.
+- [x] Confirm no backend or backtest logic changes are needed.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if project state changed.
-- [ ] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
-- [ ] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Update `STATUS.md` if project state changed.
+- [x] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
+- [x] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
 
 # Acceptance Criteria
 
@@ -118,6 +118,12 @@ npm --prefix frontend run typecheck
 npm --prefix frontend run build
 git diff --check
 ```
+
+Completed verification:
+
+- `npm --prefix frontend run typecheck`
+- `npm --prefix frontend run build`
+- `git diff --check`
 
 # Codex Self-Review Requirement
 

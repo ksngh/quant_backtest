@@ -9,5 +9,6 @@ __pycache__/
 # Frontend local dependency/build artifacts
 frontend/.next/
 frontend/.tmp-tests/
+frontend/*.tsbuildinfo
 frontend/node_modules/
 frontend/package-lock.json

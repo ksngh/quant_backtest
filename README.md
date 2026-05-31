@@ -247,10 +247,12 @@ Common backtest options and matching environment variables:
 | `--interval` | `INTERVAL` | `1m` |
 | `--start-time` | `BACKTEST_START_TIME` | No lower bound. |
 | `--end-time` | `BACKTEST_END_TIME` | No upper bound. |
-| `--starting-cash` | `BACKTEST_STARTING_CASH` | `10000.0` |
+| `--starting-cash` | `BACKTEST_STARTING_CASH` | `10000.0`; default FVG owner profile uses `1000000.0` |
+| `--starting-cash-currency` | None | `KRW` |
+| `--krw-per-usdt` | None | `1500.0` |
 | `--trade-quantity` | `BACKTEST_TRADE_QUANTITY` | `1.0` |
-| `--position-sizing-mode` | None | `fixed_quantity` |
-| `--position-sizing-value` | None | unset |
+| `--position-sizing-mode` | None | `fixed_quantity`; default FVG owner profile uses `cash_fraction` |
+| `--position-sizing-value` | None | unset; default FVG owner profile uses `0.10` |
 | `--insufficient-funds-policy` | None | `resize` |
 | `--short-exposure-mode` | None | `cash_bounded` |
 | `--simulated-margin-leverage` | None | unset |
@@ -272,19 +274,34 @@ canonical strategy-engine CLI path. Prefer `quant-bitcoin-strategy-backtest`
 for new automation and scripts.
 
 After PostgreSQL already contains stored closed `BTCUSDT` `1m` candles, run
-the default Fair Value Gap pattern strategy backtest with an explicit safe UTC
-time window:
+the default Fair Value Gap owner profile with an explicit safe UTC time window:
 
 ```bash
 quant-bitcoin-strategy-backtest \
-  --start-time 2024-01-01T00:00:00Z \
-  --end-time 2024-01-02T00:00:00Z
+  --start-time 2026-05-28T00:00:00Z
 ```
 
 The default pattern selection remains `FAIR_VALUE_GAP`; use `--pattern FAIR_VALUE_GAP`
-when you want to spell out the default explicitly. You can also select one
-supported implemented detector/risk-exit pair, for example an Order Block
-historical simulation:
+when you want to spell out the default explicitly. For FVG runs, the owner
+default profile applies the current research settings unless you override them:
+`--cost-profile conservative_crypto_1m`, `--enable-fvg-v2`,
+`--enable-fvg-v2-channel`, `--fvg-channel-standalone-scan`,
+`--fvg-channel-window 20`, `--fvg-channel-max-wait-bars 5`,
+`--enable-fvg-close-volume-filter`, `--fvg-close-volume-window 20`,
+`--fvg-min-close-volume-ratio 1.0`,
+`--fvg-use-trend-score`, `--fvg-use-fibonacci-confluence`,
+`--fvg-stop-mode wider_of_fvg_and_swing`, `--enforce-candle-continuity`,
+`--enable-market-regime`, `--starting-cash 1000000`,
+`--starting-cash-currency KRW`, `--krw-per-usdt 1500`,
+`--position-sizing-mode cash_fraction`, and `--position-sizing-value 0.10`.
+`--start-time`, `--end-time`, source, symbol, and interval remain per-run
+inputs. Use explicit overrides such as `--cost-profile zero`,
+`--disable-fvg-v2-channel`, `--disable-fvg-channel-standalone-scan`,
+`--disable-fvg-close-volume-filter`, `--no-enforce-candle-continuity`, or
+`--disable-market-regime` when a run needs to differ from the profile.
+
+You can also select one supported implemented detector/risk-exit pair, for
+example an Order Block historical simulation:
 
 ```bash
 quant-bitcoin-strategy-backtest \
@@ -312,26 +329,44 @@ comparison of fill rate, trade count, hit rate, average R, expectancy,
 MFE/MAE, average bars waited, and missed-trade count. These options are
 backtest research controls only and do not place orders.
 
-FVG retest v2 diagnostics are also opt-in: `--enable-fvg-v2` records the
-experimental scope, `--fvg-entry-trigger` selects touch or reaction-trigger
-retest behavior, and companion flags record trend-score, Fibonacci confluence,
-liquidity-target, and stop-mode research settings in JSON diagnostics. Parameter
-grid runs can enumerate these settings; they do not pick winners automatically.
+FVG retest v2 diagnostics are enabled by the default FVG owner profile:
+`--enable-fvg-v2` records the experimental scope, `--fvg-entry-trigger` selects
+touch or reaction-trigger retest behavior, and companion flags record
+trend-score, Fibonacci confluence, liquidity-target, and stop-mode research
+settings in JSON diagnostics. Parameter grid runs can enumerate these settings;
+they do not pick winners automatically.
+The owner FVG profile also enables the close-volume entry filter for channel
+LONG and SHORT entries: the completed retest/signal candle is compared with a
+prior-only rolling volume baseline, and entries below
+`--fvg-min-close-volume-ratio` are skipped with
+`LOW_CLOSE_VOLUME_ENTRY_FILTER` metadata. This is an OHLCV backtest filter
+only, not order-book liquidity or live execution approval.
 The multi-timeframe trend score uses completed higher-timeframe candles only,
 and the Fibonacci/liquidity/stop-mode fields remain offline research metadata,
 not live trading approval.
+
+For `BTCUSDT`, strategy-engine cash, sizing, costs, PnL, and equity are in the
+quote currency, USDT. The CLI default capital input currency is KRW with
+`--krw-per-usdt 1500`; the runner converts `--starting-cash` to effective USDT
+quote cash before sizing and records
+`cash_denomination` metadata with the source amount/currency, quote currency,
+manual conversion rate, and effective quote starting cash. Use
+`--starting-cash-currency USDT` to provide quote cash directly. No live FX
+lookup is performed.
 
 FVG retest v2 WFO/OOS evaluation is governed by
 `docs/29_FVG_RETEST_V2_RESEARCH_PROTOCOL.md`. The protocol requires
 predeclared parameter ranges, realistic-cost evidence, all-variant reporting,
 and locked holdout discipline before any future paper-only decision task.
 
-Canonical strategy runs also expose opt-in workflow controls:
+Canonical strategy runs also expose workflow controls:
 `--enforce-candle-continuity` rejects interval gaps during candle loading,
 `--enable-market-regime` tags executions for regime attribution, and
 `--max-account-drawdown`, `--max-consecutive-losses`, and `--max-daily-loss`
-enable deterministic backtest-only entry guardrails. These settings are recorded
-in strategy parameters and summary metadata. They are not live risk controls.
+enable deterministic backtest-only entry guardrails. Candle continuity and
+market-regime tagging are enabled by the default FVG owner profile and can be
+disabled explicitly for comparison runs. These settings are recorded in strategy
+parameters and summary metadata. They are not live risk controls.
 
 Transaction-cost profiles can be selected with `--cost-profile`. Supported
 static presets are `zero`, `binance_spot_taker_baseline`,

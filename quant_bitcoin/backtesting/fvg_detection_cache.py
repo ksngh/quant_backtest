@@ -42,6 +42,11 @@ from quant_bitcoin.patterns.order_block import (
     _find_source_cluster as _find_order_block_source_cluster,
     _validate_external_filters as _validate_order_block_external_filters,
 )
+from quant_bitcoin.patterns.liquidity_sweep_reversal import (
+    LiquiditySweepReversalConfig,
+    LiquiditySweepReversalEvent,
+    evaluate_liquidity_sweep_reversal_at_index as _evaluate_liquidity_sweep_reversal_at_index,
+)
 from quant_bitcoin.patterns.trendline_break import (
     TrendlineBreakConfig,
     TrendlineBreakEvent,
@@ -245,6 +250,27 @@ def detect_order_block_at_index(
         return []
     context.seen_event_ids.add(event.event_id)
     return [event]
+
+
+def detect_liquidity_sweep_reversal_at_index(
+    context: SharedPatternEvaluationContext,
+    *,
+    config: LiquiditySweepReversalConfig | None = None,
+    symbol: str | None = None,
+    timeframe: str | None = None,
+) -> list[LiquiditySweepReversalEvent]:
+    sweep_config = config or LiquiditySweepReversalConfig()
+    if context.current_index < 1 or context.current_index >= len(context.indicator_cache.candles):
+        return []
+    events = _evaluate_liquidity_sweep_reversal_at_index(
+        context.indicator_cache.candles,
+        context.indicator_cache.displacement_rows,
+        context.current_index,
+        symbol=symbol or _symbol_from_cache(context),
+        timeframe=timeframe,
+        config=sweep_config,
+    )
+    return _deduped_cached_events(context, events)
 
 
 def detect_trendline_break_at_index(

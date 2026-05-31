@@ -62,6 +62,37 @@ def test_graph_points_use_canonical_equity_values() -> None:
     assert payload.graph_points[1].equity != payload.run.starting_cash
 
 
+def test_payload_preserves_configured_million_starting_cash() -> None:
+    candles = _candles()
+    result = run_strategy_backtest_engine(
+        candles,
+        [StrategyAction(StrategyActionType.ENTER_LONG, timestamp=candles.iloc[0]["timestamp"], quantity=1.0)],
+        config=StrategyEngineConfig(starting_cash=1_000_000.0),
+    )
+
+    payload = build_strategy_engine_persistence_payload(
+        result,
+        candles,
+        source="postgres",
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_time=datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc),
+        strategy_key="TEST",
+        strategy_name="TEST_STRATEGY",
+        strategy_version="v1",
+        strategy_parameters={"window": 14},
+        starting_cash=1_000_000.0,
+        trade_quantity=1.0,
+        engine_name="strategy_engine",
+        engine_version="v1",
+    )
+
+    assert result.summary.starting_cash == 1_000_000.0
+    assert payload.run.starting_cash == 1_000_000.0
+    assert payload.result.starting_cash == 1_000_000.0
+
+
 def test_trade_metadata_preserves_action_and_position_side() -> None:
     _, payload = _payload()
 

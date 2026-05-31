@@ -748,8 +748,14 @@ def test_backtest_read_model_lists_completed_runs_with_filters(monkeypatch):
         source="binance_spot",
         symbol="BTCUSDT",
         interval="1m",
+        strategy_key="rsi",
         actual_start_time=t0,
         actual_end_time=t1,
+        created_start_time=t0,
+        created_end_time=t1,
+        min_total_return=-0.01,
+        max_total_return=0.05,
+        cost_profile="conservative_crypto_1m",
         limit=5,
     )
 
@@ -773,16 +779,31 @@ def test_backtest_read_model_lists_completed_runs_with_filters(monkeypatch):
     assert "br.candle_source = %(source)s" in query
     assert "br.symbol = %(symbol)s" in query
     assert "br.interval = %(interval)s" in query
+    assert "sc.strategy_key = %(strategy_key)s" in query
     assert "br.actual_start_time >= %(actual_start_time)s" in query
     assert "br.actual_end_time <= %(actual_end_time)s" in query
+    assert "br.created_at >= %(created_start_time)s" in query
+    assert "br.created_at <= %(created_end_time)s" in query
+    assert "r.total_return >= %(min_total_return)s" in query
+    assert "r.total_return <= %(max_total_return)s" in query
+    assert "br.metadata #>> '{cost_profile,profile_key}' = %(cost_profile)s" in query
+    assert "r.metadata #>> '{cost_profile,profile_key}' = %(cost_profile)s" in query
+    assert "sc.parameters ->> 'cost.profile' = %(cost_profile)s" in query
+    assert "sc.parameters #>> '{cost_profile}' = %(cost_profile)s" in query
     assert "ORDER BY br.created_at DESC, br.id DESC" in query
     assert "LIMIT %(limit)s" in query
     assert params == {
         "source": "binance_spot",
         "symbol": "BTCUSDT",
         "interval": "1m",
+        "strategy_key": "rsi",
         "actual_start_time": t0,
         "actual_end_time": t1,
+        "created_start_time": t0,
+        "created_end_time": t1,
+        "min_total_return": -0.01,
+        "max_total_return": 0.05,
+        "cost_profile": "conservative_crypto_1m",
         "limit": 5,
     }
 
@@ -792,3 +813,18 @@ def test_backtest_read_model_rejects_non_positive_list_limit():
         PostgresBacktestResultRepository("postgresql://example/test").list_completed_runs(
             limit=0
         )
+
+
+def test_backtest_read_model_rejects_invalid_list_filter_ranges():
+    t0 = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    t1 = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    repository = PostgresBacktestResultRepository("postgresql://example/test")
+
+    with pytest.raises(ValueError, match="actual_start_time"):
+        repository.list_completed_runs(actual_start_time=t1, actual_end_time=t0)
+
+    with pytest.raises(ValueError, match="created_start_time"):
+        repository.list_completed_runs(created_start_time=t1, created_end_time=t0)
+
+    with pytest.raises(ValueError, match="min_total_return"):
+        repository.list_completed_runs(min_total_return=0.1, max_total_return=-0.1)

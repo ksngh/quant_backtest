@@ -4,7 +4,7 @@
 Frontend dashboard integration with read-only backtest API verified in Task 078.
 
 ## Active Task
-No active frontend task. Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGNOSTICS` completed for read-only FVG retest v2 diagnostics display.
+No active frontend task. Task 259 completed trade-bounded FVG v2 channel overlay clipping.
 
 ## Stack Decision Boundary
 - Selected stack: Next.js App Router + React + TypeScript.
@@ -25,3 +25,8 @@ No active frontend task. Task 235 `FVG_RETEST_V2_BACKEND_FRONTEND_READONLY_DIAGN
 - The dashboard now includes a read-only Pattern Geometry panel for saved pattern geometry fields, observed versus placeholder score components, and candidate-overfit diagnostics.
 - The dashboard now includes a read-only FVG Retest V2 Diagnostics panel for saved trend-score, Fibonacci, liquidity-target, reaction-entry, and stop-mode metadata with legacy fallback.
 - The Research Report preview now highlights saved `pattern_research_note_v1` sections for hypothesis, detector conditions, entry/risk/cost/score assumptions, no-lookahead status, regime dependence, limitations, and recommended analyses.
+- The dashboard now places charts above lower diagnostics, supports drag-select zoom plus pan/zoom/reset controls, groups lower diagnostics behind click-to-open sections, filters the run list from the left sidebar, and exposes detailed fee/spread/slippage fields through per-trade expandable rows.
+- The price chart can draw saved FVG v2 parallel-channel lower/upper lines, low anchors, upper touch, and entry/exit markers from API metadata while preserving drag zoom, pan, zoom in/out, and reset behavior.
+- FVG v2 channel overlays are now rendered as multiple channel-specific bounded segments rather than a single first-channel overlay projected across the full viewport.
+- Uptrend FVG v2 channel overlays label saved construction points as `L1`, `H1`, and `L2` from channel geometry metadata.
+- FVG v2 channel overlay lines now end at the saved entry/retest point when present rather than extending to the later exit boundary.

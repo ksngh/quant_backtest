@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { PointerEvent, ReactNode } from "react";
 
 import { getBacktestRun, getHealth, listBacktestRuns } from "../lib/api";
 import { buildExecutionAssumptionModel } from "../lib/executionAssumptions";
+import {
+  buildFvgChannelOverlays,
+  channelOverlayValues,
+  projectChannelSegments,
+  type FvgChannelOverlayModel,
+} from "../lib/fvgChannelOverlay";
+import { configuredStartingCash, hasStartingCashMismatch, listItemStartingCash } from "../lib/runDisplay";
 import { buildFvgRetestDiagnosticsModel } from "../lib/fvgRetestDiagnostics";
 import { extractPerformanceDiagnostics, type MetricDefinition } from "../lib/performanceDiagnostics";
 import { buildPatternGeometryModel, type PatternScoreComponent } from "../lib/patternGeometry";
@@ -176,12 +184,93 @@ function parameterRows(value: unknown, prefix = ""): { label: string; value: str
   });
 }
 
+type RunFilterDraft = {
+  source: string;
+  symbol: string;
+  interval: string;
+  strategy_key: string;
+  actual_start_time: string;
+  actual_end_time: string;
+  created_start_time: string;
+  created_end_time: string;
+  min_total_return: string;
+  max_total_return: string;
+  cost_profile: string;
+  limit: string;
+};
+
+const emptyFilterDraft: RunFilterDraft = {
+  source: "",
+  symbol: "",
+  interval: "",
+  strategy_key: "",
+  actual_start_time: "",
+  actual_end_time: "",
+  created_start_time: "",
+  created_end_time: "",
+  min_total_return: "",
+  max_total_return: "",
+  cost_profile: "",
+  limit: "20",
+};
+
+function cleanText(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function cleanNumber(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function draftToFilters(draft: RunFilterDraft): BacktestRunListFilters {
+  return {
+    source: cleanText(draft.source),
+    symbol: cleanText(draft.symbol),
+    interval: cleanText(draft.interval),
+    strategy_key: cleanText(draft.strategy_key),
+    actual_start_time: cleanText(draft.actual_start_time),
+    actual_end_time: cleanText(draft.actual_end_time),
+    created_start_time: cleanText(draft.created_start_time),
+    created_end_time: cleanText(draft.created_end_time),
+    min_total_return: cleanNumber(draft.min_total_return),
+    max_total_return: cleanNumber(draft.max_total_return),
+    cost_profile: cleanText(draft.cost_profile),
+    limit: cleanNumber(draft.limit) ?? 20,
+  };
+}
+
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="section-header">
       <h2>{title}</h2>
       {subtitle && <p>{subtitle}</p>}
     </div>
+  );
+}
+
+function PanelGroupDisclosure({
+  title,
+  subtitle,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details className="panel-group-disclosure" open={defaultOpen}>
+      <summary>
+        <span>{title}</span>
+        {subtitle && <small>{subtitle}</small>}
+      </summary>
+      <div className="panel-group-body">{children}</div>
+    </details>
   );
 }
 
@@ -253,12 +342,99 @@ function RunSelector({
           <span className="run-meta">
             #{run.id} / {run.market.symbol} / {run.market.interval} / {run.market.candle_count} candles
           </span>
+          {listItemStartingCash(run) !== null && (
+            <span className="run-meta">Start cash {fmtNum(listItemStartingCash(run))}</span>
+          )}
           <span className={run.summary.total_return >= 0 ? "return good" : "return bad"}>
             {fmtPct(run.summary.total_return)}
           </span>
         </button>
       ))}
     </div>
+  );
+}
+
+function RunFilters({
+  draft,
+  loading,
+  onApply,
+  onChange,
+  onReset,
+}: {
+  draft: RunFilterDraft;
+  loading: boolean;
+  onApply: () => void;
+  onChange: (draft: RunFilterDraft) => void;
+  onReset: () => void;
+}) {
+  const setField = (key: keyof RunFilterDraft, value: string) => onChange({ ...draft, [key]: value });
+  return (
+    <form
+      className="run-filter-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onApply();
+      }}
+    >
+      <div className="run-filter-grid">
+        <label>
+          Symbol
+          <input placeholder="BTCUSDT" value={draft.symbol} onChange={(event) => setField("symbol", event.target.value)} />
+        </label>
+        <label>
+          Interval
+          <input placeholder="1m" value={draft.interval} onChange={(event) => setField("interval", event.target.value)} />
+        </label>
+        <label>
+          Source
+          <input placeholder="binance_spot" value={draft.source} onChange={(event) => setField("source", event.target.value)} />
+        </label>
+        <label>
+          Strategy
+          <input placeholder="pattern_strategy" value={draft.strategy_key} onChange={(event) => setField("strategy_key", event.target.value)} />
+        </label>
+        <label>
+          Cost Profile
+          <input placeholder="conservative_crypto_1m" value={draft.cost_profile} onChange={(event) => setField("cost_profile", event.target.value)} />
+        </label>
+        <label>
+          Limit
+          <input min={1} max={100} type="number" value={draft.limit} onChange={(event) => setField("limit", event.target.value)} />
+        </label>
+        <label>
+          Actual From
+          <input placeholder="2026-05-20T00:00:00Z" value={draft.actual_start_time} onChange={(event) => setField("actual_start_time", event.target.value)} />
+        </label>
+        <label>
+          Actual To
+          <input placeholder="2026-05-21T00:00:00Z" value={draft.actual_end_time} onChange={(event) => setField("actual_end_time", event.target.value)} />
+        </label>
+        <label>
+          Created From
+          <input placeholder="2026-05-20T00:00:00Z" value={draft.created_start_time} onChange={(event) => setField("created_start_time", event.target.value)} />
+        </label>
+        <label>
+          Created To
+          <input placeholder="2026-05-28T00:00:00Z" value={draft.created_end_time} onChange={(event) => setField("created_end_time", event.target.value)} />
+        </label>
+        <label>
+          Min Return
+          <input placeholder="-0.05" value={draft.min_total_return} onChange={(event) => setField("min_total_return", event.target.value)} />
+        </label>
+        <label>
+          Max Return
+          <input placeholder="0.05" value={draft.max_total_return} onChange={(event) => setField("max_total_return", event.target.value)} />
+        </label>
+      </div>
+      <div className="filter-actions">
+        <button className="small-button primary" disabled={loading} type="submit">
+          Apply
+        </button>
+        <button className="small-button" disabled={loading} onClick={onReset} type="button">
+          Reset
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -269,6 +445,7 @@ function Chart({
   trades,
   startingValue,
   color,
+  channelOverlays,
 }: {
   title: string;
   points: BacktestGraphPoint[];
@@ -276,14 +453,25 @@ function Chart({
   trades?: BacktestTrade[];
   startingValue?: number;
   color: string;
+  channelOverlays?: FvgChannelOverlayModel[];
 }) {
-  const [startPct, setStartPct] = useState(0);
-  const [endPct, setEndPct] = useState(100);
+  const [viewStart, setViewStart] = useState(0);
+  const [viewEnd, setViewEnd] = useState(Math.max(points.length - 1, 0));
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const [dragCurrentIndex, setDragCurrentIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const normalizedEnd = Math.max(endPct, startPct + 1);
-  const fromIndex = Math.floor((startPct / 100) * Math.max(points.length - 1, 0));
-  const toIndex = Math.max(fromIndex + 1, Math.ceil((normalizedEnd / 100) * Math.max(points.length - 1, 0)));
+  useEffect(() => {
+    setViewStart(0);
+    setViewEnd(Math.max(points.length - 1, 0));
+    setHoverIndex(null);
+    setDragStartIndex(null);
+    setDragCurrentIndex(null);
+  }, [points.length]);
+
+  const maxIndex = Math.max(points.length - 1, 0);
+  const fromIndex = Math.max(0, Math.min(viewStart, maxIndex));
+  const toIndex = Math.max(fromIndex, Math.min(viewEnd, maxIndex));
   const visible = points.slice(fromIndex, toIndex + 1);
   const hoverPoint = hoverIndex === null ? null : visible[hoverIndex];
 
@@ -302,10 +490,12 @@ function Chart({
   const padRight = 18;
   const padTop = 18;
   const padBottom = 42;
+  const activeChannelOverlays = valueKey === "close_price" ? channelOverlays ?? [] : [];
   const values = visible.map((point) => point[valueKey]);
+  const overlayValues = channelOverlayValues(activeChannelOverlays, fromIndex, toIndex);
   const referenceValues = startingValue === undefined ? values : [...values, startingValue];
-  const min = Math.min(...referenceValues);
-  const max = Math.max(...referenceValues);
+  const min = Math.min(...referenceValues, ...overlayValues);
+  const max = Math.max(...referenceValues, ...overlayValues);
   const range = max - min || 1;
 
   const toX = (idx: number): number =>
@@ -321,12 +511,50 @@ function Chart({
     (item, index, arr) => arr.indexOf(item) === index,
   );
   const baselineY = startingValue === undefined ? null : toY(startingValue);
+  const visibleChannelSegments = projectChannelSegments(activeChannelOverlays, fromIndex, toIndex);
   const tradesByTime = new Map<string, BacktestTrade[]>();
   trades?.forEach((trade) => {
     const bucket = tradesByTime.get(trade.candle_open_time) ?? [];
     bucket.push(trade);
     tradesByTime.set(trade.candle_open_time, bucket);
   });
+  const viewSize = Math.max(toIndex - fromIndex + 1, 1);
+  const canZoom = points.length > 2 && viewSize > 3;
+  const canReset = fromIndex > 0 || toIndex < maxIndex;
+  const indexFromPointer = (event: PointerEvent<SVGSVGElement>): number => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const svgX = ((event.clientX - rect.left) / Math.max(rect.width, 1)) * width;
+    const plotWidth = width - padLeft - padRight;
+    const ratio = Math.max(0, Math.min(1, (svgX - padLeft) / Math.max(plotWidth, 1)));
+    return Math.max(fromIndex, Math.min(toIndex, fromIndex + Math.round(ratio * (visible.length - 1))));
+  };
+  const setHoverFromGlobalIndex = (index: number) => setHoverIndex(Math.max(0, Math.min(visible.length - 1, index - fromIndex)));
+  const resetRange = () => {
+    setViewStart(0);
+    setViewEnd(maxIndex);
+    setHoverIndex(null);
+  };
+  const zoomByFactor = (factor: number) => {
+    const nextSize = Math.max(3, Math.min(points.length, Math.round(viewSize * factor)));
+    const center = Math.round((fromIndex + toIndex) / 2);
+    const nextStart = Math.max(0, Math.min(maxIndex - nextSize + 1, center - Math.floor(nextSize / 2)));
+    setViewStart(nextStart);
+    setViewEnd(Math.min(maxIndex, nextStart + nextSize - 1));
+    setHoverIndex(null);
+  };
+  const panBy = (delta: number) => {
+    const nextStart = Math.max(0, Math.min(maxIndex - viewSize + 1, fromIndex + delta));
+    setViewStart(nextStart);
+    setViewEnd(Math.min(maxIndex, nextStart + viewSize - 1));
+    setHoverIndex(null);
+  };
+  const dragSelection =
+    dragStartIndex !== null && dragCurrentIndex !== null && Math.abs(dragCurrentIndex - dragStartIndex) >= 1
+      ? {
+          start: Math.min(dragStartIndex, dragCurrentIndex) - fromIndex,
+          end: Math.max(dragStartIndex, dragCurrentIndex) - fromIndex,
+        }
+      : null;
 
   return (
     <section className="panel chart-panel">
@@ -334,24 +562,43 @@ function Chart({
         <SectionHeader title={title} subtitle={`${fmtNum(min)} to ${fmtNum(max)}`} />
         <button
           className="small-button"
-          onClick={() => {
-            setStartPct(0);
-            setEndPct(100);
-            setHoverIndex(null);
-          }}
+          disabled={!canReset}
+          onClick={resetRange}
           type="button"
         >
-          Reset Range
+          Reset
         </button>
       </div>
       <svg
         className="chart"
-        onMouseLeave={() => setHoverIndex(null)}
-        onMouseMove={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          const ratio = (event.clientX - rect.left) / Math.max(rect.width, 1);
-          const idx = Math.round(ratio * (visible.length - 1));
-          setHoverIndex(Math.max(0, Math.min(visible.length - 1, idx)));
+        onPointerCancel={() => {
+          setDragStartIndex(null);
+          setDragCurrentIndex(null);
+        }}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          const index = indexFromPointer(event);
+          setDragStartIndex(index);
+          setDragCurrentIndex(index);
+          setHoverFromGlobalIndex(index);
+        }}
+        onPointerLeave={() => {
+          if (dragStartIndex === null) setHoverIndex(null);
+        }}
+        onPointerMove={(event) => {
+          const index = indexFromPointer(event);
+          setHoverFromGlobalIndex(index);
+          if (dragStartIndex !== null) setDragCurrentIndex(index);
+        }}
+        onPointerUp={(event) => {
+          const index = indexFromPointer(event);
+          if (dragStartIndex !== null && Math.abs(index - dragStartIndex) >= 2) {
+            setViewStart(Math.min(index, dragStartIndex));
+            setViewEnd(Math.max(index, dragStartIndex));
+            setHoverIndex(null);
+          }
+          setDragStartIndex(null);
+          setDragCurrentIndex(null);
         }}
         viewBox={`0 0 ${width} ${height}`}
       >
@@ -377,7 +624,46 @@ function Chart({
             </text>
           </g>
         )}
+        {visibleChannelSegments.length > 0 && (
+          <g className="channel-overlay">
+            {visibleChannelSegments.map((segment, segmentIndex) => (
+              <g key={`${segment.overlay.channelId ?? "channel"}-${segment.overlay.segmentStartIndex}-${segmentIndex}`}>
+                <line
+                  className="channel-line lower"
+                  x1={toX(segment.lowerLine.x1Index - fromIndex)}
+                  x2={toX(segment.lowerLine.x2Index - fromIndex)}
+                  y1={toY(segment.lowerLine.y1)}
+                  y2={toY(segment.lowerLine.y2)}
+                />
+                <line
+                  className="channel-line upper"
+                  x1={toX(segment.upperLine.x1Index - fromIndex)}
+                  x2={toX(segment.upperLine.x2Index - fromIndex)}
+                  y1={toY(segment.upperLine.y1)}
+                  y2={toY(segment.upperLine.y2)}
+                />
+                {segment.points.map((point, index) => (
+                  <g className={`channel-point ${point.kind}`} key={`${point.kind}-${point.index}-${index}`}>
+                    <circle cx={toX(point.index - fromIndex)} cy={toY(point.price)} r={point.kind === "entry" || point.kind === "exit" ? 5 : 4} />
+                    <text x={toX(point.index - fromIndex) + 7} y={toY(point.price) - 7}>
+                      {point.label}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            ))}
+          </g>
+        )}
         <path className="line" d={path} stroke={color} />
+        {dragSelection && (
+          <rect
+            className="drag-selection"
+            x={toX(dragSelection.start)}
+            y={padTop}
+            width={Math.max(2, toX(dragSelection.end) - toX(dragSelection.start))}
+            height={height - padTop - padBottom}
+          />
+        )}
         {trades &&
           visible.map((point, idx) => {
             const signal = point.position_signal ?? point.signal;
@@ -408,30 +694,27 @@ function Chart({
           </g>
         )}
       </svg>
-      <div className="range-controls">
-        <label>
-          From
-          <input
-            max={99}
-            min={0}
-            onChange={(event) => setStartPct(Math.min(Number(event.target.value), endPct - 1))}
-            type="range"
-            value={startPct}
-          />
-        </label>
-        <label>
-          To
-          <input
-            max={100}
-            min={1}
-            onChange={(event) => setEndPct(Math.max(Number(event.target.value), startPct + 1))}
-            type="range"
-            value={normalizedEnd}
-          />
-        </label>
+      <div className="chart-controls">
+        <button className="small-button" disabled={fromIndex === 0} onClick={() => panBy(-Math.max(1, Math.floor(viewSize / 3)))} type="button">
+          Pan Left
+        </button>
+        <button className="small-button" disabled={!canZoom} onClick={() => zoomByFactor(0.5)} type="button">
+          Zoom In
+        </button>
+        <button className="small-button" disabled={!canReset} onClick={() => zoomByFactor(2)} type="button">
+          Zoom Out
+        </button>
+        <button className="small-button" disabled={toIndex >= maxIndex} onClick={() => panBy(Math.max(1, Math.floor(viewSize / 3)))} type="button">
+          Pan Right
+        </button>
         <span className="muted">
-          {fmtTime(visible[0]?.candle_open_time ?? null)} to {fmtTime(visible[visible.length - 1]?.candle_open_time ?? null)}
+          Drag over the chart to zoom: {fmtTime(visible[0]?.candle_open_time ?? null)} to {fmtTime(visible[visible.length - 1]?.candle_open_time ?? null)}
         </span>
+        {activeChannelOverlays.length > 0 && (
+          <span className="muted">
+            FVG channels: {activeChannelOverlays.length} bounded segment{activeChannelOverlays.length === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
       {hoverPoint && (
         <div className="hover-readout">
@@ -1154,12 +1437,14 @@ function ResearchReportPanel({ detail }: { detail: BacktestRunDetailResponse }) 
 
 function TradeTable({ trades }: { trades: BacktestTrade[] }) {
   const [page, setPage] = useState(0);
+  const [expandedTradeId, setExpandedTradeId] = useState<number | null>(null);
   const pageSize = 12;
   const pageCount = Math.max(1, Math.ceil(trades.length / pageSize));
   const pageTrades = trades.slice(page * pageSize, page * pageSize + pageSize);
 
   useEffect(() => {
     setPage(0);
+    setExpandedTradeId(null);
   }, [trades]);
 
   return (
@@ -1194,39 +1479,85 @@ function TradeTable({ trades }: { trades: BacktestTrade[] }) {
               <th>Raw Price</th>
               <th>Effective Price</th>
               <th>Qty</th>
-              <th>Fee</th>
-              <th>Spread</th>
-              <th>Slippage</th>
               <th>Total Cost</th>
               <th>Free Cash</th>
               <th>Cash Balance</th>
               <th>Equity</th>
               <th>PnL</th>
+              <th>Details</th>
             </tr>
           </thead>
           <tbody>
             {pageTrades.map((trade) => {
               const signal = tradePositionSignal(trade);
+              const cost = tradeCostBreakdown(trade);
+              const expanded = expandedTradeId === trade.id;
               return (
-                <tr key={trade.id}>
-                  <td>{trade.sequence}</td>
-                  <td>{trade.candle_open_time.slice(0, 16).replace("T", " ")}</td>
-                  <td>
-                    <span className={signalClass(signal)}>{signal}</span>
-                  </td>
-                  <td>{tradeExecutionSide(trade)}</td>
-                  <td>{fmtNum(tradeRawPrice(trade))}</td>
-                  <td>{fmtNum(tradeEffectivePrice(trade))}</td>
-                  <td>{fmtNum(trade.quantity)}</td>
-                  <td>{fmtNum(tradeCost(trade, "fee_cost"))}</td>
-                  <td>{fmtNum(tradeCost(trade, "spread_cost"))}</td>
-                  <td>{fmtNum(tradeCost(trade, "slippage_cost"))}</td>
-                  <td>{fmtNum(tradeCost(trade, "total_cost"))}</td>
-                  <td className="primary-money">{fmtNum(tradeBuyingPower(trade))}</td>
-                  <td>{fmtNum(tradeCashBalance(trade))}</td>
-                  <td>{fmtNum(tradeEquity(trade))}</td>
-                  <td>{fmtNum(tradePnl(trade))}</td>
-                </tr>
+                <Fragment key={trade.id}>
+                  <tr>
+                    <td>{trade.sequence}</td>
+                    <td>{trade.candle_open_time.slice(0, 16).replace("T", " ")}</td>
+                    <td>
+                      <span className={signalClass(signal)}>{signal}</span>
+                    </td>
+                    <td>{tradeExecutionSide(trade)}</td>
+                    <td>{fmtNum(tradeRawPrice(trade))}</td>
+                    <td>{fmtNum(tradeEffectivePrice(trade))}</td>
+                    <td>{fmtNum(trade.quantity)}</td>
+                    <td>{fmtNum(tradeCost(trade, "total_cost"))}</td>
+                    <td className="primary-money">{fmtNum(tradeBuyingPower(trade))}</td>
+                    <td>{fmtNum(tradeCashBalance(trade))}</td>
+                    <td>{fmtNum(tradeEquity(trade))}</td>
+                    <td>{fmtNum(tradePnl(trade))}</td>
+                    <td>
+                      <button
+                        className="small-button"
+                        onClick={() => setExpandedTradeId(expanded ? null : trade.id)}
+                        type="button"
+                      >
+                        {expanded ? "Hide" : "Costs"}
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded && (
+                    <tr className="trade-cost-row">
+                      <td colSpan={13}>
+                        <div className="trade-cost-detail">
+                          <KeyValueGrid
+                            rows={[
+                              { label: "Raw Price", value: fmtNum(tradeRawPrice(trade)) },
+                              { label: "Effective Price", value: fmtNum(tradeEffectivePrice(trade)) },
+                              { label: "Price Semantics", value: trade.price_semantics ?? valueText(trade.metadata, "price_semantics") ?? "Unavailable" },
+                              {
+                                label: "Effective Price Semantics",
+                                value: trade.effective_price_semantics ?? valueText(trade.metadata, "effective_price_semantics") ?? "Unavailable",
+                              },
+                              { label: "Fee Cost", value: fmtNum(tradeCost(trade, "fee_cost")) },
+                              { label: "Spread Cost", value: fmtNum(tradeCost(trade, "spread_cost")) },
+                              { label: "Slippage Cost", value: fmtNum(tradeCost(trade, "slippage_cost")) },
+                              { label: "Total Cost", value: fmtNum(tradeCost(trade, "total_cost")) },
+                              { label: "Fee Bps", value: fmtNum(valueNum(cost, "fee_bps")) },
+                              { label: "Spread Bps", value: fmtNum(valueNum(cost, "spread_bps")) },
+                              { label: "Slippage Bps", value: fmtNum(valueNum(cost, "slippage_bps")) },
+                              { label: "Effective Slippage Bps", value: fmtNum(valueNum(cost, "effective_slippage_bps")) },
+                              { label: "Volatility Bps", value: fmtNum(valueNum(cost, "volatility_bps")) },
+                              {
+                                label: "Cost Profile",
+                                value:
+                                  valueText(cost, "cost_profile_name")
+                                  ?? valueText(cost, "profile_key")
+                                  ?? valueText(cost, "profile_name")
+                                  ?? valueText(cost, "name")
+                                  ?? "Unavailable",
+                              },
+                              { label: "Currency", value: valueText(cost, "cost_currency") ?? "quote" },
+                            ]}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -1295,11 +1626,14 @@ function RuntimePanel({ detail, runtime }: { detail: BacktestRunDetailResponse; 
 
 export default function DashboardPage() {
   const [filters, setFilters] = useState<BacktestRunListFilters>({ limit: 20 });
+  const [filterDraft, setFilterDraft] = useState<RunFilterDraft>(emptyFilterDraft);
   const [runs, setRuns] = useState<BacktestRunListItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<BacktestRunDetailResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingRuns, setLoadingRuns] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setHealth(null));
@@ -1307,28 +1641,39 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setError(null);
+    setLoadingRuns(true);
     listBacktestRuns(filters)
       .then((response) => {
         setRuns(response.items);
-        if (response.items.length > 0 && selectedId === null) {
+        const selectedStillVisible = selectedId !== null && response.items.some((item) => item.id === selectedId);
+        if (response.items.length > 0 && !selectedStillVisible) {
           setSelectedId(response.items[0].id);
         }
+        if (response.items.length === 0) {
+          setSelectedId(null);
+          setDetail(null);
+        }
       })
-      .catch((err: Error) => setError(err.message));
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoadingRuns(false));
   }, [filters, selectedId]);
 
   useEffect(() => {
     if (selectedId === null) return;
     setError(null);
+    setLoadingDetail(true);
     getBacktestRun(selectedId)
       .then(setDetail)
       .catch((err: Error) => {
         setDetail(null);
         setError(err.message);
-      });
+      })
+      .finally(() => setLoadingDetail(false));
   }, [selectedId]);
 
   const runtime = useMemo(() => getRuntimeBreakdown(detail), [detail]);
+  const fvgChannelOverlays = useMemo(() => (detail ? buildFvgChannelOverlays(detail.trades, detail.graph_points) : []), [detail]);
+  const startingCash = useMemo(() => (detail ? configuredStartingCash(detail) : null), [detail]);
   const allEquityZero = useMemo(
     () => Boolean(detail && detail.graph_points.length && detail.graph_points.every((point) => point.equity === 0)),
     [detail],
@@ -1346,30 +1691,30 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <section className="toolbar panel">
-        <input placeholder="Symbol" onChange={(event) => setFilters((value) => ({ ...value, symbol: event.target.value || undefined }))} />
-        <input placeholder="Interval" onChange={(event) => setFilters((value) => ({ ...value, interval: event.target.value || undefined }))} />
-        <input placeholder="Source" onChange={(event) => setFilters((value) => ({ ...value, source: event.target.value || undefined }))} />
-        <input
-          defaultValue={20}
-          max={100}
-          min={1}
-          onChange={(event) => setFilters((value) => ({ ...value, limit: Number(event.target.value) || 20 }))}
-          placeholder="Limit"
-          type="number"
-        />
-      </section>
-
       {error && <p className="error">API Error: {error}</p>}
 
       <section className="layout">
         <aside className="sidebar panel">
-          <SectionHeader title="Runs" subtitle={`${runs.length} loaded`} />
+          <SectionHeader title="Runs" subtitle={loadingRuns ? "Loading..." : `${runs.length} loaded`} />
+          <RunFilters
+            draft={filterDraft}
+            loading={loadingRuns}
+            onApply={() => setFilters(draftToFilters(filterDraft))}
+            onChange={setFilterDraft}
+            onReset={() => {
+              setFilterDraft(emptyFilterDraft);
+              setFilters(draftToFilters(emptyFilterDraft));
+            }}
+          />
           <RunSelector onSelect={setSelectedId} runs={runs} selectedId={selectedId} />
         </aside>
 
         <div className="content">
-          {!detail ? (
+          {loadingDetail && !detail ? (
+            <section className="panel">
+              <p className="muted">Loading selected run...</p>
+            </section>
+          ) : !detail ? (
             <section className="panel">
               <p className="muted">No run selected yet.</p>
             </section>
@@ -1386,7 +1731,11 @@ export default function DashboardPage() {
                   <MetricCard label="Final Equity" value={fmtNum(detail.summary.final_equity)} tone="neutral" />
                   <MetricCard label="Total Return" value={fmtPct(detail.summary.total_return)} tone={detail.summary.total_return >= 0 ? "good" : "bad"} />
                   <MetricCard label="Trades" value={fmtNum(detail.summary.trade_count)} />
-                  <MetricCard label="Starting Cash" value={fmtNum(detail.summary.starting_cash)} />
+                  <MetricCard
+                    label="Starting Cash"
+                    helper={hasStartingCashMismatch(detail) ? `Result summary ${fmtNum(detail.summary.starting_cash)}` : undefined}
+                    value={fmtNum(startingCash)}
+                  />
                   <MetricCard label="Ending Cash Balance" value={fmtNum(detail.summary.ending_cash)} />
                   <MetricCard label="Ending Position" value={fmtNum(detail.summary.ending_position)} />
                 </div>
@@ -1401,37 +1750,55 @@ export default function DashboardPage() {
 
               {allEquityZero && <p className="error">Equity series is all zero; treat this run as placeholder-neutral.</p>}
 
-              <PerformanceDiagnosticsPanel detail={detail} />
-              <RunConclusionPanel detail={detail} />
-              <RunDiagnosisPanel detail={detail} />
-              <ScoreCalibrationPanel detail={detail} />
-              <PatternGeometryPanel detail={detail} />
-              <FvgRetestDiagnosticsPanel detail={detail} />
-              <TradabilityDiagnosticsPanel detail={detail} />
-              <TimingDiagnosticsPanel detail={detail} />
-              <RiskAuditPanel detail={detail} />
-              <ExecutionAssumptionsPanel detail={detail} />
-
               <div className="chart-grid">
-                <Chart color="#2563eb" points={detail.graph_points} title="Close Price" trades={detail.trades} valueKey="close_price" />
+                <Chart
+                  channelOverlays={fvgChannelOverlays}
+                  color="#2563eb"
+                  points={detail.graph_points}
+                  title="Close Price"
+                  trades={detail.trades}
+                  valueKey="close_price"
+                />
                 <Chart
                   color="#0f766e"
                   points={detail.graph_points}
-                  startingValue={detail.summary.starting_cash}
+                  startingValue={startingCash ?? detail.summary.starting_cash}
                   title="Equity"
                   trades={detail.trades}
                   valueKey="equity"
                 />
               </div>
 
+              <PerformanceDiagnosticsPanel detail={detail} />
+              <RunConclusionPanel detail={detail} />
+
+              <PanelGroupDisclosure title="Run Diagnostics" subtitle="Diagnosis flags and score calibration">
+                <RunDiagnosisPanel detail={detail} />
+                <ScoreCalibrationPanel detail={detail} />
+              </PanelGroupDisclosure>
+
+              <PanelGroupDisclosure title="Pattern And Execution" subtitle="Pattern fields, FVG v2 metadata, and execution assumptions">
+                <PatternGeometryPanel detail={detail} />
+                <FvgRetestDiagnosticsPanel detail={detail} />
+                <ExecutionAssumptionsPanel detail={detail} />
+                <StrategyExplanation detail={detail} />
+              </PanelGroupDisclosure>
+
+              <PanelGroupDisclosure title="Timing And Risk" subtitle="Tradability, entry/exit path, and exit audit">
+                <TradabilityDiagnosticsPanel detail={detail} />
+                <TimingDiagnosticsPanel detail={detail} />
+                <RiskAuditPanel detail={detail} />
+              </PanelGroupDisclosure>
+
               <AccountStatePanel detail={detail} />
               <TradeTable trades={detail.trades} />
-              <StrategyExplanation detail={detail} />
-              <ResearchReportPanel detail={detail} />
-              <div className="two-column">
-                <ParametersPanel detail={detail} />
-                <RuntimePanel detail={detail} runtime={runtime} />
-              </div>
+              <PanelGroupDisclosure title="Run Metadata" subtitle="Research report, parameters, and runtime">
+                <ResearchReportPanel detail={detail} />
+                <div className="two-column">
+                  <ParametersPanel detail={detail} />
+                  <RuntimePanel detail={detail} runtime={runtime} />
+                </div>
+              </PanelGroupDisclosure>
             </>
           )}
         </div>
