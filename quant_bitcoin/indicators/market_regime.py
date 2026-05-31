@@ -305,6 +305,7 @@ def calculate_market_regime(
 
     returns = _return_rates(close_values)
     trading_values = _trading_values(close_values, volume_values, quote_volume_values)
+    spread_values = _spread_proxy_values(high_values, low_values, close_values)
     rows: list[dict[str, Any]] = []
 
     for position, (_, candle) in enumerate(candles.iterrows()):
@@ -330,7 +331,6 @@ def calculate_market_regime(
         trading_value = trading_values[position]
         average_trading_value = _rolling_mean(trading_values, position, regime_config.liquidity_window, regime_config.require_full_window)
         spread_proxy = ((high or 0.0) - (low or 0.0)) / close if close and close > 0 else None
-        spread_values = _spread_proxy_values(high_values, low_values, close_values)
         trading_value_percentile = _rolling_percentile_rank(
             trading_values,
             position,

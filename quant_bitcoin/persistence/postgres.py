@@ -294,6 +294,7 @@ class BacktestRunListItem:
     actual_start_time: datetime | None
     actual_end_time: datetime | None
     candle_count: int
+    starting_cash: float
     final_equity: float
     total_return: float
     trade_count: int
@@ -542,19 +543,44 @@ class PostgresBacktestResultRepository:
         source: str | None = None,
         symbol: str | None = None,
         interval: str | None = None,
+        strategy_key: str | None = None,
         actual_start_time: datetime | None = None,
         actual_end_time: datetime | None = None,
+        created_start_time: datetime | None = None,
+        created_end_time: datetime | None = None,
+        min_total_return: float | None = None,
+        max_total_return: float | None = None,
+        cost_profile: str | None = None,
         limit: int = 20,
     ) -> tuple[BacktestRunListItem, ...]:
         """List recent completed runs for choosing graph inputs.
 
-        Optional filters narrow by candle source, symbol, interval, and the
-        persisted actual candle time range. Results are ordered newest first by
-        run creation time and id.
+        Optional filters narrow by market identity, strategy key, persisted
+        actual candle time range, creation time range, return range, and saved
+        cost profile metadata. Results are ordered newest first by run creation
+        time and id.
         """
 
         if limit <= 0:
             raise ValueError("limit must be positive")
+        if (
+            actual_start_time is not None
+            and actual_end_time is not None
+            and actual_start_time > actual_end_time
+        ):
+            raise ValueError("actual_start_time must be <= actual_end_time")
+        if (
+            created_start_time is not None
+            and created_end_time is not None
+            and created_start_time > created_end_time
+        ):
+            raise ValueError("created_start_time must be <= created_end_time")
+        if (
+            min_total_return is not None
+            and max_total_return is not None
+            and min_total_return > max_total_return
+        ):
+            raise ValueError("min_total_return must be <= max_total_return")
 
         import psycopg
         from psycopg.rows import dict_row
@@ -563,8 +589,14 @@ class PostgresBacktestResultRepository:
             source=source,
             symbol=symbol,
             interval=interval,
+            strategy_key=strategy_key,
             actual_start_time=actual_start_time,
             actual_end_time=actual_end_time,
+            created_start_time=created_start_time,
+            created_end_time=created_end_time,
+            min_total_return=min_total_return,
+            max_total_return=max_total_return,
+            cost_profile=cost_profile,
             limit=limit,
         )
         with psycopg.connect(self.database_url, row_factory=dict_row) as connection:
@@ -796,6 +828,7 @@ SELECT
     br.actual_start_time,
     br.actual_end_time,
     br.candle_count,
+    br.starting_cash,
     r.final_equity,
     r.total_return,
     r.trade_count,
@@ -1021,8 +1054,14 @@ def _build_completed_runs_query(
     source: str | None,
     symbol: str | None,
     interval: str | None,
+    strategy_key: str | None,
     actual_start_time: datetime | None,
     actual_end_time: datetime | None,
+    created_start_time: datetime | None,
+    created_end_time: datetime | None,
+    min_total_return: float | None,
+    max_total_return: float | None,
+    cost_profile: str | None,
     limit: int,
 ) -> tuple[str, dict[str, Any]]:
     query_parts = [SELECT_COMPLETED_BACKTEST_RUNS_BASE_SQL]
@@ -1036,12 +1075,42 @@ def _build_completed_runs_query(
     if interval is not None:
         query_parts.append("AND br.interval = %(interval)s")
         params["interval"] = interval
+    if strategy_key is not None:
+        query_parts.append("AND sc.strategy_key = %(strategy_key)s")
+        params["strategy_key"] = strategy_key
     if actual_start_time is not None:
         query_parts.append("AND br.actual_start_time >= %(actual_start_time)s")
         params["actual_start_time"] = actual_start_time
     if actual_end_time is not None:
         query_parts.append("AND br.actual_end_time <= %(actual_end_time)s")
         params["actual_end_time"] = actual_end_time
+    if created_start_time is not None:
+        query_parts.append("AND br.created_at >= %(created_start_time)s")
+        params["created_start_time"] = created_start_time
+    if created_end_time is not None:
+        query_parts.append("AND br.created_at <= %(created_end_time)s")
+        params["created_end_time"] = created_end_time
+    if min_total_return is not None:
+        query_parts.append("AND r.total_return >= %(min_total_return)s")
+        params["min_total_return"] = min_total_return
+    if max_total_return is not None:
+        query_parts.append("AND r.total_return <= %(max_total_return)s")
+        params["max_total_return"] = max_total_return
+    if cost_profile is not None:
+        query_parts.append(
+            """
+AND (
+    br.metadata #>> '{cost_profile,profile_key}' = %(cost_profile)s
+    OR br.metadata #>> '{cost_profile,name}' = %(cost_profile)s
+    OR r.metadata #>> '{cost_profile,profile_key}' = %(cost_profile)s
+    OR r.metadata #>> '{cost_profile,name}' = %(cost_profile)s
+    OR sc.parameters #>> '{cost,profile}' = %(cost_profile)s
+    OR sc.parameters ->> 'cost.profile' = %(cost_profile)s
+    OR sc.parameters #>> '{cost_profile}' = %(cost_profile)s
+)
+"""
+        )
+        params["cost_profile"] = cost_profile
     query_parts.append("ORDER BY br.created_at DESC, br.id DESC")
     query_parts.append("LIMIT %(limit)s")
     return "\n".join(query_parts), params
@@ -1143,6 +1212,7 @@ def _map_backtest_run_list_item(row: dict[str, Any]) -> BacktestRunListItem:
         actual_start_time=_optional_utc(row["actual_start_time"]),
         actual_end_time=_optional_utc(row["actual_end_time"]),
         candle_count=int(row["candle_count"]),
+        starting_cash=_as_float(row["starting_cash"]),
         final_equity=_as_float(row["final_equity"]),
         total_return=_as_float(row["total_return"]),
         trade_count=int(row["trade_count"]),

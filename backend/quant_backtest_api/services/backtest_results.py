@@ -100,6 +100,7 @@ class BacktestResultsService:
                 "candle_count": data["candle_count"],
             },
             "summary": {
+                "starting_cash": data["starting_cash"],
                 "final_equity": data["final_equity"],
                 "total_return": data["total_return"],
                 "trade_count": data["trade_count"],
@@ -168,6 +169,35 @@ class BacktestResultsService:
             "price_semantics",
             "effective_price_semantics",
             "cost_breakdown",
+            "channel_geometry",
+            "channel_id",
+            "channel_candidate_source",
+            "channel_scan_source",
+            "channel_trend_direction",
+            "channel_direction_rule",
+            "channel_boundary_direction_mode",
+            "channel_identity",
+            "fvg_channel",
+            "channel_mode",
+            "entry_boundary",
+            "original_channel_entry_side",
+            "effective_channel_entry_side",
+            "stop_boundary",
+            "target_boundary",
+            "stop_source",
+            "retest_structure_low",
+            "channel_lower_line_price_at_entry",
+            "channel_upper_line_price_at_entry",
+            "channel_width_at_entry",
+            "target_price_source",
+            "target_source",
+            "channel_target_policy",
+            "projected_channel_width_target",
+            "opposite_boundary_target_price",
+            "line_stop_price",
+            "line_target_price",
+            "same_candle_entry_exit_ambiguity",
+            "cost_aware_entry_filter",
         ):
             if key in metadata and key not in data:
                 data[key] = metadata[key]
@@ -175,6 +205,24 @@ class BacktestResultsService:
             data["position_signal"] = metadata.get("position_signal") or data.get("signal")
         if "cash_balance_after" not in data:
             data["cash_balance_after"] = metadata.get("cash_balance_after", data.get("cash_after"))
+        exit_metadata = metadata.get("exit_metadata") if isinstance(metadata.get("exit_metadata"), dict) else {}
+        for key in (
+            "channel_geometry",
+            "fvg_channel",
+            "channel_id",
+            "channel_candidate_source",
+            "channel_scan_source",
+            "channel_trend_direction",
+            "channel_direction_rule",
+            "channel_boundary_direction_mode",
+            "channel_identity",
+            "target_price_source",
+            "target_source",
+            "channel_target_policy",
+            "projected_channel_width_target",
+        ):
+            if key not in data and key in exit_metadata:
+                data[key] = exit_metadata[key]
         return data
 
     def _serialize_graph_point(self, point: Any) -> dict[str, Any]:

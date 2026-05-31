@@ -54,20 +54,20 @@ The saved-run list is useful as navigation, but without filters it becomes hard 
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `frontend/AGENTS.md` if present.
-- [ ] Read `docs/api/API_CONTRACT.md`.
-- [ ] Confirm Task 244 is completed or explicitly included in the assigned work.
-- [ ] Read this assigned task file before coding.
+- [x] Read `AGENTS.md`.
+- [x] Read `STATUS.md`.
+- [x] Read `BACKLOG.md`.
+- [x] Read `frontend/AGENTS.md` if present.
+- [x] Read `docs/api/API_CONTRACT.md`.
+- [x] Confirm Task 244 is completed or explicitly included in the assigned work.
+- [x] Read this assigned task file before coding.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if project state changed.
-- [ ] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
-- [ ] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Update `STATUS.md` if project state changed.
+- [x] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
+- [x] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
 
 # Acceptance Criteria
 
@@ -117,6 +117,13 @@ npm --prefix frontend run build
 npm --prefix frontend run test:helpers
 git diff --check
 ```
+
+Completed verification:
+
+- `npm --prefix frontend run typecheck`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run test:helpers`
+- `git diff --check`
 
 # Codex Self-Review Requirement
 

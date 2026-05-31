@@ -315,6 +315,8 @@ def run_strategy_backtest_engine(
     pattern_run = _actions_include_pattern(actions)
     zero_cost_warning = _zero_cost_warning(cfg, pattern_run)
     summary_metadata = {
+        "gross_pnl": gross_pnl_total,
+        "net_pnl": net_pnl_total,
         "transaction_cost": {
             "maker_fee_bps": cfg.transaction_cost_config.maker_fee_bps if cfg.transaction_cost_config else 0.0,
             "taker_fee_bps": cfg.transaction_cost_config.taker_fee_bps if cfg.transaction_cost_config else 0.0,

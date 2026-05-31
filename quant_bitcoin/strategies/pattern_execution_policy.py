@@ -90,6 +90,65 @@ POLICIES: dict[str, PatternExecutionPolicy] = {
             PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE: "LEGACY_EVENT_ENTRY_REFERENCE",
         },
     ),
+    "LIQUIDITY_SWEEP_REVERSAL": PatternExecutionPolicy(
+        pattern_key="LIQUIDITY_SWEEP_REVERSAL",
+        policy_key="LIQUIDITY_SWEEP_RETEST_AFTER_RECLAIM",
+        default_entry_mode=PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
+        allowed_entry_modes=(
+            PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE,
+            PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
+            PatternEntryMode.MARKET_ON_NEXT_OPEN,
+            PatternEntryMode.LIMIT_AT_CUSTOM_PRICE,
+        ),
+        exit_assumptions=(
+            "sweep-extreme structural stop with ATR buffer",
+            "opposite-liquidity or fixed R target",
+            "conservative intrabar sequencing",
+        ),
+        economic_rationale=(
+            "The setup waits for a stop-liquidity sweep, reclaim, displacement, "
+            "and FVG/OB retest instead of chasing the first reversal close."
+        ),
+        research_hypothesis=(
+            "Filtering FVG/OB entries through a prior liquidity sweep and retest "
+            "should reduce noisy turnover and improve net reward/risk after costs."
+        ),
+        mode_hypotheses={
+            PatternEntryMode.LIMIT_AT_ENTRY_REFERENCE: "RETEST_SELECTED_FVG_OR_OB_LEVEL",
+            PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE: "DIAGNOSTIC_CHASE_RECLAIM_DISPLACEMENT_CLOSE",
+            PatternEntryMode.MARKET_ON_NEXT_OPEN: "DIAGNOSTIC_NEXT_OPEN_AFTER_RECLAIM",
+            PatternEntryMode.LIMIT_AT_CUSTOM_PRICE: "CUSTOM_RESEARCH_PRICE",
+        },
+    ),
+    "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL": PatternExecutionPolicy(
+        pattern_key="SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL",
+        policy_key="SESSION_RANGE_FAILED_BREAKOUT_OR_BREAKDOWN",
+        default_entry_mode=PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
+        allowed_entry_modes=(
+            PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE,
+            PatternEntryMode.MARKET_ON_NEXT_OPEN,
+        ),
+        exit_assumptions=(
+            "prior completed range high/low as structural liquidity reference",
+            "ATR-buffered structural stop",
+            "fixed R-multiple target",
+            "time stop after configured bars in trade",
+        ),
+        economic_rationale=(
+            "The setup sells failed upside liquidity grabs or downside range breaks, "
+            "and can buy failed downside liquidity grabs, while keeping stop and target "
+            "distances explicit for cost-aware filtering."
+        ),
+        research_hypothesis=(
+            "Recent BTCUSDT 1m windows were net down; short-side range failures or "
+            "breakdowns may harvest more intraday directional movement than passive "
+            "10% buy-and-hold exposure after conservative costs."
+        ),
+        mode_hypotheses={
+            PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE: "CONFIRMATION_CLOSE_AFTER_RANGE_LIQUIDITY_EVENT",
+            PatternEntryMode.MARKET_ON_NEXT_OPEN: "NEXT_OPEN_AFTER_RANGE_LIQUIDITY_EVENT",
+        },
+    ),
     "FAIR_VALUE_GAP_RETEST": PatternExecutionPolicy(
         pattern_key="FAIR_VALUE_GAP_RETEST",
         policy_key="FVG_RETEST_ONLY",

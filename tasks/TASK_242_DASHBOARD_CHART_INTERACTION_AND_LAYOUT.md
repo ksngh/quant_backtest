@@ -61,20 +61,20 @@ The dashboard currently puts substantial controls/summary content before the cha
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `PROJECT_HISTORY.md` only as needed for recent context.
-- [ ] Read this assigned task file before coding.
-- [ ] Confirm the current active task is recorded or should be updated.
-- [ ] Confirm no backend strategy/backtest logic or live trading behavior is introduced.
+- [x] Read `AGENTS.md`.
+- [x] Read `STATUS.md`.
+- [x] Read `BACKLOG.md`.
+- [x] Read `PROJECT_HISTORY.md` only as needed for recent context.
+- [x] Read this assigned task file before coding.
+- [x] Confirm the current active task is recorded or should be updated.
+- [x] Confirm no backend strategy/backtest logic or live trading behavior is introduced.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if project state changed.
-- [ ] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
-- [ ] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Update `STATUS.md` if project state changed.
+- [x] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
+- [x] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
 
 # Acceptance Criteria
 
@@ -124,6 +124,12 @@ npm --prefix frontend run typecheck
 npm --prefix frontend run build
 git diff --check
 ```
+
+Completed verification:
+
+- `npm --prefix frontend run typecheck`
+- `npm --prefix frontend run build`
+- `git diff --check`
 
 # Codex Self-Review Requirement
 

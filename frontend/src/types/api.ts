@@ -11,8 +11,14 @@ export type BacktestRunListFilters = {
   source?: string;
   symbol?: string;
   interval?: string;
+  strategy_key?: string;
   actual_start_time?: string;
   actual_end_time?: string;
+  created_start_time?: string;
+  created_end_time?: string;
+  min_total_return?: number;
+  max_total_return?: number;
+  cost_profile?: string;
   limit?: number;
 };
 
@@ -48,6 +54,7 @@ export type BacktestRunListItem = {
     candle_count: number;
   };
   summary: {
+    starting_cash?: number;
     final_equity: number;
     total_return: number;
     trade_count: number;
@@ -85,6 +92,7 @@ export type FvgRetestV2Settings = {
   };
   stop_mode?: string;
   entry_trigger?: string;
+  parallel_channel?: Record<string, unknown> | null;
   default_behavior_preserved?: boolean;
 };
 
@@ -125,6 +133,35 @@ export type BacktestTrade = {
   effective_price?: number | null;
   price_semantics?: string | null;
   effective_price_semantics?: string | null;
+  channel_mode?: string | null;
+  channel_id?: string | null;
+  channel_candidate_source?: string | null;
+  channel_scan_source?: string | null;
+  channel_trend_direction?: string | null;
+  channel_direction_rule?: string | null;
+  channel_boundary_direction_mode?: string | null;
+  channel_identity?: Record<string, unknown> | null;
+  channel_geometry?: Record<string, unknown> | null;
+  fvg_channel?: Record<string, unknown> | null;
+  entry_boundary?: string | null;
+  original_channel_entry_side?: string | null;
+  effective_channel_entry_side?: string | null;
+  stop_boundary?: string | null;
+  target_boundary?: string | null;
+  stop_source?: string | null;
+  retest_structure_low?: number | null;
+  channel_lower_line_price_at_entry?: number | null;
+  channel_upper_line_price_at_entry?: number | null;
+  channel_width_at_entry?: number | null;
+  target_price_source?: string | null;
+  target_source?: string | null;
+  channel_target_policy?: string | null;
+  projected_channel_width_target?: number | null;
+  opposite_boundary_target_price?: number | null;
+  line_stop_price?: number | null;
+  line_target_price?: number | null;
+  same_candle_entry_exit_ambiguity?: boolean | null;
+  cost_aware_entry_filter?: Record<string, unknown> | null;
   cost_breakdown?: {
     fee_cost?: number | null;
     spread_cost?: number | null;

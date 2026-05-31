@@ -14,6 +14,7 @@ from quant_bitcoin.strategies.patterns import (
     FairValueGapStrategy,
     OrderBlockStrategy,
     PatternEntryFilterConfig,
+    SessionRangeLiquidityBreakoutReversalStrategy,
     TrendlineBreakStrategy,
     pattern_direction_to_position_side,
     strategy_for_pattern,
@@ -30,6 +31,12 @@ def _candles():
 def test_strategy_for_pattern_factory():
     strat = strategy_for_pattern("FAIR_VALUE_GAP")
     assert strat.strategy_key == "FAIR_VALUE_GAP"
+
+
+def test_strategy_for_session_range_liquidity_breakout_reversal_factory():
+    strat = strategy_for_pattern("SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL")
+    assert isinstance(strat, SessionRangeLiquidityBreakoutReversalStrategy)
+    assert strat.strategy_key == "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL"
 
 
 def test_diamond_bearish_emits_enter_short(monkeypatch):

@@ -63,20 +63,20 @@ The dashboard already has a saved-run list. Some filters may already exist in th
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `backend/AGENTS.md` if present.
-- [ ] Read `docs/api/API_CONTRACT.md`.
-- [ ] Read this assigned task file before coding.
-- [ ] Confirm frontend changes are deferred to Task 245.
+- [x] Read `AGENTS.md`.
+- [x] Read `STATUS.md`.
+- [x] Read `BACKLOG.md`.
+- [x] Read `backend/AGENTS.md` if present.
+- [x] Read `docs/api/API_CONTRACT.md`.
+- [x] Read this assigned task file before coding.
+- [x] Confirm frontend changes are deferred to Task 245.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if project state changed.
-- [ ] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
-- [ ] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Update `STATUS.md` if project state changed.
+- [x] Append a concise progress/completion note to `PROJECT_HISTORY.md` when completed.
+- [x] Update `BACKLOG.md` if completed, blocked, reprioritized, or split.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
 
 # Acceptance Criteria
 
@@ -124,6 +124,16 @@ pytest backend/tests tests/persistence
 pytest tests/backtesting/test_strategy_persistence_adapter.py
 git diff --check
 ```
+
+Completed verification:
+
+- `pytest tests/persistence/test_postgres_persistence.py::test_backtest_read_model_lists_completed_runs_with_filters tests/persistence/test_postgres_persistence.py::test_backtest_read_model_rejects_non_positive_list_limit tests/persistence/test_postgres_persistence.py::test_backtest_read_model_rejects_invalid_list_filter_ranges`
+- `python -m py_compile backend/quant_backtest_api/routers/backtest_runs.py quant_bitcoin/persistence/postgres.py`
+- `git diff --check`
+
+Deferred verification:
+
+- `pytest backend/tests/test_backtest_runs_api.py` could not run in the current Python environment because `fastapi` is not installed.
 
 # Codex Self-Review Requirement
 

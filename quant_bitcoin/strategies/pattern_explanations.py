@@ -32,6 +32,43 @@ def build_pattern_strategy_explanation(pattern_key: str) -> dict[str, Any]:
             "time_stop_rules": ["Time-stop may trigger no-reaction exit per risk plan."],
             "design_rationale": ["Capture displacement imbalance fills with explicit, deterministic risk planning."],
         },
+        "LIQUIDITY_SWEEP_REVERSAL": {
+            **common,
+            "algorithm_key": key,
+            "algorithm_name": "Liquidity Sweep Reversal",
+            "detection_rules": [
+                "Prior swing liquidity is swept, price reclaims the level, and a same-direction displacement candle confirms.",
+                "A same-direction FVG or local Order Block confluence zone must be present before an event is emitted.",
+            ],
+            "entry_rules": [
+                "Default entry is the selected FVG midpoint or Order Block 61.8% retest reference, not a chase entry."
+            ],
+            "stop_loss_rules": ["Stop anchors beyond the sweep extreme with an ATR buffer."],
+            "take_profit_rules": ["Targets use the nearest opposite liquidity reference when available, otherwise fixed R multiple."],
+            "soft_invalidation_rules": ["Unsupported as a separate adapter in the first version; pre-entry invalidation is handled by no-fill/skip metadata."],
+            "time_stop_rules": ["Entry retest expires after the configured wait window."],
+            "design_rationale": [
+                "Filter noisy FVG/OB signals through stop-run, reclaim, displacement, and cost-aware reward/risk constraints."
+            ],
+        },
+        "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL": {
+            **common,
+            "algorithm_key": key,
+            "algorithm_name": "Session Range Liquidity Breakout Reversal",
+            "detection_rules": [
+                "Use only the completed prior range window before the confirmation candle.",
+                "Detect failed upside liquidity breaks, failed downside liquidity breaks, or configured downside breakdown continuations.",
+                "Require confirmation candle body and prior-only volume-ratio thresholds.",
+            ],
+            "entry_rules": ["Enter on the confirmation close or next open per selected entry mode."],
+            "stop_loss_rules": ["Stop anchors beyond the swept range boundary with an ATR buffer."],
+            "take_profit_rules": ["Target uses a configured fixed R multiple from the entry and buffered stop."],
+            "soft_invalidation_rules": ["No separate soft invalidation adapter in the first research version."],
+            "time_stop_rules": ["Risk plan may exit after the configured maximum bars in trade."],
+            "design_rationale": [
+                "Exploit intraday liquidity failure or breakdown behavior while keeping every assumption deterministic and cost-auditable."
+            ],
+        },
         "ORDER_BLOCK": {**common, "algorithm_key": key, "algorithm_name": "Order Block", "detection_rules": ["Opposing source candle and displacement to define zone."], "entry_rules": ["Entry when confirmed order-block event passes filters."], "stop_loss_rules": ["Stop near zone boundary per risk plan."], "take_profit_rules": ["Target references opposing move objective from risk plan."], "soft_invalidation_rules": ["Exit if zone thesis invalidates."], "time_stop_rules": ["No-reaction timeout may force exit."], "design_rationale": ["Trade institutional-style reaction zones with bounded risk."]},
         "TRENDLINE_BREAK": {**common, "algorithm_key": key, "algorithm_name": "Trendline Break", "detection_rules": ["Pivot-based trendline with ATR-buffered breakout confirmation."], "entry_rules": ["Entry on confirmed breakout event when filters pass."], "stop_loss_rules": ["Stop from breakout/retest risk plan level."], "take_profit_rules": ["Target from breakout extension objective."], "soft_invalidation_rules": ["Close on trendline re-entry invalidation conditions."], "time_stop_rules": ["Event timeout may force exit if no progress."], "design_rationale": ["Exploit structural regime shift via confirmed trendline breaks."]},
         "CUP_AND_HANDLE": {**common, "algorithm_key": key, "algorithm_name": "Cup and Handle", "detection_rules": ["Bullish rim-bottom-rim and handle structure with breakout validation."], "entry_rules": ["Entry on validated breakout events only."], "stop_loss_rules": ["Handle low acts as primary stop anchor."], "take_profit_rules": ["Measured move target from cup depth."], "soft_invalidation_rules": ["Neckline/structure failure can trigger soft exit."], "time_stop_rules": ["Timeout exit when expected continuation fails."], "design_rationale": ["Model continuation accumulation and breakout follow-through."]},

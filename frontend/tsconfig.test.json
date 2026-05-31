@@ -10,9 +10,11 @@
   "include": [
     "src/lib/performanceDiagnostics.ts",
     "src/lib/executionAssumptions.ts",
+    "src/lib/fvgChannelOverlay.ts",
     "src/lib/fvgRetestDiagnostics.ts",
     "src/lib/patternGeometry.ts",
     "src/lib/researchReport.ts",
+    "src/lib/runDisplay.ts",
     "src/lib/runConclusion.ts",
     "src/lib/strategyExplanation.ts",
     "tests/**/*.ts"

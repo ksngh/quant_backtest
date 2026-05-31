@@ -11,6 +11,7 @@ def test_policy_matrix_defines_supported_patterns() -> None:
         "FAIR_VALUE_GAP",
         "FAIR_VALUE_GAP_RETEST",
         "ORDER_BLOCK",
+        "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL",
         "TRENDLINE_BREAK",
         "CUP_AND_HANDLE",
         "DIAMOND",

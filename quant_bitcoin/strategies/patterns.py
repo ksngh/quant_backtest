@@ -17,11 +17,17 @@ from quant_bitcoin.backtesting.fvg_liquidity_targets import (
 from quant_bitcoin.patterns import (
     AdamAndEveConfig, AdamAndEveRiskExitConfig, CupAndHandleConfig, CupAndHandleRiskExitConfig,
     DiamondConfig, DiamondRiskExitConfig, FairValueGapConfig, FairValueGapRiskExitConfig,
+    LiquiditySweepReversalConfig, LiquiditySweepReversalRiskExitConfig,
     OrderBlockConfig, OrderBlockRiskExitConfig, TrendlineBreakConfig, TrendlineBreakRiskExitConfig,
+    SessionRangeLiquidityBreakoutReversalConfig,
     create_adam_and_eve_risk_exit_plan, create_cup_and_handle_risk_exit_plan, create_diamond_risk_exit_plan,
-    create_fair_value_gap_risk_exit_plan, create_order_block_risk_exit_plan, create_trendline_break_risk_exit_plan,
+    create_fair_value_gap_risk_exit_plan, create_liquidity_sweep_reversal_risk_exit_plan,
+    create_order_block_risk_exit_plan, create_trendline_break_risk_exit_plan,
+    create_session_range_liquidity_breakout_reversal_risk_exit_plan,
     detect_adam_and_eve_patterns, detect_cup_and_handle_patterns, detect_diamond_patterns,
-    detect_fair_value_gaps, detect_order_blocks, detect_trendline_breaks,
+    detect_fair_value_gaps, detect_liquidity_sweep_reversals, detect_order_blocks, detect_trendline_breaks,
+    detect_session_range_liquidity_breakout_reversals,
+    evaluate_session_range_liquidity_breakout_reversal_at_index,
 )
 from quant_bitcoin.backtesting.fvg_detection_cache import (
     PatternEvaluationContext,
@@ -29,6 +35,7 @@ from quant_bitcoin.backtesting.fvg_detection_cache import (
     detect_cup_and_handle_at_index,
     detect_diamond_at_index,
     detect_fair_value_gap_at_index,
+    detect_liquidity_sweep_reversal_at_index,
     detect_order_block_at_index,
     detect_trendline_break_at_index,
 )
@@ -96,7 +103,12 @@ def _event_to_actions(
             )
         ]
     if planned is None or planned.status != RiskExitPlanStatus.VALID:
-        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="RISK_PLAN_INVALID", metadata=metadata)]
+        invalid_reason = (
+            "LIQUIDITY_SWEEP_STOP_INVALID"
+            if str(getattr(event, "pattern_type", "")).upper() == "LIQUIDITY_SWEEP_REVERSAL"
+            else "RISK_PLAN_INVALID"
+        )
+        return [StrategyAction(StrategyActionType.SKIP, timestamp, reason=invalid_reason, metadata=metadata)]
     if pattern_status not in strategy.entry_filter_config.allowed_statuses:
         return [StrategyAction(StrategyActionType.SKIP, timestamp, reason="PATTERN_STATUS_NOT_ALLOWED", metadata=metadata)]
     if strategy.entry_filter_config.minimum_pattern_score is not None and (pattern_score is None or pattern_score < strategy.entry_filter_config.minimum_pattern_score):
@@ -210,6 +222,8 @@ def _raw_pattern_metadata(
         "risk_plan_status": _status_value(getattr(risk_plan, "status", None)),
         "risk_plan_reasons": tuple(getattr(risk_plan, "reasons", ()) or ()),
         **_pattern_specific_risk_metadata(event, risk_plan),
+        **_liquidity_sweep_reversal_metadata(event),
+        **_session_range_liquidity_breakout_reversal_metadata(event),
         **_score_metadata_from_event(event),
     }
 
@@ -276,6 +290,65 @@ def _pattern_specific_risk_metadata(event: Any, risk_plan: Any) -> dict[str, Any
     }
 
 
+def _liquidity_sweep_reversal_metadata(event: Any) -> dict[str, Any]:
+    if str(getattr(event, "pattern_type", "")).upper() != "LIQUIDITY_SWEEP_REVERSAL":
+        return {}
+    keys = (
+        "liquidity_pool_index",
+        "liquidity_pool_timestamp",
+        "liquidity_pool_price",
+        "liquidity_pool_source",
+        "sweep_candle_index",
+        "sweep_candle_timestamp",
+        "sweep_extreme_price",
+        "sweep_distance",
+        "sweep_distance_atr",
+        "sweep_distance_bps",
+        "reclaim_candle_index",
+        "reclaim_candle_timestamp",
+        "reclaim_close",
+        "reclaim_lag_bars",
+        "displacement_candle_index",
+        "displacement_direction",
+        "displacement_range_atr",
+        "displacement_body_ratio",
+        "volume_ratio",
+        "fvg_confluence_pass",
+        "fvg_event_id",
+        "fvg_zone_low",
+        "fvg_zone_high",
+        "order_block_confluence_pass",
+        "order_block_event_id",
+        "order_block_zone_low",
+        "order_block_zone_high",
+        "target_source",
+        "entry_source",
+        "regime_metadata",
+        "mtf_metadata",
+    )
+    return {key: getattr(event, key, None) for key in keys}
+
+
+def _session_range_liquidity_breakout_reversal_metadata(event: Any) -> dict[str, Any]:
+    if str(getattr(event, "pattern_type", "")).upper() != "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL":
+        return {}
+    keys = (
+        "range_start_index",
+        "range_end_index",
+        "range_high",
+        "range_low",
+        "range_mid",
+        "range_size_bps",
+        "breakout_side",
+        "signal_mode",
+        "body_ratio",
+        "breakout_distance_bps",
+        "target_source",
+        "entry_source",
+    )
+    return {key: getattr(event, key, None) for key in keys}
+
+
 @dataclass(frozen=True)
 class FairValueGapStrategy(PatternStrategyBase):
     detector_config: FairValueGapConfig = FairValueGapConfig()
@@ -337,6 +410,86 @@ class OrderBlockStrategy(PatternStrategyBase):
         events = detect_order_block_at_index(context, config=self.detector_config)
         return self._actions_from_cached_events(context, events)
 
+
+@dataclass(frozen=True)
+class LiquiditySweepReversalStrategy(PatternStrategyBase):
+    detector_config: LiquiditySweepReversalConfig = LiquiditySweepReversalConfig()
+    risk_config: LiquiditySweepReversalRiskExitConfig = LiquiditySweepReversalRiskExitConfig()
+
+    def __init__(self, entry_filter_config: PatternEntryFilterConfig = PatternEntryFilterConfig()):
+        super().__init__(
+            "LIQUIDITY_SWEEP_REVERSAL",
+            "LIQUIDITY_SWEEP_REVERSAL_PATTERN_STRATEGY",
+            entry_filter_config=entry_filter_config,
+        )
+
+    def _latest_event(self, frame):
+        events = [
+            event
+            for event in detect_liquidity_sweep_reversals(
+                frame,
+                config=self.detector_config,
+            )
+            if getattr(event, "end_index", None) == len(frame) - 1
+        ]
+        return events[0] if events else None
+
+    def _risk_plan(self, event, frame):
+        return create_liquidity_sweep_reversal_risk_exit_plan(
+            event,
+            config=self.risk_config,
+        ).risk_plan
+
+    def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
+        events = detect_liquidity_sweep_reversal_at_index(
+            context,
+            config=self.detector_config,
+        )
+        return self._actions_from_cached_events(context, events)
+
+
+@dataclass(frozen=True)
+class SessionRangeLiquidityBreakoutReversalStrategy(PatternStrategyBase):
+    detector_config: SessionRangeLiquidityBreakoutReversalConfig = SessionRangeLiquidityBreakoutReversalConfig()
+
+    def __init__(self, entry_filter_config: PatternEntryFilterConfig = PatternEntryFilterConfig()):
+        super().__init__(
+            "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL",
+            "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL_PATTERN_STRATEGY",
+            entry_filter_config=entry_filter_config,
+        )
+
+    def _latest_event(self, frame):
+        events = [
+            event
+            for event in detect_session_range_liquidity_breakout_reversals(
+                frame,
+                config=self.detector_config,
+            )
+            if getattr(event, "end_index", None) == len(frame) - 1
+        ]
+        return events[0] if events else None
+
+    def _risk_plan(self, event, frame):
+        return create_session_range_liquidity_breakout_reversal_risk_exit_plan(
+            event,
+            config=self.detector_config,
+        )
+
+    def evaluate_at(self, context: PatternEvaluationContext) -> list[StrategyAction]:
+        event = evaluate_session_range_liquidity_breakout_reversal_at_index(
+            context.indicator_cache.candles,
+            context.current_index,
+            symbol=None,
+            timeframe=None,
+            config=self.detector_config,
+            already_enriched=True,
+        )
+        if event is None or event.event_id in context.seen_event_ids:
+            return []
+        context.seen_event_ids.add(event.event_id)
+        return self._actions_from_cached_events(context, [event])
+
 @dataclass(frozen=True)
 class CupAndHandleStrategy(PatternStrategyBase):
     detector_config: CupAndHandleConfig = CupAndHandleConfig(); risk_config: CupAndHandleRiskExitConfig = CupAndHandleRiskExitConfig()
@@ -380,6 +533,8 @@ def strategy_for_pattern(pattern: str, *, entry_filter_config: PatternEntryFilte
         "FAIR_VALUE_GAP": FairValueGapStrategy,
         "TRENDLINE_BREAK": TrendlineBreakStrategy,
         "ORDER_BLOCK": OrderBlockStrategy,
+        "LIQUIDITY_SWEEP_REVERSAL": LiquiditySweepReversalStrategy,
+        "SESSION_RANGE_LIQUIDITY_BREAKOUT_REVERSAL": SessionRangeLiquidityBreakoutReversalStrategy,
         "CUP_AND_HANDLE": CupAndHandleStrategy,
         "DIAMOND": DiamondStrategy,
         "ADAM_AND_EVE": AdamAndEveStrategy,

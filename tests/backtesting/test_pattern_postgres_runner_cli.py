@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 import pandas as pd
+import pytest
 from quant_bitcoin.backtesting import strategy_postgres_runner_cli, pattern_postgres_runner_cli
 from quant_bitcoin.backtesting import strategy_postgres_runner_core
 from quant_bitcoin.patterns.entry_simulation import PatternEntryConfig, PatternEntryMode, PatternEntryStatus, PatternEntryTrigger
@@ -299,6 +300,37 @@ def test_cost_profile_config_from_args():
     assert config.slippage_bps == 1.0
 
 
+def test_fvg_order_block_confluence_cli_metadata_from_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(
+        [
+            "--pattern",
+            "FAIR_VALUE_GAP",
+            "--fvg-require-order-block-confluence",
+            "--fvg-order-block-confluence-lookback-bars",
+            "7",
+            "--fvg-order-block-confluence-mode",
+            "entry_price_inside_ob",
+            "--fvg-order-block-confluence-source",
+            "historical_detector",
+            "--fvg-local-order-block-break-mode",
+            "break_previous_body",
+            "--fvg-order-block-require-fresh",
+            "--no-persist",
+        ]
+    )
+
+    metadata = strategy_postgres_runner_core._build_fvg_order_block_confluence_config(args).to_metadata()
+
+    assert metadata["enabled"] is True
+    assert metadata["source"] == "HISTORICAL_DETECTOR"
+    assert metadata["local_break_mode"] == "BREAK_PREVIOUS_BODY"
+    assert metadata["lookback_bars"] == 7
+    assert metadata["mode"] == "ENTRY_PRICE_INSIDE_OB"
+    assert metadata["require_fresh"] is True
+    assert metadata["default_behavior_preserved"] is False
+
+
 def test_cost_profile_rejects_manual_conflict_without_override():
     parser = strategy_postgres_runner_core.build_parser("x")
     args = parser.parse_args(["--cost-profile", "conservative_crypto_1m", "--taker-fee-bps", "1", "--no-persist"])
@@ -324,6 +356,273 @@ def test_cost_profile_override_is_deterministic():
 
     assert config.taker_fee_bps == 1.0
     assert config.spread_bps == 3.0
+
+
+def test_order_block_defaults_to_realistic_cost_profile():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--pattern", "ORDER_BLOCK", "--no-persist"])
+    config, _ = strategy_postgres_runner_core._build_transaction_cost_config(args)
+    workflow = strategy_postgres_runner_core._workflow_settings_metadata(
+        args,
+        strategy_postgres_runner_core._build_guardrail_config(args),
+    )
+
+    assert args.cost_profile == "conservative_crypto_1m"
+    assert config.taker_fee_bps == 10.0
+    assert config.spread_bps == 3.0
+    assert workflow["owner_order_block_default_profile"]["enabled"] is True
+    assert "cost_profile" in workflow["owner_order_block_default_profile"]["defaulted_fields"]
+    assert args.ob_risk_exit_mode == "previous_candle_1r"
+    assert "ob_risk_exit_mode" in workflow["owner_order_block_default_profile"]["defaulted_fields"]
+    assert workflow["order_block_risk_exit"]["mode"] == "PREVIOUS_CANDLE_1R"
+
+
+def test_order_block_cost_profile_zero_override_is_preserved():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--pattern", "ORDER_BLOCK", "--cost-profile", "zero", "--no-persist"])
+    config, _ = strategy_postgres_runner_core._build_transaction_cost_config(args)
+
+    assert args.cost_profile == "zero"
+    assert config.taker_fee_bps == 0.0
+    assert args.owner_order_block_default_profile["explicit_fields"] == ["cost_profile"]
+
+
+def test_order_block_manual_cost_flag_skips_default_profile():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--pattern", "ORDER_BLOCK", "--taker-fee-bps", "0", "--no-persist"])
+    config, _ = strategy_postgres_runner_core._build_transaction_cost_config(args)
+
+    assert args.cost_profile is None
+    assert config.taker_fee_bps == 0.0
+    assert args.owner_order_block_default_profile["skipped_fields"] == ["cost_profile"]
+
+
+def test_order_block_risk_exit_mode_compatibility_override_is_preserved():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--pattern", "ORDER_BLOCK", "--ob-risk-exit-mode", "zone_structural_2r", "--no-persist"])
+    config = strategy_postgres_runner_core._build_order_block_risk_exit_config(args)
+
+    assert config.mode == "ZONE_STRUCTURAL_2R"
+    assert config.to_metadata()["enabled"] is False
+    assert args.owner_order_block_default_profile["explicit_fields"] == ["ob_risk_exit_mode"]
+
+
+def test_order_block_volume_config_builder_preserves_and_overrides_defaults():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    default_args = parser.parse_args(["--pattern", "ORDER_BLOCK", "--no-persist"])
+    override_args = parser.parse_args(
+        [
+            "--pattern",
+            "ORDER_BLOCK",
+            "--ob-min-volume-ratio",
+            "2.0",
+            "--ob-weak-volume-ratio",
+            "1.1",
+            "--enable-ob-entry-volume-filter",
+            "--ob-entry-volume-window",
+            "7",
+            "--ob-min-entry-volume-ratio",
+            "1.8",
+            "--enable-ob-mtf-filter",
+            "--ob-mtf-timeframes",
+            "15m,1h",
+            "--no-persist",
+        ]
+    )
+
+    default_config = strategy_postgres_runner_core._build_order_block_config(default_args)
+    override_config = strategy_postgres_runner_core._build_order_block_config(override_args)
+    entry_volume = strategy_postgres_runner_core._build_order_block_entry_volume_filter_config(override_args)
+    mtf = strategy_postgres_runner_core._build_order_block_mtf_filter_config(override_args)
+    risk_exit = strategy_postgres_runner_core._build_order_block_risk_exit_config(default_args)
+
+    assert default_config.minimum_volume_ratio == 1.5
+    assert default_config.weak_volume_ratio == 1.3
+    assert override_config.minimum_volume_ratio == 2.0
+    assert override_config.weak_volume_ratio == 1.1
+    assert entry_volume.enabled is True
+    assert entry_volume.window == 7
+    assert risk_exit.mode == "PREVIOUS_CANDLE_1R"
+    assert entry_volume.minimum_volume_ratio == 1.8
+    assert mtf.enabled is True
+    assert mtf.timeframes == ("15m", "1h")
+
+
+def test_owner_fvg_v2_channel_defaults_apply_to_minimal_cli_args():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--no-persist"])
+
+    assert strategy_postgres_runner_core._select_strategy_key(args) == "FAIR_VALUE_GAP"
+    assert args.start_time is None
+    assert args.cost_profile == "conservative_crypto_1m"
+    assert args.enable_fvg_v2 is True
+    assert args.enable_fvg_v2_channel is True
+    assert args.fvg_channel_standalone_scan is True
+    assert args.fvg_channel_window == 20
+    assert args.fvg_channel_max_wait_bars == 5
+    assert args.enable_fvg_close_volume_filter is True
+    assert args.fvg_close_volume_window == 20
+    assert args.fvg_min_close_volume_ratio == 2.0
+    assert args.fvg_close_volume_baseline_mode == "prior_only"
+    assert args.fvg_close_volume_input_mode == "base_volume"
+    assert args.fvg_use_trend_score is True
+    assert args.fvg_use_fibonacci_confluence is True
+    assert args.fvg_stop_mode == "wider_of_fvg_and_swing"
+    assert args.enforce_candle_continuity is True
+    assert args.enable_market_regime is True
+    assert args.starting_cash == 1_000_000.0
+    assert args.starting_cash_currency == "KRW"
+    assert args.krw_per_usdt == 1500.0
+    assert args.position_sizing_mode == "cash_fraction"
+    assert args.position_sizing_value == 0.10
+
+    channel = strategy_postgres_runner_core._build_fvg_channel_config(args)
+    close_volume = strategy_postgres_runner_core._build_close_volume_entry_filter_config(args)
+    sizing = strategy_postgres_runner_core._build_position_sizing_config(args)
+    workflow = strategy_postgres_runner_core._workflow_settings_metadata(
+        args,
+        strategy_postgres_runner_core._build_guardrail_config(args),
+    )
+
+    assert channel.enabled is True
+    assert channel.window == 20
+    assert channel.max_wait_bars == 5
+    assert channel.standalone_scan_enabled is True
+    assert close_volume.enabled is True
+    assert close_volume.window == 20
+    assert close_volume.minimum_volume_ratio == 2.0
+    assert close_volume.low_volume_ratio_threshold == 0.5
+    assert close_volume.baseline_mode == "PRIOR_ONLY"
+    assert close_volume.applies_to_side == "ALL"
+    assert close_volume.to_metadata()["applies_to_sides"] == ["LONG", "SHORT"]
+    assert sizing.mode.value == "CASH_FRACTION"
+    assert sizing.value == 0.10
+    assert workflow["owner_default_profile"]["enabled"] is True
+    assert workflow["owner_default_profile"]["profile_key"] == "owner_fvg_v2_channel_default_v1"
+    assert "start_time" not in workflow["owner_default_profile"]["defaulted_fields"]
+
+
+def test_cash_denomination_metadata_converts_krw_to_usdt():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(
+        [
+            "--starting-cash",
+            "1000000",
+            "--starting-cash-currency",
+            "KRW",
+            "--quote-currency",
+            "USDT",
+            "--krw-per-usdt",
+            "1350",
+            "--no-persist",
+        ]
+    )
+
+    metadata = strategy_postgres_runner_core._build_cash_denomination_metadata(args)
+
+    assert metadata["source_starting_cash"] == 1_000_000.0
+    assert metadata["source_currency"] == "KRW"
+    assert metadata["quote_currency"] == "USDT"
+    assert metadata["effective_quote_starting_cash"] == pytest.approx(740.7407407407)
+    assert metadata["converted"] is True
+    assert metadata["conversion_source"] == "manual_cli_krw_per_usdt"
+    assert metadata["live_fx_lookup_used"] is False
+
+
+def test_cash_denomination_default_krw_uses_default_manual_rate():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args(["--starting-cash", "1000000", "--no-persist"])
+
+    metadata = strategy_postgres_runner_core._build_cash_denomination_metadata(args)
+
+    assert metadata["source_currency"] == "KRW"
+    assert metadata["quote_currency"] == "USDT"
+    assert metadata["conversion_rate"] == 1500.0
+    assert metadata["effective_quote_starting_cash"] == pytest.approx(666.6666666667)
+
+
+def test_pattern_cli_krw_starting_cash_uses_converted_quote_cash(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main(
+        [
+            "--no-persist",
+            "--starting-cash",
+            "1000000",
+            "--starting-cash-currency",
+            "KRW",
+            "--krw-per-usdt",
+            "1000",
+            "--position-sizing-mode",
+            "cash_fraction",
+            "--position-sizing-value",
+            "0.10",
+            "--cost-profile",
+            "zero",
+            "--disable-fvg-v2-channel",
+            "--disable-fvg-channel-standalone-scan",
+            "--disable-fvg-close-volume-filter",
+        ]
+    ) == 0
+    out = json.loads(capsys.readouterr().out)
+
+    assert out["portfolio"]["starting_cash"] == pytest.approx(1000.0)
+    assert out["cash_denomination"]["source_currency"] == "KRW"
+    assert out["cash_denomination"]["effective_quote_starting_cash"] == pytest.approx(1000.0)
+    assert out["summary"]["metadata"]["cash_denomination"]["source_starting_cash"] == 1_000_000.0
+    assert out["executions"][0]["quantity"] == pytest.approx(1.0)
+
+
+def test_owner_fvg_v2_channel_defaults_preserve_explicit_overrides():
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--cost-profile",
+        "zero",
+        "--disable-fvg-v2-channel",
+        "--disable-fvg-channel-standalone-scan",
+        "--disable-fvg-close-volume-filter",
+        "--fvg-min-close-volume-ratio",
+        "1.25",
+        "--position-sizing-mode",
+        "target_notional",
+        "--position-sizing-value",
+        "1000",
+        "--no-enforce-candle-continuity",
+        "--disable-market-regime",
+        "--no-persist",
+    ])
+
+    channel = strategy_postgres_runner_core._build_fvg_channel_config(args)
+    close_volume = strategy_postgres_runner_core._build_close_volume_entry_filter_config(args)
+    sizing = strategy_postgres_runner_core._build_position_sizing_config(args)
+    workflow = strategy_postgres_runner_core._workflow_settings_metadata(
+        args,
+        strategy_postgres_runner_core._build_guardrail_config(args),
+    )
+
+    assert args.cost_profile == "zero"
+    assert channel.enabled is False
+    assert channel.standalone_scan_enabled is False
+    assert close_volume.enabled is False
+    assert close_volume.minimum_volume_ratio == 1.25
+    assert sizing.mode.value == "TARGET_NOTIONAL"
+    assert sizing.value == 1000
+    assert args.enforce_candle_continuity is False
+    assert args.enable_market_regime is False
+    assert workflow["owner_default_profile"]["enabled"] is True
+    assert "cost_profile" in workflow["owner_default_profile"]["explicit_fields"]
+    assert "enable_fvg_close_volume_filter" in workflow["owner_default_profile"]["explicit_fields"]
+    assert "position_sizing_mode" in workflow["owner_default_profile"]["explicit_fields"]
 
 
 def test_build_position_sizing_and_margin_config_from_args():
@@ -448,7 +747,17 @@ def test_strategy_cli_output_includes_sizing_and_margin_metadata(monkeypatch, ca
         ),
     )
 
-    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000"]) == 0
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--starting-cash",
+        "10000",
+        "--starting-cash-currency",
+        "USDT",
+        "--position-sizing-mode",
+        "fixed_quantity",
+        "--cost-profile",
+        "zero",
+    ]) == 0
     out = json.loads(capsys.readouterr().out)
     metadata = out["summary"]["metadata"]
     assert metadata["position_sizing"]["mode"] == "FIXED_QUANTITY"
@@ -474,13 +783,53 @@ def test_pattern_cli_cash_fraction_uses_engine_sizing_when_no_override(monkeypat
         lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
     )
 
-    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000", "--position-sizing-mode", "cash_fraction", "--position-sizing-value", "0.25"]) == 0
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--starting-cash",
+        "10000",
+        "--starting-cash-currency",
+        "USDT",
+        "--position-sizing-mode",
+        "cash_fraction",
+        "--position-sizing-value",
+        "0.25",
+    ]) == 0
     out = json.loads(capsys.readouterr().out)
     execution = out["executions"][0]
     assert execution["quantity"] == 25.0
     assert execution["metadata"]["position_sizing_source"] == "ENGINE_CONFIG"
     assert execution["metadata"]["entry_quantity_source"] == "ENGINE_CONFIG"
     assert execution["metadata"]["engine_sizing_allowed"] is True
+
+
+def test_pattern_cli_output_preserves_million_starting_cash(monkeypatch, capsys):
+    candles = make_candles()
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *a, **k: FakeProvider(candles),
+    )
+    monkeypatch.setattr(
+        strategy_postgres_runner_core,
+        "strategy_for_pattern",
+        lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
+    )
+
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--starting-cash",
+        "1000000",
+        "--starting-cash-currency",
+        "USDT",
+        "--position-sizing-mode",
+        "cash_fraction",
+        "--position-sizing-value",
+        "0.10",
+    ]) == 0
+    out = json.loads(capsys.readouterr().out)
+
+    assert out["portfolio"]["starting_cash"] == 1_000_000.0
+    assert out["executions"][0]["metadata"]["position_sizing_value"] == 0.10
 
 
 def test_pattern_cli_target_notional_uses_engine_sizing_when_no_override(monkeypatch, capsys):
@@ -496,7 +845,17 @@ def test_pattern_cli_target_notional_uses_engine_sizing_when_no_override(monkeyp
         lambda *args, **kwargs: _SizingStubStrategy(kwargs.get("entry_filter_config")),
     )
 
-    assert strategy_postgres_runner_cli.main(["--no-persist", "--starting-cash", "10000", "--position-sizing-mode", "target_notional", "--position-sizing-value", "1000"]) == 0
+    assert strategy_postgres_runner_cli.main([
+        "--no-persist",
+        "--starting-cash",
+        "10000",
+        "--starting-cash-currency",
+        "USDT",
+        "--position-sizing-mode",
+        "target_notional",
+        "--position-sizing-value",
+        "1000",
+    ]) == 0
     out = json.loads(capsys.readouterr().out)
     execution = out["executions"][0]
     assert execution["quantity"] == 10.0
@@ -567,6 +926,8 @@ def test_fvg_v2_cli_metadata_records_research_controls() -> None:
     parser = strategy_postgres_runner_core.build_parser("x")
     args = parser.parse_args([
         "--enable-fvg-v2",
+        "--disable-fvg-v2-channel",
+        "--disable-fvg-channel-standalone-scan",
         "--fvg-use-trend-score",
         "--fvg-trend-fast-period",
         "5",
@@ -591,6 +952,93 @@ def test_fvg_v2_cli_metadata_records_research_controls() -> None:
     assert metadata["liquidity_targets"]["require_liquidity_target"] is True
     assert metadata["stop_mode"] == "WIDER_OF_FVG_AND_SWING"
     assert metadata["entry_trigger"] == "TOUCH_AND_REACTION_CLOSE"
+    assert metadata["parallel_channel"]["enabled"] is False
+    assert metadata["parallel_channel"]["standalone_scan_enabled"] is False
+    assert metadata["parallel_channel"]["atr_used_for_stop_or_target"] is False
+    assert metadata["close_volume_entry_filter"]["enabled"] is True
+    assert metadata["close_volume_entry_filter"]["applies_to_side"] == "ALL"
+    assert metadata["close_volume_entry_filter"]["applies_to_sides"] == ["LONG", "SHORT"]
+
+
+def test_fvg_v2_channel_cli_metadata_enables_parallel_channel() -> None:
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--enable-fvg-v2-channel",
+        "--fvg-channel-window",
+        "12",
+        "--fvg-channel-max-wait-bars",
+        "5",
+        "--fvg-channel-standalone-scan",
+        "--no-persist",
+    ])
+
+    metadata = strategy_postgres_runner_core._build_fvg_v2_metadata(args)
+
+    assert metadata["enabled"] is True
+    assert metadata["parallel_channel"]["enabled"] is True
+    assert metadata["parallel_channel"]["window"] == 12
+    assert metadata["parallel_channel"]["max_wait_bars"] == 5
+    assert metadata["parallel_channel"]["standalone_scan_enabled"] is True
+    assert metadata["parallel_channel"]["scan_semantics"] == "fvg_event_expansion_plus_standalone_visible_prefix_scan"
+    assert metadata["parallel_channel"]["stop_target_policy"] == "PROJECTED_ENTRY_PRICE_PLUS_OR_MINUS_CHANNEL_WIDTH_V1"
+    assert metadata["parallel_channel"]["channel_target_policy"] == "PROJECTED_ENTRY_PRICE_PLUS_OR_MINUS_CHANNEL_WIDTH_V1"
+    assert metadata["parallel_channel"]["atr_used_for_stop_or_target"] is False
+
+
+def test_fvg_inverse_direction_cli_metadata_records_research_mode() -> None:
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--pattern",
+        "FAIR_VALUE_GAP",
+        "--fvg-inverse-direction",
+        "--no-persist",
+    ])
+
+    direction = strategy_postgres_runner_core._build_fvg_direction_metadata(args.fvg_inverse_direction)
+    v2_metadata = strategy_postgres_runner_core._build_fvg_v2_metadata(args)
+
+    assert direction["schema_version"] == "fvg_direction_mode_config_v1"
+    assert direction["mode"] == "INVERSE_CONTRARIAN"
+    assert direction["inverse_direction_enabled"] is True
+    assert direction["default_behavior_preserved"] is False
+    assert v2_metadata["direction"]["mode"] == "INVERSE_CONTRARIAN"
+
+
+def test_research_metadata_cli_records_task_variant_and_window() -> None:
+    parser = strategy_postgres_runner_core.build_parser("x")
+    args = parser.parse_args([
+        "--research-task-id",
+        "TASK_279",
+        "--research-variant-id",
+        "T279_TEST_VARIANT",
+        "--research-window-id",
+        "owner_a",
+        "--research-run-group",
+        "validation_matrix",
+        "--no-persist",
+    ])
+
+    metadata = strategy_postgres_runner_core._build_research_metadata(args)
+
+    assert metadata == {
+        "schema_version": "research_run_metadata_v1",
+        "enabled": True,
+        "task_id": "TASK_279",
+        "variant_id": "T279_TEST_VARIANT",
+        "window_id": "owner_a",
+        "run_group": "validation_matrix",
+        "scope": "offline_backtest_research_only",
+    }
+
+
+def test_fvg_inverse_direction_is_rejected_for_non_fvg_pattern() -> None:
+    with pytest.raises(ValueError, match="only supported"):
+        strategy_postgres_runner_core.run([
+            "--pattern",
+            "ORDER_BLOCK",
+            "--fvg-inverse-direction",
+            "--no-persist",
+        ])
 
 
 def test_fvg_entry_mode_cli_output_contains_fill_diagnostics(monkeypatch, capsys):
@@ -610,6 +1058,8 @@ def test_fvg_entry_mode_cli_output_contains_fill_diagnostics(monkeypatch, capsys
         "--no-persist",
         "--pattern",
         "FAIR_VALUE_GAP",
+        "--disable-fvg-v2-channel",
+        "--disable-fvg-channel-standalone-scan",
         "--fvg-entry-mode",
         "limit_at_pattern_midpoint",
         "--fvg-entry-max-wait-bars",
