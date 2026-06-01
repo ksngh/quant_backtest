@@ -138,6 +138,8 @@ available candle, persists only closed candles, and prints a JSON summary such a
 `stored_candles` and `pages_fetched`. Re-running the command is safe because the
 repository writes candles by the duplicate-safe
 `source + symbol + interval + open_time` uniqueness rule.
+Supported historical backfill intervals are `1m`, `3m`, `5m`, `15m`, `30m`,
+`1h`, and `1d`.
 
 Common bounded examples:
 

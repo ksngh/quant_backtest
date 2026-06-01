@@ -12,13 +12,14 @@ from quant_bitcoin.market_data.binance_backfill import (
     MultiIntervalBackfillError,
     MultiIntervalBinanceBackfillRunner,
     RetryableBinanceError,
+    _interval_milliseconds,
     map_binance_kline_to_persisted_candle,
     parse_interval_list,
 )
 from quant_bitcoin.persistence import HISTORICAL_BACKFILL_MODE, SOURCE_BINANCE_SPOT
 
 
-def sample_kline(open_time_ms: int) -> list[object]:
+def sample_kline(open_time_ms: int, interval_ms: int = 60_000) -> list[object]:
     return [
         open_time_ms,
         "42000.00",
@@ -26,7 +27,7 @@ def sample_kline(open_time_ms: int) -> list[object]:
         "41900.00",
         "42050.00",
         "12.50000000",
-        open_time_ms + 59_999,
+        open_time_ms + interval_ms - 1,
         "525625.00000000",
         123,
         "6.10000000",
@@ -44,7 +45,6 @@ class InMemoryCandleRepository:
     def latest_open_time(self, source: str, symbol: str, interval: str):
         assert source == SOURCE_BINANCE_SPOT
         assert symbol == "BTCUSDT"
-        assert interval == "1m"
         return self.latest
 
     def upsert_candles(self, candles):
@@ -242,12 +242,59 @@ def test_backfill_uses_public_market_data_endpoint_without_signed_request_data()
     assert result.stored_candles == 0
 
 
+@pytest.mark.parametrize(
+    ("interval", "interval_ms"),
+    [("1h", 3_600_000), ("1d", 86_400_000)],
+)
+def test_backfill_accepts_hour_and_day_intervals_for_public_kline_requests(
+    interval: str, interval_ms: int
+):
+    repository = InMemoryCandleRepository()
+    open_time_ms = 1_704_067_200_000
+    requested_urls = []
+
+    def fake_http_get(url: str, timeout: float):
+        requested_urls.append(url)
+        return [sample_kline(open_time_ms, interval_ms=interval_ms)]
+
+    result = BinanceHistoricalBackfiller(
+        repository,
+        http_get=fake_http_get,
+        now=lambda: datetime(2024, 1, 3, tzinfo=timezone.utc),
+    ).run(
+        interval=interval,
+        start_time=open_time_ms,
+        end_time=open_time_ms,
+    )
+
+    query = parse_qs(urlparse(requested_urls[0]).query)
+    assert query["interval"] == [interval]
+    assert result.interval == interval
+    assert result.stored_candles == 1
+    assert next(iter(repository.rows.values())).interval == interval
+
+
+@pytest.mark.parametrize(
+    ("interval", "expected_ms"),
+    [("1h", 3_600_000), ("1d", 86_400_000)],
+)
+def test_interval_milliseconds_maps_hour_and_day_intervals(
+    interval: str, expected_ms: int
+):
+    assert _interval_milliseconds(interval) == expected_ms
+
+
 def test_interval_list_parser_trims_deduplicates_and_preserves_order():
-    assert parse_interval_list("1m, 5m,15m,5m") == ("1m", "5m", "15m")
+    assert parse_interval_list("1m, 1h,1d,1h,5m") == (
+        "1m",
+        "1h",
+        "1d",
+        "5m",
+    )
 
 
 def test_interval_list_parser_rejects_unsupported_interval():
-    with pytest.raises(ValueError, match="supported minute interval"):
+    with pytest.raises(ValueError, match="supported Binance kline interval"):
         parse_interval_list("1m,2h")
 
 
@@ -272,15 +319,15 @@ def test_multi_interval_runner_calls_backfiller_once_per_interval():
 
     result = MultiIntervalBinanceBackfillRunner(FakeBackfiller()).run(
         symbol="btcusdt",
-        intervals=("1m", "5m", "15m"),
+        intervals=("1m", "1h", "1d"),
         start_time=1,
         end_time=2,
         limit=100,
     )
 
     assert result.symbol == "BTCUSDT"
-    assert result.intervals == ("1m", "5m", "15m")
-    assert [call["interval"] for call in calls] == ["1m", "5m", "15m"]
+    assert result.intervals == ("1m", "1h", "1d")
+    assert [call["interval"] for call in calls] == ["1m", "1h", "1d"]
     assert all(call["symbol"] == "BTCUSDT" for call in calls)
 
 

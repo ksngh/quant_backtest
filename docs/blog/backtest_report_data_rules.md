@@ -1,26 +1,55 @@
 # Backtest Report Data Rules
 
-이 문서는 백테스트 실행 결과를 블로그/문서 작성 에이전트에게 넘기기 위한 최소 데이터 규칙입니다.
+이 문서는 백테스트 결과를 daily report 본문 작성 또는 이미지 생성 에이전트에게 넘기기 위한 저장 규칙입니다.
 
-목표는 백테스트 시스템 내부 기록을 그대로 노출하는 것이 아니라, `docs/blog/template.md`를 채우는 데 필요한 값만 작게 저장하는 것입니다.
+목표는 백테스트 내부 기록을 그대로 노출하는 것이 아니라, `docs/blog/DAILY_REPORT_TEMPLATE.md`와 `docs/blog/DAILY_REPORT_STYLE.md`를 기준으로 한국어 리포트 본문과 리포트 이미지를 만들 수 있는 값만 작게 저장하는 것입니다.
 
 ## 1. 저장 단위
 
-백테스트 1회 또는 비교 대상 1개 전략을 기준으로 하나의 payload를 저장합니다.
+백테스트 1회 또는 비교 대상 전략 1개를 기준으로 하나의 report artifact folder를 만듭니다.
 
-권장 이름:
+기본 폴더 구조:
 
 ```text
-backtest_report_payload
+reports/blog_payloads/[strategy-slug]/[strategy-version-slug]/[period-slug]/
+  payload.json
+  report-ko.md
+  summary_equity_curve.png
+  cost_impact.png
+  representative_win_trade.png
+  representative_loss_trade.png
 ```
 
-권장 형식:
+full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 생성합니다.
 
-- JSON
-- YAML
-- DB JSON metadata
+이 workflow에서는 `report-en.md`, `image_plan.md`, `image_plan.json`, `images/` 하위 폴더를 기본 생성하지 않습니다.
 
-어떤 형식을 쓰더라도 필드 이름과 의미는 아래 규칙을 따릅니다.
+폴더 이름 규칙:
+
+- `strategy-slug`: 실제 리포트용 전략명을 소문자 ASCII로 바꾸고 공백/특수문자는 `-`로 정리합니다.
+- `strategy-version-slug`: 전략 버전을 소문자 ASCII로 정리합니다. 예: `v1`, `v2`.
+- `period-slug`: 백테스트 기간이 있으면 `YYYYMMDD-YYYYMMDD`를 사용합니다.
+- 기간을 알 수 없으면 리포트 작성일 `YYYYMMDD`를 사용합니다.
+- 같은 전략/기간의 리포트를 다시 만들 때는 기존 `payload.json`, `report-ko.md`, PNG를 삭제한 뒤 같은 목적의 재생성인지 확인합니다.
+- folder, payload, image filename에는 task 번호, run id, 내부 candidate id를 넣지 않습니다.
+
+이미지 저장 규칙:
+
+- 모든 생성 이미지는 `payload.json`과 같은 디렉터리에 저장합니다.
+- payload 이미지 참조에는 파일명만 넣습니다.
+- Markdown에서 이미지를 참조해야 할 때는 같은 폴더 기준 `./[filename].png`를 사용합니다.
+- 이미지 참조에는 절대경로, `../`, 하위 `images/`, 외부 URL을 넣지 않습니다.
+
+리포트 본문 저장 규칙:
+
+- `report-ko.md`는 `payload.json`과 같은 디렉터리에 저장합니다.
+- `report-ko.md` 작성 전 `docs/blog/DAILY_REPORT_TEMPLATE.md`와 `docs/blog/DAILY_REPORT_STYLE.md`를 읽습니다.
+- `docs/blog/DAILY_REPORT_TEMPLATE.md`는 섹션 구조를 정하고, `docs/blog/DAILY_REPORT_STYLE.md`는 말투와 해석 방식을 정합니다.
+- `report-ko.md`는 `payload.json`과 같은 디렉터리에 있는 PNG 파일만 참조합니다.
+- Markdown 이미지 참조는 `./summary_equity_curve.png`처럼 같은 폴더 기준 상대 경로만 사용합니다.
+- payload에 없는 값은 추정하지 않고 `[확인 필요]`로 남깁니다.
+- 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, source file path, git commit, secret, config dump를 쓰지 않습니다.
+- research-only 또는 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
 
 ## 2. 필드 이름 규칙
 
@@ -29,6 +58,7 @@ backtest_report_payload
 - 비율 값은 사람이 읽는 표시값과 계산값을 함께 저장할 수 있습니다.
 - 금액 값은 통화 단위를 함께 저장합니다.
 - 시간은 UTC ISO 문자열을 권장합니다.
+- 최종 리포트에 노출하지 않을 내부 추적값은 payload에 넣지 않는 것을 원칙으로 합니다.
 
 예시:
 
@@ -48,19 +78,55 @@ backtest_report_payload
 {
   "title": {
     "strategy_name": "[전략명]",
-    "market_summary": "[시장/심볼/타임프레임]",
+    "strategy_version": "[전략 버전]",
+    "strategy_label": "[전략명 전략버전]",
+    "market_summary": "[시장/심볼/타임프레임/기간]",
     "period": "[기간]",
     "pr": "[PR 번호 또는 링크]"
   },
+  "artifact": {
+    "schema": "colocated_payload_images_v1",
+    "strategy_slug": "[strategy-slug]",
+    "strategy_version_slug": "[strategy-version-slug]",
+    "period_slug": "[period-slug]",
+    "image_reference_rule": "filenames_only_colocated_with_payload"
+  },
   "images": {
-    "equity_curve": "[equity-curve.png]",
-    "drawdown": "[drawdown.png 또는 null]"
+    "primary": "summary_equity_curve.png",
+    "items": [
+      {
+        "id": "summary_equity_curve",
+        "filename": "summary_equity_curve.png",
+        "caption": "Equity curve와 drawdown을 함께 표시한 대표 성과 그래프입니다.",
+        "section": "summary,results"
+      },
+      {
+        "id": "cost_impact",
+        "filename": "cost_impact.png",
+        "caption": "거래비용 반영 전후의 성과 차이를 보여주는 그래프입니다.",
+        "section": "cost_impact"
+      },
+      {
+        "id": "representative_win_trade",
+        "filename": "representative_win_trade.png",
+        "caption": "대표 수익 거래 차트입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "representative_loss_trade",
+        "filename": "representative_loss_trade.png",
+        "caption": "대표 손실 거래 차트입니다.",
+        "section": "representative_trades"
+      }
+    ]
   },
   "setup": {
     "exchange": "[거래소]",
     "symbol": "[심볼]",
     "market": "[Spot 등]",
     "timeframe": "[타임프레임]",
+    "period": "[기간]",
+    "comparison_variables": "[비교 변인 또는 null]",
     "initial_capital": "[초기 자본]",
     "position_sizing": "[사이징 방식]",
     "entry_conditions_summary": "[진입 조건 요약]",
@@ -102,7 +168,19 @@ backtest_report_payload
     "average_loss": "[평균 손실]",
     "fee_total": "[총 수수료]",
     "slippage_total": "[총 슬리피지]",
-    "spread_total": "[총 스프레드 또는 null]"
+    "spread_total": "[총 스프레드 또는 null]",
+    "gross_pnl": "[비용 차감 전 손익]",
+    "net_pnl": "[비용 차감 후 손익]"
+  },
+  "cost_impact": {
+    "gross_pnl": "[비용 미반영 손익]",
+    "fee": "[총 수수료]",
+    "spread": "[총 스프레드]",
+    "slippage": "[총 슬리피지]",
+    "total_transaction_cost": "[총 거래비용]",
+    "net_pnl": "[비용 반영 후 손익]",
+    "final_return_after_costs": "[비용 반영 후 최종 수익률]",
+    "interpretation": "[비용 영향 해석]"
   },
   "illusion_checks": {
     "cost_sensitivity": "[비용 민감도]",
@@ -114,26 +192,28 @@ backtest_report_payload
   },
   "representative_trades": {
     "best_trade": {
-      "time": "[시간]",
+      "entry_time": "[진입 시간]",
+      "exit_time": "[청산 시간]",
       "side": "[Long/Short]",
-      "entry": "[진입가]",
-      "exit": "[청산가]",
-      "result": "[결과]",
-      "reason": "[거래 이유]"
+      "entry_price": "[진입가]",
+      "exit_price": "[청산가]",
+      "stop_price": "[손절가 또는 null]",
+      "target_price": "[익절가 또는 null]",
+      "net_pnl": "[순손익]",
+      "exit_reason": "[청산 이유]",
+      "reason": "[대표 거래로 고른 이유]"
     },
     "worst_trade": {
-      "time": "[시간]",
+      "entry_time": "[진입 시간]",
+      "exit_time": "[청산 시간]",
       "side": "[Long/Short]",
-      "entry": "[진입가]",
-      "exit": "[청산가]",
-      "result": "[결과]",
-      "reason": "[거래 이유]"
-    },
-    "typical_winner": {
-      "summary": "[일반적인 수익 거래 요약]"
-    },
-    "typical_loser": {
-      "summary": "[일반적인 손실 거래 요약]"
+      "entry_price": "[진입가]",
+      "exit_price": "[청산가]",
+      "stop_price": "[손절가 또는 null]",
+      "target_price": "[익절가 또는 null]",
+      "net_pnl": "[순손익]",
+      "exit_reason": "[청산 이유]",
+      "reason": "[대표 거래로 고른 이유]"
     }
   },
   "interpretation": {
@@ -144,51 +224,94 @@ backtest_report_payload
 }
 ```
 
-## 4. 선택 필드
+## 4. 필수 고정 이미지
 
-필요할 때만 추가합니다.
+모든 payload/image artifact는 아래 네 이미지를 생성합니다.
 
-```json
-{
-  "optional": {
-    "drawdown_image": "[drawdown.png]",
-    "side_metrics": {
-      "long_return": "[Long 수익률]",
-      "short_return": "[Short 수익률]"
-    },
-    "session_metrics": "[세션별 성과 요약]",
-    "volatility_regime_metrics": "[변동성 구간별 성과 요약]",
-    "no_cost_diagnostic": "[비용 제거 시 결과]",
-    "top_three_removed_result": "[상위 3개 거래 제거 시 결과]"
-  }
-}
+```text
+summary_equity_curve.png
+cost_impact.png
+representative_win_trade.png
+representative_loss_trade.png
 ```
 
-선택 필드는 보고서 품질을 높일 때만 씁니다. 매일 기록에는 필수 필드만 있어도 충분해야 합니다.
+### summary_equity_curve.png
 
-## 5. 이미지 참조 규칙
+- 대표 성과 그래프입니다.
+- equity curve와 drawdown을 같은 이미지 안에 함께 표시합니다.
+- 2단 패널을 사용합니다.
+- 상단: equity curve.
+- 하단: drawdown 또는 underwater curve.
+- 별도의 `drawdown_curve.png`는 기본으로 만들지 않습니다.
+- 주석에는 strategy name, market/symbol, timeframe, period, total return, max drawdown, total trades, win rate, expectancy를 가능한 범위에서 넣습니다.
 
-- 이미지 파일명만 payload에 넣습니다.
-- 블로그 템플릿에서는 `./images/[filename].png` 형태로 사용합니다.
-- 이미지가 없으면 `null`을 넣고, 작성 에이전트는 `[확인 필요]`로 남깁니다.
-- 이미지 목록을 길게 저장하지 않습니다.
+### cost_impact.png
 
-예시:
+- 거래비용 반영 전후를 비교하는 그래프입니다.
+- 비용 단계별 equity curve가 있으면 line chart를 사용합니다.
+- 비용 단계별 equity curve가 없고 aggregate 값만 있으면 bar chart를 사용합니다.
+- line chart가 가능할 때는 no cost equity, fee only equity, fee + spread equity, fee + spread + slippage equity를 비교합니다.
+- bar chart만 가능할 때는 gross PnL, fee, spread, slippage, net PnL을 비교합니다.
+- 주석에는 total fee, total spread, total slippage, total transaction cost, gross PnL, net PnL, final return after costs를 가능한 범위에서 넣습니다.
+- chart title이나 label에는 `cost stress`라는 표현을 쓰지 않습니다.
 
-```json
-{
-  "images": {
-    "equity_curve": "fvg-midpoint-equity-curve.png",
-    "drawdown": null
-  }
-}
-```
+### representative_win_trade.png
 
-## 6. PR 저장 규칙
+- 대표 수익 거래 차트입니다.
+- OHLC candle data가 있으면 candlestick chart로 만듭니다.
+- 거래 전후 window의 candles, entry marker, exit marker, stop line, target line, pattern zone 또는 signal zone을 가능한 범위에서 표시합니다.
+- side, entry price, exit price, entry time, exit time, net PnL, exit reason을 표시합니다.
+- `representative_trades.best_trade`가 있으면 우선 사용합니다.
+- 없으면 전략 논리를 설명하기 쉬운 수익 거래를 고릅니다.
+
+### representative_loss_trade.png
+
+- 대표 손실 거래 차트입니다.
+- OHLC candle data가 있으면 candlestick chart로 만듭니다.
+- 거래 전후 window의 candles, entry marker, exit marker, stop line, target line, 실패한 pattern zone 또는 signal zone을 가능한 범위에서 표시합니다.
+- side, entry price, exit price, entry time, exit time, net PnL, exit reason을 표시합니다.
+- `representative_trades.worst_trade`가 있으면 우선 사용합니다.
+- 없으면 전략의 약점을 설명하기 쉬운 손실 거래를 고릅니다.
+
+## 5. 선택 이미지
+
+아래 이미지는 저장 데이터가 있고 리포트 해석에 도움이 될 때만 생성합니다.
+
+- `price_with_trades.png`
+- `trade_pnl_distribution.png`
+- `side_attribution.png`
+- `exit_reason_attribution.png`
+- `10_equity_curve_[number]_[timeframe]_[period-slug]_[variant-slug].png`
+- `20_cost_impact_[number]_[timeframe]_[period-slug]_[variant-slug].png`
+- `30_win_trade_[number]_[timeframe]_[period-slug]_[variant-slug].png`
+- `40_loss_trade_[number]_[timeframe]_[period-slug]_[variant-slug].png`
+
+선택 이미지도 `payload.json`과 같은 디렉터리에 저장하고 payload에는 파일명만 넣습니다.
+
+## 6. 최종 검증 규칙
+
+full report artifact 생성 후 아래를 확인합니다.
+
+- `payload.json` exists.
+- `report-ko.md` exists.
+- `summary_equity_curve.png` exists.
+- `cost_impact.png` exists.
+- `representative_win_trade.png` exists.
+- `representative_loss_trade.png` exists.
+- `images/` 하위 폴더가 없습니다.
+- `report-en.md`, `image_plan.md`, `image_plan.json` 파일이 없습니다.
+- 모든 equity curve 이미지는 drawdown을 같은 이미지 안에 포함합니다.
+- 별도의 `drawdown_curve.png`는 명시 요청이 없으면 생성하지 않습니다.
+- payload의 모든 이미지 참조는 `/`가 없는 파일명입니다.
+- `report-ko.md`의 모든 이미지 참조는 같은 폴더 기준 `./[filename].png`입니다.
+- `report-ko.md`에는 task 번호, run id, 내부 candidate id가 없습니다.
+- 누락된 필수 값은 `[확인 필요]`로 남아 있습니다.
+
+## 7. PR 저장 규칙
 
 - `pr` 필드는 문자열 하나만 둡니다.
 - 예시는 `#123`, `PR #123`, 또는 PR URL입니다.
-- commit hash는 블로그 작성 payload에 넣지 않습니다.
+- commit hash는 daily report payload에 넣지 않습니다.
 
 예시:
 
@@ -200,100 +323,32 @@ backtest_report_payload
 }
 ```
 
-## 7. 대표 거래 선택 규칙
-
-대표 거래는 네 가지를 고릅니다.
-
-- `best_trade`: 순손익 또는 R 기준 최고 수익 거래.
-- `worst_trade`: 순손익 또는 R 기준 최대 손실 거래.
-- `typical_winner`: 평균 수익 거래와 가장 가까운 수익 거래.
-- `typical_loser`: 평균 손실 거래와 가장 가까운 손실 거래.
-
-동률이면 다음 순서로 고릅니다.
-
-1. 비용이 더 크게 반영된 거래.
-2. 보유 시간이 더 일반적인 거래.
-3. 시간상 먼저 발생한 거래.
-
-대표 거래에는 가격만 넣지 말고, 왜 대표적인지 한 문장 요약을 같이 저장합니다.
-
 ## 8. 비용과 기대값 저장 규칙
 
-비용은 가능하면 총액과 해석 문장을 함께 저장합니다.
+비용은 가능한 범위에서 분리해 저장합니다.
 
-필수:
+- entry fee.
+- exit fee.
+- spread.
+- slippage.
+- total transaction cost.
+- gross PnL.
+- net PnL.
+- fee-adjusted break-even.
+- slippage-adjusted break-even.
 
-- `fee_total`
-- `slippage_total`
-- `spread_total`
-- `cost_assumptions`
-- `expectancy`
+기대값은 아래 수식의 항목을 채울 수 있어야 합니다.
 
-권장:
-
-- 비용 제거 결과.
-- 2배 비용 stress 결과.
-- 3배 비용 stress 결과.
-- 비용 반영 전후 Expectancy 변화.
-
-예시:
-
-```json
-{
-  "metrics": {
-    "expectancy": "+0.11R",
-    "fee_total": "87,713.79 USDT",
-    "slippage_total": "50,985.41 USDT",
-    "spread_total": "26,314.14 USDT"
-  },
-  "illusion_checks": {
-    "cost_sensitivity": "비용 반영 후 Expectancy가 +0.24R에서 +0.11R로 낮아졌습니다."
-  }
-}
+```text
+E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost
 ```
 
-## 9. 블로그 작성 payload에 넣지 않는 항목
+수익률만 저장하지 말고, 승률, 평균 이익, 평균 손실, 손익비, 수수료, 슬리피지를 함께 저장합니다.
 
-다음 값은 내부 DB, 내부 로그, 실행 기록에만 남기고 블로그 작성 payload에는 넣지 않습니다.
+## 9. 금지 사항
 
-- experiment ID.
-- data version.
-- full experiment config.
-- artifact path.
-- git commit.
-- generated output file list.
-- checklist.
-- appendix.
-- next experiment content.
-- secrets or credentials.
-
-내부 시스템이 run ID나 config를 필요로 할 수는 있습니다. 그런 값은 내부 추적용으로만 사용하고, 블로그 작성 에이전트에게 넘기는 payload와 최종 보고서에는 넣지 않습니다.
-
-## 10. 누락값 처리
-
-- 필수 값이 없으면 해당 필드는 `null`로 저장합니다.
-- 작성 에이전트는 누락값을 임의로 채우지 않습니다.
-- 최종 문서에는 `[확인 필요]`로 남깁니다.
-- 계산 가능한 값이라도 payload에 없으면 새로 계산하지 않습니다.
-
-예시:
-
-```json
-{
-  "metrics": {
-    "sharpe": null
-  }
-}
-```
-
-보고서 작성 시:
-
-```markdown
-* Sharpe: `[확인 필요]`
-```
-
-## 11. 문서 전용 규칙
-
-이 규칙은 문서 작성 payload 규칙입니다. DB schema, 백테스트 엔진, 저장소 구조 변경을 요구하지 않습니다.
-
-향후 자동 저장을 구현하려면 별도 task에서 다룹니다.
+- daily report 이미지에 task 번호, run id, 내부 candidate id를 노출하지 않습니다.
+- 저장된 graph/equity/trade/cost 데이터가 없는데 임의 곡선을 만들지 않습니다.
+- smoothing으로 성과 곡선을 보기 좋게 바꾸지 않습니다.
+- live trading, 실제 주문, private endpoint, secret 사용을 하지 않습니다.
+- payload에는 `.env`, API key, DB dump, 원본 CSV dump를 넣지 않습니다.

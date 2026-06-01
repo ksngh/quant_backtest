@@ -85,6 +85,13 @@ from quant_bitcoin.risk.exit_plan import (
     target_semantics_metadata,
 )
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
+from quant_bitcoin.strategies.lookback_return_momentum import (
+    STRATEGY_KEY as LOOKBACK_RETURN_MOMENTUM_KEY,
+    LookbackReturnMomentumConfig,
+    LookbackReturnMomentumStrategy,
+    build_lookback_return_momentum_actions,
+    config_for_timeframe as lookback_return_momentum_config_for_timeframe,
+)
 from quant_bitcoin.strategies.pattern_execution_policy import policy_for_pattern, validate_pattern_entry_mode
 from quant_bitcoin.strategies.pattern_explanations import build_pattern_strategy_explanation
 from quant_bitcoin.strategies.patterns import PatternEntryFilterConfig, strategy_for_pattern
@@ -314,6 +321,12 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--srlbr-target-r-multiple", type=_positive_finite_float, default=4.0)
     parser.add_argument("--srlbr-stop-atr-buffer-multiplier", type=_non_negative_finite_float, default=0.20)
     parser.add_argument("--srlbr-max-bars-in-trade", type=int, default=240)
+    parser.add_argument("--lookback-bars", type=int, default=None)
+    parser.add_argument("--entry-threshold", type=_positive_finite_float, default=None)
+    parser.add_argument("--holding-bars", type=int, default=None)
+    parser.add_argument("--risk-distance-pct", type=_positive_finite_float, default=None)
+    parser.add_argument("--stop-loss-r", type=_positive_finite_float, default=None)
+    parser.add_argument("--take-profit-r", type=_positive_finite_float, default=None)
     parser.add_argument("--start-time", type=_optional_timestamp, default=None)
     parser.add_argument("--end-time", type=_optional_timestamp, default=None)
     parser.add_argument("--starting-cash", type=float, default=10000.0)
@@ -691,6 +704,7 @@ def _build_strategy_parameters(
     pattern_regime_thresholds: PatternRegimeThresholdConfig | None = None,
     cash_denomination_metadata: dict[str, object] | None = None,
     research_metadata: dict[str, object] | None = None,
+    lookback_return_momentum_config: LookbackReturnMomentumConfig | None = None,
 ) -> dict[str, object]:
     return {
         "pattern": strategy_key,
@@ -712,6 +726,14 @@ def _build_strategy_parameters(
             "liquidity_role": default_liquidity_role.value,
         },
         "cash_denomination": cash_denomination_metadata,
+        "lookback_return_momentum": (
+            lookback_return_momentum_config.to_metadata()
+            if lookback_return_momentum_config is not None
+            else {
+                "schema_version": "lookback_return_momentum_config_v1",
+                "enabled": False,
+            }
+        ),
         "cost_profile": cost_profile_metadata,
         "cost_aware_entry_filter": _cost_aware_entry_filter_metadata(cost_aware_entry_filter_config),
         "position_sizing": position_sizing.to_metadata(),
@@ -1290,6 +1312,24 @@ def _select_strategy_key(args: argparse.Namespace) -> str:
     return (args.pattern or getattr(args, "strategy", None) or DEFAULT_STRATEGY).upper()
 
 
+def _is_lookback_return_momentum_strategy(strategy_key: str) -> bool:
+    return str(strategy_key).upper() == LOOKBACK_RETURN_MOMENTUM_KEY
+
+
+def _build_lookback_return_momentum_config(
+    args: argparse.Namespace,
+) -> LookbackReturnMomentumConfig:
+    return lookback_return_momentum_config_for_timeframe(
+        args.interval,
+        lookback_bars=getattr(args, "lookback_bars", None),
+        entry_threshold=getattr(args, "entry_threshold", None),
+        holding_bars=getattr(args, "holding_bars", None),
+        risk_distance_pct=getattr(args, "risk_distance_pct", None),
+        stop_loss_r=getattr(args, "stop_loss_r", None),
+        take_profit_r=getattr(args, "take_profit_r", None),
+    )
+
+
 def _build_pattern_entry_filter_config(args: argparse.Namespace) -> PatternEntryFilterConfig:
     statuses = {"VALID"}
     if args.allowed_pattern_statuses:
@@ -1696,6 +1736,7 @@ def _build_actions(
     strategy_key: str,
     entry_filter_config: PatternEntryFilterConfig | None = None,
     *,
+    lookback_return_momentum_config: LookbackReturnMomentumConfig | None = None,
     fvg_entry_mode: PatternEntryMode | None = None,
     pattern_entry_mode: PatternEntryMode | None = None,
     fvg_entry_config: PatternEntryConfig | None = None,
@@ -1714,6 +1755,11 @@ def _build_actions(
     session_range_liquidity_breakout_reversal_config: SessionRangeLiquidityBreakoutReversalConfig | None = None,
     fvg_inverse_direction: bool = False,
 ):
+    if _is_lookback_return_momentum_strategy(strategy_key):
+        config = lookback_return_momentum_config or LookbackReturnMomentumConfig()
+        strategy = LookbackReturnMomentumStrategy(config=config)
+        return strategy, build_lookback_return_momentum_actions(candles, config=config)
+
     strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     if strategy.strategy_key == "ORDER_BLOCK" and order_block_config is not None:
         object.__setattr__(strategy, "detector_config", order_block_config)
@@ -2266,6 +2312,7 @@ def _empty_output(
     interval: str = DEFAULT_INTERVAL,
     risk_free_rate: float = 0.0,
     policy_metadata: dict[str, object] | None = None,
+    strategy_type: str = "single_pattern",
 ) -> dict[str, object]:
     metadata = {
         "performance_metrics": calculate_performance_metrics(
@@ -2278,8 +2325,13 @@ def _empty_output(
         metadata.update(policy_metadata)
     return {
         "strategy": {
-            "name": f"{strategy_key}_PATTERN_STRATEGY",
-            "strategy_type": "single_pattern",
+            "name": (
+                f"{strategy_key}_PATTERN_STRATEGY"
+                if strategy_type == "single_pattern"
+                else f"{strategy_key}_RESEARCH_STRATEGY"
+            ),
+            "strategy_type": strategy_type,
+            "strategy_key": strategy_key,
             "pattern": strategy_key,
         },
         "portfolio": {
@@ -2390,7 +2442,13 @@ def _serialize_events(executions: Sequence[object]) -> list[dict[str, object]]:
     return events
 
 
-def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str, object]:
+def _serialize_output(
+    result,
+    strategy_key: str,
+    strategy_name: str,
+    *,
+    strategy_type: str = "single_pattern",
+) -> dict[str, object]:
     events = _serialize_events(result.executions)
     diagnostics = {
         "pattern_event_count": len(events),
@@ -2400,7 +2458,8 @@ def _serialize_output(result, strategy_key: str, strategy_name: str) -> dict[str
     return {
         "strategy": {
             "name": strategy_name,
-            "strategy_type": "single_pattern",
+            "strategy_type": strategy_type,
+            "strategy_key": strategy_key,
             "pattern": strategy_key,
         },
         "portfolio": {
@@ -2476,6 +2535,46 @@ def _build_fvg_entry_mode_diagnostics(
         "average_entry_reference_distance": _average(entry_reference_distances),
         "average_zone_mid_distance": _average(zone_mid_distances),
         "entry_not_filled_reasons": sorted({str((action.metadata or {}).get("reason")) for action in missed_actions if (action.metadata or {}).get("reason")}),
+    }
+
+
+def _build_lookback_return_momentum_diagnostics(
+    actions: Sequence[StrategyAction],
+    result,
+    config: LookbackReturnMomentumConfig,
+) -> dict[str, object]:
+    entry_actions = [
+        action
+        for action in actions
+        if action.action_type in (StrategyActionType.ENTER_LONG, StrategyActionType.ENTER_SHORT)
+    ]
+    exit_actions = [
+        action
+        for action in actions
+        if action.action_type in (StrategyActionType.EXIT_LONG, StrategyActionType.EXIT_SHORT)
+    ]
+    exit_reasons = [
+        str((action.metadata or {}).get("exit_reason"))
+        for action in exit_actions
+        if (action.metadata or {}).get("exit_reason")
+    ]
+    return {
+        "schema_version": "lookback_return_momentum_diagnostics_v1",
+        "strategy_key": LOOKBACK_RETURN_MOMENTUM_KEY,
+        "config": config.to_metadata(),
+        "candidate_entry_count": len(entry_actions),
+        "exit_count": len(exit_actions),
+        "exit_reasons": sorted(set(exit_reasons)),
+        "long_entry_count": sum(1 for action in entry_actions if action.action_type == StrategyActionType.ENTER_LONG),
+        "short_entry_count": sum(1 for action in entry_actions if action.action_type == StrategyActionType.ENTER_SHORT),
+        "trade_count": result.summary.trade_count,
+        "completed_trade_count": (
+            ((result.summary.metadata or {}).get("trade_attribution") or {})
+            .get("trade_metrics", {})
+            .get("completed_trade_count")
+        ),
+        "average_net_r": result.summary.average_net_r,
+        "scope": "offline_backtest_research_only",
     }
 
 
@@ -2614,13 +2713,23 @@ def run(
 ) -> int:
     args = build_parser(prog, include_strategy).parse_args(argv)
     strategy_key = _select_strategy_key(args)
+    is_lookback_return_momentum = _is_lookback_return_momentum_strategy(strategy_key)
+    lookback_return_momentum_config = (
+        _build_lookback_return_momentum_config(args)
+        if is_lookback_return_momentum
+        else None
+    )
     cash_denomination_metadata = _build_cash_denomination_metadata(args)
     effective_starting_cash = float(cash_denomination_metadata["effective_quote_starting_cash"])
     args.effective_starting_cash = effective_starting_cash
     args.cash_denomination_metadata = cash_denomination_metadata
     if getattr(args, "fvg_inverse_direction", False) and strategy_key != "FAIR_VALUE_GAP":
         raise ValueError("--fvg-inverse-direction is only supported with --pattern FAIR_VALUE_GAP")
-    pattern_entry_mode = _selected_pattern_entry_mode(args, strategy_key)
+    pattern_entry_mode = (
+        PatternEntryMode.MARKET_ON_CONFIRMATION_CLOSE
+        if is_lookback_return_momentum
+        else _selected_pattern_entry_mode(args, strategy_key)
+    )
     pattern_entry_custom_price = _selected_entry_custom_price(args)
     fvg_entry_config = (
         _selected_liquidity_sweep_entry_config(args)
@@ -2646,8 +2755,18 @@ def run(
     )
     fvg_direction_metadata = _build_fvg_direction_metadata(bool(args.fvg_inverse_direction))
     fvg_v2_metadata = _build_fvg_v2_metadata(args)
-    pattern_execution_policy = validate_pattern_entry_mode(strategy_key, pattern_entry_mode).to_metadata(
-        selected_entry_mode=pattern_entry_mode
+    pattern_execution_policy = (
+        {
+            "schema_version": "pattern_execution_policy_v1",
+            "enabled": False,
+            "skipped_reason": "not_a_pattern_strategy",
+            "strategy_key": strategy_key,
+            "scope": "offline_backtest_research_only",
+        }
+        if is_lookback_return_momentum
+        else validate_pattern_entry_mode(strategy_key, pattern_entry_mode).to_metadata(
+            selected_entry_mode=pattern_entry_mode
+        )
     )
     transaction_cost_config, default_liquidity_role = _build_transaction_cost_config(args)
     cost_aware_entry_filter_config = _build_cost_aware_entry_filter_config(
@@ -2706,7 +2825,16 @@ def run(
             interval=args.interval,
             risk_free_rate=args.risk_free_rate,
             policy_metadata=policy_metadata,
+            strategy_type=(
+                "lookback_return_momentum"
+                if is_lookback_return_momentum
+                else "single_pattern"
+            ),
         )
+        if lookback_return_momentum_config is not None:
+            output["summary"]["metadata"]["lookback_return_momentum"] = (
+                lookback_return_momentum_config.to_metadata()
+            )
         output["cash_denomination"] = cash_denomination_metadata
         output["summary"]["metadata"]["cash_denomination"] = cash_denomination_metadata
         output["summary"]["metadata"]["order_block"] = _order_block_config_metadata(order_block_config)
@@ -2743,6 +2871,7 @@ def run(
         candles,
         strategy_key,
         entry_filter_config,
+        lookback_return_momentum_config=lookback_return_momentum_config,
         pattern_entry_mode=pattern_entry_mode,
         fvg_entry_config=fvg_entry_config,
         fvg_entry_custom_price=pattern_entry_custom_price,
@@ -2771,7 +2900,7 @@ def run(
     timings["build_actions_ms"] = _ms(start_build, time.perf_counter())
     pattern_profile["actions_emitted"] = len(actions)
     pattern_profile["events_detected"] = sum(1 for a in actions if getattr(a, "metadata", None) and a.metadata.get("event_id"))
-    strategy_version = "strategy_engine_v1"
+    strategy_version = getattr(strategy, "strategy_version", "strategy_engine_v1")
     strategy_parameters = _build_strategy_parameters(
         strategy_key=strategy.strategy_key,
         entry_filter_config=entry_filter_config,
@@ -2805,6 +2934,7 @@ def run(
         pattern_regime_thresholds=pattern_regime_thresholds,
         cash_denomination_metadata=cash_denomination_metadata,
         research_metadata=research_metadata,
+        lookback_return_momentum_config=lookback_return_momentum_config,
     )
     reproducibility_metadata = _build_reproducibility_metadata(
         args=args,
@@ -2851,7 +2981,8 @@ def run(
             pattern_profile=pattern_profile,
             timings=timings,
         )
-        strategy_explanation = build_pattern_strategy_explanation(strategy.strategy_key)
+        if not is_lookback_return_momentum:
+            build_pattern_strategy_explanation(strategy.strategy_key)
         payload = build_strategy_engine_persistence_payload(
             result,
             candles,
@@ -2879,7 +3010,16 @@ def run(
     timings["persist_ms"] = _ms(start_persist, time.perf_counter())
 
     start_json = time.perf_counter()
-    output = _serialize_output(result, strategy.strategy_key, strategy.strategy_name)
+    output = _serialize_output(
+        result,
+        strategy.strategy_key,
+        strategy.strategy_name,
+        strategy_type=(
+            "lookback_return_momentum"
+            if is_lookback_return_momentum
+            else "single_pattern"
+        ),
+    )
     output["reproducibility"] = reproducibility_metadata
     output["cash_denomination"] = cash_denomination_metadata
     output["diagnostics"]["pattern_execution_policy"] = pattern_execution_policy
@@ -2905,64 +3045,75 @@ def run(
     output["summary"]["metadata"]["session_range_liquidity_breakout_reversal"] = (
         session_range_liquidity_breakout_reversal_config.to_metadata()
     )
-    retest_opportunity = build_fvg_ob_retest_opportunity_report(
-        actions,
-        candles,
-        regime_by_timestamp=engine_config.market_regime_by_timestamp,
-    )
-    output["diagnostics"]["fvg_ob_retest_opportunity"] = retest_opportunity
-    output["summary"]["metadata"]["fvg_ob_retest_opportunity"] = retest_opportunity
-    trendline_forensics = build_trendline_false_breakout_forensics(actions, candles)
-    output["diagnostics"]["trendline_false_breakout_forensics"] = trendline_forensics
-    output["summary"]["metadata"]["trendline_false_breakout_forensics"] = trendline_forensics
-    fvg_entry_diagnostics = _build_fvg_entry_mode_diagnostics(actions, result, pattern_entry_mode, pattern_key=strategy.strategy_key)
-    output["diagnostics"]["fvg_entry_mode"] = fvg_entry_diagnostics
-    output["diagnostics"]["fvg_retest_v2"] = {
-        "schema_version": "fvg_retest_v2_diagnostics_v1",
-        "settings": fvg_v2_metadata,
-        "entry_trigger": fvg_v2_metadata["entry_trigger"],
-        "stop_mode": fvg_v2_metadata["stop_mode"],
-        "experimental_scope": "offline_research_only",
-        "counts": {
-            "filled_entry_count": fvg_entry_diagnostics.get("filled_entry_count"),
-            "skipped_entry_count": fvg_entry_diagnostics.get("skipped_entry_count"),
-        },
-    }
-    output["summary"]["metadata"]["fvg_entry_mode"] = fvg_entry_diagnostics
-    output["summary"]["metadata"]["fvg_retest_v2"] = output["diagnostics"]["fvg_retest_v2"]
-    output["diagnostics"]["pattern_entry_mode"] = fvg_entry_diagnostics
-    output["summary"]["metadata"]["pattern_entry_mode"] = fvg_entry_diagnostics
-    if args.compare_fvg_entry_modes:
-        output["diagnostics"]["fvg_entry_mode_comparison"] = _build_fvg_entry_mode_comparison(
-            candles,
-            strategy.strategy_key,
-            entry_filter_config,
-            fvg_entry_config,
-            pattern_entry_custom_price,
-            engine_config,
-            cost_aware_entry_filter_config,
-            fvg_order_block_confluence_config,
+    if lookback_return_momentum_config is not None:
+        lrm_diagnostics = _build_lookback_return_momentum_diagnostics(
+            actions,
+            result,
+            lookback_return_momentum_config,
         )
-    if args.compare_pattern_entry_modes:
-        output["diagnostics"]["pattern_entry_mode_comparison"] = _build_pattern_entry_mode_comparison(
-            candles,
-            strategy.strategy_key,
-            entry_filter_config,
-            fvg_entry_config,
-            pattern_entry_custom_price,
-            engine_config,
-            cost_aware_entry_filter_config,
-            fvg_order_block_confluence_config,
-            order_block_config,
-            order_block_entry_volume_filter_config,
-            order_block_mtf_filter_config,
-            order_block_risk_exit_config,
+        output["diagnostics"]["lookback_return_momentum"] = lrm_diagnostics
+        output["summary"]["metadata"]["lookback_return_momentum"] = (
+            lookback_return_momentum_config.to_metadata()
         )
+    else:
+        retest_opportunity = build_fvg_ob_retest_opportunity_report(
+            actions,
+            candles,
+            regime_by_timestamp=engine_config.market_regime_by_timestamp,
+        )
+        output["diagnostics"]["fvg_ob_retest_opportunity"] = retest_opportunity
+        output["summary"]["metadata"]["fvg_ob_retest_opportunity"] = retest_opportunity
+        trendline_forensics = build_trendline_false_breakout_forensics(actions, candles)
+        output["diagnostics"]["trendline_false_breakout_forensics"] = trendline_forensics
+        output["summary"]["metadata"]["trendline_false_breakout_forensics"] = trendline_forensics
+        fvg_entry_diagnostics = _build_fvg_entry_mode_diagnostics(actions, result, pattern_entry_mode, pattern_key=strategy.strategy_key)
+        output["diagnostics"]["fvg_entry_mode"] = fvg_entry_diagnostics
+        output["diagnostics"]["fvg_retest_v2"] = {
+            "schema_version": "fvg_retest_v2_diagnostics_v1",
+            "settings": fvg_v2_metadata,
+            "entry_trigger": fvg_v2_metadata["entry_trigger"],
+            "stop_mode": fvg_v2_metadata["stop_mode"],
+            "experimental_scope": "offline_research_only",
+            "counts": {
+                "filled_entry_count": fvg_entry_diagnostics.get("filled_entry_count"),
+                "skipped_entry_count": fvg_entry_diagnostics.get("skipped_entry_count"),
+            },
+        }
+        output["summary"]["metadata"]["fvg_entry_mode"] = fvg_entry_diagnostics
+        output["summary"]["metadata"]["fvg_retest_v2"] = output["diagnostics"]["fvg_retest_v2"]
+        output["diagnostics"]["pattern_entry_mode"] = fvg_entry_diagnostics
+        output["summary"]["metadata"]["pattern_entry_mode"] = fvg_entry_diagnostics
+        if args.compare_fvg_entry_modes:
+            output["diagnostics"]["fvg_entry_mode_comparison"] = _build_fvg_entry_mode_comparison(
+                candles,
+                strategy.strategy_key,
+                entry_filter_config,
+                fvg_entry_config,
+                pattern_entry_custom_price,
+                engine_config,
+                cost_aware_entry_filter_config,
+                fvg_order_block_confluence_config,
+            )
+        if args.compare_pattern_entry_modes:
+            output["diagnostics"]["pattern_entry_mode_comparison"] = _build_pattern_entry_mode_comparison(
+                candles,
+                strategy.strategy_key,
+                entry_filter_config,
+                fvg_entry_config,
+                pattern_entry_custom_price,
+                engine_config,
+                cost_aware_entry_filter_config,
+                fvg_order_block_confluence_config,
+                order_block_config,
+                order_block_entry_volume_filter_config,
+                order_block_mtf_filter_config,
+                order_block_risk_exit_config,
+            )
     if persisted_run_id is not None:
         output["backtest_run_id"] = persisted_run_id
     if not actions:
         output["warnings"].append("no strategy events")
-    elif not output["events"]:
+    elif not output["events"] and not is_lookback_return_momentum:
         output["warnings"].append("no pattern events in executions")
     if output["summary"]["trade_count"] == 0:
         output["warnings"].append("no fills")
@@ -2978,7 +3129,7 @@ def run(
         output["warnings"].append("candle_continuity_not_enforced")
     if not args.enable_market_regime:
         output["warnings"].append("market_regime_disabled")
-    if fvg_v2_metadata["enabled"]:
+    if fvg_v2_metadata["enabled"] and not is_lookback_return_momentum:
         output["warnings"].append("fvg_retest_v2_experimental_scope")
     if cash_denomination_metadata.get("assumption_warning"):
         output["warnings"].append("starting_cash_currency_assumed_quote_currency")

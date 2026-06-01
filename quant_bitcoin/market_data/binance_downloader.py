@@ -33,6 +33,15 @@ NUMERIC_CANDLE_COLUMNS: tuple[str, ...] = (
     "volume",
 )
 
+SUPPORTED_KLINE_INTERVALS: tuple[str, ...] = (
+    "1m",
+    "3m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "1d",
+)
 MINUTE_INTERVALS: frozenset[str] = frozenset({"1m", "3m", "5m", "15m", "30m"})
 BINANCE_KLINES_PATH = "/api/v3/klines"
 DEFAULT_MARKET_DATA_BASE_URL = "https://data-api.binance.vision"
@@ -66,8 +75,8 @@ class BinanceCandleDownloader:
 
         Args:
             symbol: Binance spot symbol, for example ``BTCUSDT``.
-            interval: Binance kline interval. This first implementation supports
-                minute-level intervals only.
+            interval: Supported Binance kline interval, such as ``1m``, ``1h``,
+                or ``1d``.
             start_time: Optional candle open start time in milliseconds or a
                 datetime-like value.
             end_time: Optional candle open end time in milliseconds or a
@@ -134,7 +143,7 @@ def _build_kline_params(
     limit: int,
 ) -> dict[str, int | str]:
     normalized_symbol = _normalize_symbol(symbol)
-    _validate_minute_interval(interval)
+    _validate_kline_interval(interval)
     _validate_limit(limit)
 
     params: dict[str, int | str] = {
@@ -168,10 +177,12 @@ def _normalize_symbol(symbol: str) -> str:
     return normalized_symbol
 
 
-def _validate_minute_interval(interval: str) -> None:
-    if interval not in MINUTE_INTERVALS:
-        supported = ", ".join(sorted(MINUTE_INTERVALS))
-        raise ValueError(f"interval must be a supported minute interval: {supported}")
+def _validate_kline_interval(interval: str) -> None:
+    if interval not in SUPPORTED_KLINE_INTERVALS:
+        supported = ", ".join(SUPPORTED_KLINE_INTERVALS)
+        raise ValueError(
+            f"interval must be a supported Binance kline interval: {supported}"
+        )
 
 
 def _validate_limit(limit: int) -> None:

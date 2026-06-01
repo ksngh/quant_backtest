@@ -21,7 +21,10 @@ from quant_bitcoin.market_data.binance_backfill import (
     MultiIntervalBinanceBackfillRunner,
     parse_interval_list,
 )
-from quant_bitcoin.market_data.binance_downloader import DEFAULT_MARKET_DATA_BASE_URL
+from quant_bitcoin.market_data.binance_downloader import (
+    DEFAULT_MARKET_DATA_BASE_URL,
+    SUPPORTED_KLINE_INTERVALS,
+)
 from quant_bitcoin.persistence import PostgresCandleRepository
 from quant_bitcoin.runtime_logging import log_runtime_exception
 
@@ -32,6 +35,7 @@ DEFAULT_DATABASE_URL = (
 )
 DEFAULT_TIMEOUT_SECONDS = 10.0
 DEFAULT_MAX_RETRIES = 3
+SUPPORTED_INTERVALS_HELP = ", ".join(SUPPORTED_KLINE_INTERVALS)
 
 RepositoryFactory = Callable[[str], Any]
 BackfillerFactory = Callable[..., Any]
@@ -97,12 +101,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--interval",
         default=os.environ.get("INTERVAL", DEFAULT_INTERVAL),
-        help="Binance kline interval to backfill",
+        help=(
+            "Binance kline interval to backfill. "
+            f"Supported: {SUPPORTED_INTERVALS_HELP}"
+        ),
     )
     parser.add_argument(
         "--intervals",
         default=os.environ.get("INTERVALS"),
-        help="comma-separated Binance kline intervals to backfill in order",
+        help=(
+            "comma-separated Binance kline intervals to backfill in order. "
+            f"Supported: {SUPPORTED_INTERVALS_HELP}"
+        ),
     )
     parser.add_argument(
         "--start-time",

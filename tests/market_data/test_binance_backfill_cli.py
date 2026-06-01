@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from quant_bitcoin.market_data.binance_backfill import BackfillResult
-from quant_bitcoin.market_data.binance_backfill_cli import main
+from quant_bitcoin.market_data.binance_backfill_cli import build_parser, main
 
 
 def _json_output(capsys):
@@ -157,7 +157,7 @@ def test_cli_runs_multi_interval_backfill_once_per_requested_interval(capsys):
             )
 
     exit_code = main(
-        ["--symbol", "btcusdt", "--intervals", "1m, 5m,15m,5m"],
+        ["--symbol", "btcusdt", "--intervals", "1m, 1h,1d,1h"],
         repository_factory=FakeRepository,
         backfiller_factory=FakeBackfiller,
     )
@@ -165,9 +165,9 @@ def test_cli_runs_multi_interval_backfill_once_per_requested_interval(capsys):
 
     assert exit_code == 0
     assert output["symbol"] == "BTCUSDT"
-    assert output["intervals"] == ["1m", "5m", "15m"]
-    assert [call["interval"] for call in calls["run_kwargs"]] == ["1m", "5m", "15m"]
-    assert output["results"][1]["interval"] == "5m"
+    assert output["intervals"] == ["1m", "1h", "1d"]
+    assert [call["interval"] for call in calls["run_kwargs"]] == ["1m", "1h", "1d"]
+    assert output["results"][1]["interval"] == "1h"
     assert output["results"][1]["stored_candles"] == 7
 
 
@@ -179,7 +179,7 @@ def test_cli_rejects_invalid_interval_list_before_database_or_network_work():
     try:
         main(["--intervals", "1m,2h"], repository_factory=UnexpectedRepository)
     except ValueError as error:
-        assert "supported minute interval" in str(error)
+        assert "supported Binance kline interval" in str(error)
     else:
         raise AssertionError("expected invalid interval list to fail")
 
@@ -195,6 +195,13 @@ def test_cli_rejects_invalid_limit_before_any_database_or_network_work():
         assert error.code == 2
     else:
         raise AssertionError("expected argparse to stop on invalid limit")
+
+
+def test_cli_help_lists_hour_and_day_backfill_intervals():
+    help_text = build_parser().format_help()
+
+    assert "1h" in help_text
+    assert "1d" in help_text
 
 
 def test_backfill_console_script_is_registered():
