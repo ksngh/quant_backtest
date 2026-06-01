@@ -38,7 +38,9 @@
 - 저장된 결과가 없으면 payload나 이미지를 꾸며서 만들지 않습니다.
 - 내부 추적값은 payload, 이미지 파일명, chart title에 쓰지 않습니다.
 - task 번호, run id, 내부 candidate id는 report folder, 이미지 파일명, 그래프 제목, `report-ko.md` 본문에 쓰지 않습니다.
-- live trading, 실제 주문, private endpoint, secret 사용은 하지 않습니다.
+- live trading, 실제 주문, private API, credential 사용은 하지 않습니다.
+- 최종 리포트는 결론 섹션으로 닫지 않고, 해석 섹션에서 실험 의도, 관찰 결과, 원인, 다음 보완점을 연결합니다.
+- 없는 패턴/필터/이미지/타임프레임은 기본적으로 본문에 쓰지 않습니다. 의사결정에 필요하면 한계나 다음 보완점에만 둡니다.
 
 ## 3. 요청을 받으면 먼저 분류합니다
 
@@ -174,6 +176,10 @@ PNG 생성 후 `report-ko.md`를 만듭니다.
 - task 번호, run id, 내부 candidate id, source file path, DB dump, config dump, git commit은 쓰지 않습니다.
 - 연구 전용 또는 실패 전략은 실전 적용 가능하다고 쓰지 않습니다.
 - `report-en.md`는 명시 요청이 없으면 만들지 않습니다.
+- 전략 소개 문장에 시장/심볼을 반복하지 않습니다. 시장/심볼은 테스트 개요에서 이미 다룹니다.
+- 패턴이나 필터가 없으면 `패턴 없음`, `필터 조건 없음` 표 행을 만들지 않고 prose로 신호와 진입 방향을 설명합니다.
+- `5m`처럼 local closed candle coverage가 없어 빠진 비교는 핵심 요약이나 리드 문장이 아니라 한계 또는 다음 보완점에 씁니다.
+- 대표 수익/손실 거래는 가능한 근거만 사용해 당시 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전 여부, equity curve/drawdown 맥락을 설명합니다.
 
 ## 8. 최종 검증
 
@@ -248,7 +254,7 @@ daily report 요청만으로 새 전략 개발이나 새 백테스트를 자동 
 - 대표 손실 거래.
 - 결과 해석.
 - 위험 해석.
-- 결론.
+- 다음 보완점.
 
 필드 이름과 구조는 `docs/blog/backtest_report_data_rules.md`를 따릅니다.
 

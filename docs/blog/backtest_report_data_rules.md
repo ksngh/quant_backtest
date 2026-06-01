@@ -48,7 +48,7 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
 - `report-ko.md`는 `payload.json`과 같은 디렉터리에 있는 PNG 파일만 참조합니다.
 - Markdown 이미지 참조는 `./summary_equity_curve.png`처럼 같은 폴더 기준 상대 경로만 사용합니다.
 - payload에 없는 값은 추정하지 않고 `[확인 필요]`로 남깁니다.
-- 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, source file path, git commit, secret, config dump를 쓰지 않습니다.
+- 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, source file path, git commit, credential, config dump를 쓰지 않습니다.
 - research-only 또는 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
 
 ## 2. 필드 이름 규칙
@@ -200,6 +200,13 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
       "stop_price": "[손절가 또는 null]",
       "target_price": "[익절가 또는 null]",
       "net_pnl": "[순손익]",
+      "gross_pnl": "[비용 차감 전 손익 또는 null]",
+      "transaction_cost": "[수수료/스프레드/슬리피지 합계 또는 null]",
+      "hold_duration": "[보유 시간 또는 null]",
+      "entry_candle_context": "[진입 전후 candle body/range/volatility 설명 또는 null]",
+      "volume_context": "[local baseline 대비 거래량 설명 또는 null]",
+      "follow_through_context": "[진입 후 추세 지속/반전/횡보 여부 또는 null]",
+      "equity_context": "[근처 drawdown/equity curve 상태 또는 null]",
       "exit_reason": "[청산 이유]",
       "reason": "[대표 거래로 고른 이유]"
     },
@@ -212,19 +219,42 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
       "stop_price": "[손절가 또는 null]",
       "target_price": "[익절가 또는 null]",
       "net_pnl": "[순손익]",
+      "gross_pnl": "[비용 차감 전 손익 또는 null]",
+      "transaction_cost": "[수수료/스프레드/슬리피지 합계 또는 null]",
+      "hold_duration": "[보유 시간 또는 null]",
+      "entry_candle_context": "[진입 전후 candle body/range/volatility 설명 또는 null]",
+      "volume_context": "[local baseline 대비 거래량 설명 또는 null]",
+      "follow_through_context": "[진입 후 추세 지속/반전/횡보 여부 또는 null]",
+      "equity_context": "[근처 drawdown/equity curve 상태 또는 null]",
       "exit_reason": "[청산 이유]",
       "reason": "[대표 거래로 고른 이유]"
     }
   },
   "interpretation": {
-    "result_interpretation": "[성과 해석]",
+    "experiment_intent": "[이번 실험이 확인하려는 것]",
+    "result_interpretation": "[저장 결과에서 일어난 일]",
+    "cause_interpretation": "[결과가 나온 원인 해석]",
     "risk_interpretation": "[위험 및 한계 해석]",
-    "final_conclusion": "[결론]"
+    "next_improvements": "[다음 실험에서 추가/제거/조정할 항목]"
   }
 }
 ```
 
-## 4. 필수 고정 이미지
+## 4. 리포트 해석 및 누락 항목 저장 규칙
+
+`interpretation`은 별도 결론 문구를 저장하는 곳이 아닙니다. 아래 순서로 future report writer가 한 섹션 안에서 해석을 쓸 수 있도록 저장합니다.
+
+- `experiment_intent`: 이번 실험이 확인하려는 것.
+- `result_interpretation`: 저장 결과에서 실제로 일어난 일.
+- `cause_interpretation`: 비용, gross edge, 신호 품질, turnover, threshold, hold window, 필터 부재 등 원인 후보.
+- `risk_interpretation`: 연구 전용 경계, 비용/체결/구간 한계.
+- `next_improvements`: 다음 실험에서 추가하거나 제거할 조건.
+
+패턴, 필터, 이미지, 타임프레임 coverage가 없다는 사실은 기본 payload 설명문에 넣지 않습니다. 의사결정에 중요하면 `risk_interpretation` 또는 `next_improvements`에만 넣습니다. 예를 들어 `5m` local closed candle coverage가 없어 빠진 비교는 리드 문장이 아니라 `next_improvements`에 저장합니다.
+
+대표 거래에는 데이터가 있을 때만 시장 상황 맥락을 저장합니다. 거래량, candle body/range, volatility, 보유 시간, 비용 비중, 진입 후 추세 지속/반전/횡보, 근처 drawdown/equity 상태가 없으면 null로 두고 리포트에서 만들지 않습니다.
+
+## 5. 필수 고정 이미지
 
 모든 payload/image artifact는 아래 네 이미지를 생성합니다.
 
@@ -273,7 +303,7 @@ representative_loss_trade.png
 - `representative_trades.worst_trade`가 있으면 우선 사용합니다.
 - 없으면 전략의 약점을 설명하기 쉬운 손실 거래를 고릅니다.
 
-## 5. 선택 이미지
+## 6. 선택 이미지
 
 아래 이미지는 저장 데이터가 있고 리포트 해석에 도움이 될 때만 생성합니다.
 
@@ -288,7 +318,7 @@ representative_loss_trade.png
 
 선택 이미지도 `payload.json`과 같은 디렉터리에 저장하고 payload에는 파일명만 넣습니다.
 
-## 6. 최종 검증 규칙
+## 7. 최종 검증 규칙
 
 full report artifact 생성 후 아래를 확인합니다.
 
@@ -307,7 +337,7 @@ full report artifact 생성 후 아래를 확인합니다.
 - `report-ko.md`에는 task 번호, run id, 내부 candidate id가 없습니다.
 - 누락된 필수 값은 `[확인 필요]`로 남아 있습니다.
 
-## 7. PR 저장 규칙
+## 8. PR 저장 규칙
 
 - `pr` 필드는 문자열 하나만 둡니다.
 - 예시는 `#123`, `PR #123`, 또는 PR URL입니다.
@@ -323,7 +353,7 @@ full report artifact 생성 후 아래를 확인합니다.
 }
 ```
 
-## 8. 비용과 기대값 저장 규칙
+## 9. 비용과 기대값 저장 규칙
 
 비용은 가능한 범위에서 분리해 저장합니다.
 
@@ -345,10 +375,10 @@ E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost
 
 수익률만 저장하지 말고, 승률, 평균 이익, 평균 손실, 손익비, 수수료, 슬리피지를 함께 저장합니다.
 
-## 9. 금지 사항
+## 10. 금지 사항
 
 - daily report 이미지에 task 번호, run id, 내부 candidate id를 노출하지 않습니다.
 - 저장된 graph/equity/trade/cost 데이터가 없는데 임의 곡선을 만들지 않습니다.
 - smoothing으로 성과 곡선을 보기 좋게 바꾸지 않습니다.
-- live trading, 실제 주문, private endpoint, secret 사용을 하지 않습니다.
+- live trading, 실제 주문, private API, credential 사용을 하지 않습니다.
 - payload에는 `.env`, API key, DB dump, 원본 CSV dump를 넣지 않습니다.
