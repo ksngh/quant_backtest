@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 392: Daily report interpretation/style workflow revision completed (2026-06-01).
+Phase 394: Task 304 daily-report rewrite completed (2026-06-01).
 
 ## Current Step
-Completed Task 303 `DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION` by updating reusable daily-report template, style, workflow, handoff prompt, data rules, and image prompt guidance for interpretation-centered Korean reports.
+Completed Task 304 `REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT` by rewriting the existing Lookback Return Momentum Korean daily report with the revised Task 303 prompt/workflow/style guidance.
 
 ## Current Goal
-Wait for the owner to assign the next bounded task. Recommended candidates are a separate `5m` candle backfill execution task for missing momentum comparison coverage, locked OOS/WFO diagnostics, or another explicitly assigned report workflow task.
+Wait for the owner to assign the next bounded task. Recommended candidates remain a separate `5m` candle backfill execution task for missing momentum comparison coverage, locked OOS/WFO diagnostics, or another explicitly assigned report workflow task.
 
 ## Current Active Task
-None. Task 303 is completed; no next task has been started.
+None. Task 304 is completed; no next task has been started.
 
 ## Last Completed Step (Short)
-Completed Task 303. Daily-report docs now require interpretation-centered Korean report writing, avoid absent pattern/filter/artifact mentions by default, move unavailable interval coverage such as missing `5m` local candles to limitations or next improvements, enrich representative trade descriptions with available market context, and replace generic final conclusions with an interpretation section covering experiment intent, observed result, likely causes, and next improvements. No report artifact rewrite, backtest, tuning/search, strategy/code change, candle backfill, DB mutation, image generation, frontend/backend/API change, live trading behavior, exchange endpoint behavior, secret, or `.env` change was performed.
+Completed Task 304. Rewrote `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` with the revised interpretation-centered daily-report guidance, removed discouraged wording and absent-artifact mentions from the main narrative, moved missing `5m` coverage to next-improvement language, expanded representative trade descriptions with available saved trade context, and aligned report-facing payload text where the rewritten narrative would otherwise conflict. No new backtest, tuning/search, strategy/code change, candle backfill, DB mutation, image generation, frontend/backend/API change, live trading behavior, exchange endpoint behavior, secret, or `.env` change was performed.
 
 ## Recommended Next Step
-Recommended next step: assign a separate bounded task such as `5m` candle backfill for missing momentum comparison coverage, locked OOS/WFO diagnostics, or a future reusable report-payload/image exporter task if desired.
+Recommended next step: assign a separate bounded task such as `5m` candle backfill for missing momentum comparison coverage, locked OOS/WFO diagnostics, or a future report workflow/payload exporter task if desired.
 
 ## Current Blockers (Short)
 - Task 279 note: no tested BTCUSDT 1m candidate passed the robustness matrix; Task 278 run `155`/`156` remains a directional diagnostic only, and all Task 279 candidates remain `DIAGNOSTIC_ONLY`.
@@ -39,7 +39,8 @@ Recommended next step: assign a separate bounded task such as `5m` candle backfi
 - Task 300 note: completed documentation workflow wiring. Active daily-report rules now require reading `docs/blog/DAILY_REPORT_TEMPLATE.md` and `docs/blog/DAILY_REPORT_STYLE.md` before drafting `report-ko.md`, while preserving `docs/blog/daily_report_workflow.md`, `docs/blog/image_generation_prompt.md`, `docs/blog/backtest_report_data_rules.md`, and `docs/blog/agent_handoff_prompt.md` as workflow/image/data/handoff sources. No report, payload, image, backtest, DB mutation, strategy/code change, live trading behavior, exchange endpoint behavior, secret, or `.env` change was added.
 - Task 301 note: completed report-generation task `tasks/TASK_301_LOOKBACK_RETURN_MOMENTUM_DAILY_REPORT_GENERATION.md`. The colocated artifact is stored at `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/` with `payload.json`, `report-ko.md`, `summary_equity_curve.png`, `cost_impact.png`, `representative_win_trade.png`, and `representative_loss_trade.png`. The artifact uses same-folder image references, filename-only payload image references, no internal run/task identifiers, and no `images/` subfolder. No new backtest, parameter tuning/search, strategy/code change, candle backfill, saved-run DB mutation, frontend/backend/API change, live trading behavior, exchange order/account/private endpoint behavior, secret, or `.env` change was added.
 - Task 302 note: completed report copy/readability revision task `tasks/TASK_302_LOOKBACK_RETURN_MOMENTUM_REPORT_COPY_READABILITY_REVISION.md`. Revised `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` to replace vague "성과가 약하다" phrasing with concrete saved-result descriptions, use compact tables for dense metrics, remove awkward English micro-headings, and keep same-folder image references. Updated `payload.json` only for the matching cost-impact interpretation sentence. No image generation, backtest, parameter tuning/search, strategy/code change, candle backfill, saved-run DB mutation, frontend/backend/API change, live trading behavior, exchange order/account/private endpoint behavior, secret, or `.env` change was added.
-- Task 303 note: created daily-report interpretation/style workflow revision task `tasks/TASK_303_DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION.md`. The task is not implemented yet and should update daily-report docs/prompts/workflow so future Korean reports avoid awkward wording, omit absent pattern/filter/artifact mentions by default, enrich representative trade examples with available context, and make interpretation sections synthesize experiment intent, observed result, concrete causes, and next improvements.
+- Task 303 note: completed daily-report interpretation/style workflow revision task `tasks/TASK_303_DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION.md`. Daily-report docs/prompts/workflow now require future Korean reports to avoid awkward wording, omit absent pattern/filter/artifact mentions by default, enrich representative trade examples with available context, and make interpretation sections synthesize experiment intent, observed result, concrete causes, and next improvements.
+- Task 304 note: completed daily-report rewrite task `tasks/TASK_304_REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT.md`. Rewrote `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` with the Task 303 revised prompt/workflow/style guidance, kept same-folder image references and saved metrics, and updated only report-facing narrative fields in `payload.json` to match the rewritten interpretation. No backtest, tuning/search, strategy/code change, DB mutation, candle backfill, or image regeneration was performed.
 - Task 283 note: target fixed-window gates passed historically, but Task 287 repaired-data replay rejected the locked comparator: full 0420+ return `-15.0301pct`, pre-owner `-18.8410pct`, and independent weekly aggregate `-10.0735pct`; keep it research-only.
 - Task 284 note: locked validation rejected robustness despite owner-window replay passing; Task 287 repaired-data rerun confirmed the underlying Task 283/284 candidate remains rejected. Historical Task 284 cost audit mismatch count was `0` across runs `960`-`993`.
 - Task 284 post-audit note: owner questioned whether the result was anomalous; read-only DB readback and in-memory reruns confirmed Task 283/284 paired runs match exactly, event-level short/long PnL formulas are consistent, and cost summaries match trade-level costs. The suspicious-looking result is driven by short-side concentration after 2026-05-20, cost-dominated pre-owner performance, overlapping owner windows, and missing April/May data, not by a detected persistence or fee-accounting mismatch.
@@ -116,6 +117,7 @@ Recommended next step: assign a separate bounded task such as `5m` candle backfi
 - Last completed task: `tasks/TASK_301_LOOKBACK_RETURN_MOMENTUM_DAILY_REPORT_GENERATION.md`
 - Last completed task: `tasks/TASK_302_LOOKBACK_RETURN_MOMENTUM_REPORT_COPY_READABILITY_REVISION.md`
 - Last completed task: `tasks/TASK_303_DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION.md`
+- Last completed task: `tasks/TASK_304_REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT.md`
 - Current created task: `tasks/TASK_288_REPAIRED_0420_FORWARD_NEW_MODEL_DEVELOPMENT.md`
 - Current created task: `tasks/TASK_265_HIGHER_TIMEFRAME_1H_4H_BACKFILL_AND_STRATEGY_CONTEXT.md`
 - Current created task: `tasks/TASK_272_ORDER_BLOCK_COST_AWARE_RR_ENTRY_GUARD.md`

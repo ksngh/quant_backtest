@@ -57,3 +57,5 @@ All items below are candidate/planning pointers unless marked completed.
 - Completed (2026-05-24): Task 225 created `docs/ledger_archives/backlog_task_151_200.md` and reduced root backlog to the Tasks 201-225 recent window.
 - Completed (2026-05-28): Created `docs/ledger_archives/backlog_task_201_250.md` and reduced root backlog to the Tasks 251-300 recent window when Task 251 was created.
 - Completed (2026-05-31): Created `docs/ledger_archives/backlog_task_251_300.md` and reduced root backlog to the Tasks 301-350 recent window when Task 301 was created.
+
+- Completed (2026-06-01): Task 304 `REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT` rewrote the existing Lookback Return Momentum Korean daily report with the revised Task 303 prompt/workflow/style guidance, preserving saved metrics, same-folder image references, payload semantics, and research-only framing.
