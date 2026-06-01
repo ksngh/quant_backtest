@@ -204,24 +204,31 @@ Allowed documentation changes:
 
 ## Before Implementation
 
-- [ ] Read `AGENTS.md`.
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `PROJECT_HISTORY.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Confirm Task 303 is the assigned task.
-- [ ] Read this task file before implementation.
-- [ ] Read the relevant daily-report docs.
-- [ ] Read the current `Lookback Return Momentum V1` report as a concrete reference example.
-- [ ] Record assumptions, blockers, or unclear status items before editing docs.
+- [x] Read `AGENTS.md`.
+- [x] Read `BACKLOG.md`.
+- [x] Read `PROJECT_HISTORY.md`.
+- [x] Read `STATUS.md`.
+- [x] Confirm Task 303 is the assigned task.
+- [x] Read this task file before implementation.
+- [x] Read the relevant daily-report docs.
+- [x] Read the current `Lookback Return Momentum V1` report as a concrete reference example.
+- [x] Record assumptions, blockers, or unclear status items before editing docs.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
-- [ ] Append a concise Task 303 completion note to `PROJECT_HISTORY.md`.
-- [ ] Update `BACKLOG.md`.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
-- [ ] Leave uncertain items open and document the uncertainty.
-- [ ] Confirm the next step is accurate or explicitly left undecided.
+- [x] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
+- [x] Append a concise Task 303 completion note to `PROJECT_HISTORY.md`.
+- [x] Update `BACKLOG.md`.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Leave uncertain items open and document the uncertainty.
+- [x] Confirm the next step is accurate or explicitly left undecided.
+
+# Execution Notes
+
+- Assumption: Task 303 is the assigned task referenced by the owner request `taask303 진행해줘`.
+- Assumption: This is documentation/workflow work only; the existing Lookback Return Momentum report was read as a reference example but not rewritten.
+- Blockers: None.
+- Next task: not started automatically; the owner should assign a separate bounded task such as `5m` candle backfill or locked OOS/WFO diagnostics if desired.
 
 # Acceptance Criteria
 
