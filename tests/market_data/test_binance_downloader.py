@@ -93,8 +93,8 @@ def test_fetch_historical_candles_builds_public_kline_request_and_normalizes():
     assert list(candles.columns) == list(STANDARD_CANDLE_COLUMNS)
 
 
-@pytest.mark.parametrize("interval", ["1m", "3m", "5m", "15m", "30m"])
-def test_downloader_supports_minute_level_intervals(interval):
+@pytest.mark.parametrize("interval", ["1m", "3m", "5m", "15m", "30m", "1h", "1d"])
+def test_downloader_supports_configured_kline_intervals(interval):
     requested_urls: list[str] = []
 
     def fake_http_get(url: str, timeout: float) -> object:
@@ -157,7 +157,7 @@ def test_normalize_binance_klines_rejects_non_numeric_values():
     ("kwargs", "message"),
     [
         ({"symbol": "   "}, "symbol must not be blank"),
-        ({"interval": "1h"}, "supported minute interval"),
+        ({"interval": "2h"}, "supported Binance kline interval"),
         ({"limit": True}, "limit must be an integer"),
         ({"limit": 0}, "limit must be between 1 and 1000"),
         ({"limit": 1001}, "limit must be between 1 and 1000"),

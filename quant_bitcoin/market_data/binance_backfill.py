@@ -22,7 +22,7 @@ from urllib.request import urlopen
 from quant_bitcoin.market_data.binance_downloader import (
     BINANCE_KLINES_PATH,
     DEFAULT_MARKET_DATA_BASE_URL,
-    MINUTE_INTERVALS,
+    SUPPORTED_KLINE_INTERVALS,
 )
 from quant_bitcoin.persistence import (
     HISTORICAL_BACKFILL_MODE,
@@ -33,6 +33,8 @@ from quant_bitcoin.persistence import (
 
 BINANCE_MAX_KLINE_LIMIT = 1000
 ONE_MINUTE_MS = 60_000
+ONE_HOUR_MS = 60 * ONE_MINUTE_MS
+ONE_DAY_MS = 24 * ONE_HOUR_MS
 RETRYABLE_HTTP_STATUS_CODES = frozenset({408, 418, 425, 429, 500, 502, 503, 504})
 
 HttpGet = Callable[[str, float], object]
@@ -457,9 +459,11 @@ def _normalize_symbol(symbol: str) -> str:
 
 
 def _validate_interval(interval: str) -> None:
-    if interval not in MINUTE_INTERVALS:
-        supported = ", ".join(sorted(MINUTE_INTERVALS))
-        raise ValueError(f"interval must be a supported minute interval: {supported}")
+    if interval not in SUPPORTED_KLINE_INTERVALS:
+        supported = ", ".join(SUPPORTED_KLINE_INTERVALS)
+        raise ValueError(
+            f"interval must be a supported Binance kline interval: {supported}"
+        )
 
 
 def _validate_limit(limit: int) -> None:
@@ -476,10 +480,16 @@ def _latest_closed_open_time_ms(now: datetime, interval: str) -> int:
 
 
 def _interval_milliseconds(interval: str) -> int:
-    if not interval.endswith("m"):
-        raise ValueError("only minute intervals are supported")
-    minutes = int(interval[:-1])
-    return minutes * ONE_MINUTE_MS
+    _validate_interval(interval)
+    unit = interval[-1]
+    value = int(interval[:-1])
+    if unit == "m":
+        return value * ONE_MINUTE_MS
+    if unit == "h":
+        return value * ONE_HOUR_MS
+    if unit == "d":
+        return value * ONE_DAY_MS
+    raise ValueError(f"unsupported Binance kline interval unit: {unit}")
 
 
 def _to_milliseconds(value: datetime | int, field_name: str) -> int:

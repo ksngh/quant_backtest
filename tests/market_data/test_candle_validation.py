@@ -43,6 +43,39 @@ def test_validate_standard_candles_rejects_missing_interval_gap_when_enforced() 
 
 
 @pytest.mark.parametrize(
+    ("interval", "timestamps"),
+    [
+        (
+            "1h",
+            [
+                "2024-01-01T00:00:00Z",
+                "2024-01-01T01:00:00Z",
+                "2024-01-01T02:00:00Z",
+            ],
+        ),
+        (
+            "1d",
+            [
+                "2024-01-01T00:00:00Z",
+                "2024-01-02T00:00:00Z",
+                "2024-01-03T00:00:00Z",
+            ],
+        ),
+    ],
+)
+def test_validate_standard_candles_supports_hour_and_day_continuity(
+    interval: str, timestamps: list[str]
+) -> None:
+    candles = _valid_candles()
+    candles["timestamp"] = timestamps
+
+    validate_standard_candles(
+        candles,
+        CandleValidationConfig(interval=interval, enforce_continuity=True),
+    )
+
+
+@pytest.mark.parametrize(
     ("column", "value", "message"),
     [
         ("open", 0, "non-positive price in column: open"),

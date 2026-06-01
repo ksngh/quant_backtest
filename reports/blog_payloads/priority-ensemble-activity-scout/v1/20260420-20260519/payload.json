@@ -1,0 +1,263 @@
+{
+  "title": {
+    "strategy_name": "Priority Ensemble Activity Scout",
+    "strategy_version": "V1",
+    "strategy_label": "Priority Ensemble Activity Scout V1",
+    "market_summary": "Binance BTCUSDT 1m",
+    "period": "2026-04-20 00:00:00 UTC ~ 2026-05-19 23:59:00 UTC",
+    "pr": "https://github.com/ksngh/quant_backtest/pull/167"
+  },
+  "artifact": {
+    "schema": "colocated_payload_images_v1",
+    "strategy_slug": "priority-ensemble-activity-scout",
+    "strategy_version_slug": "v1",
+    "period_slug": "20260420-20260519",
+    "image_reference_rule": "filenames_only_colocated_with_payload"
+  },
+  "images": {
+    "primary": "summary_equity_curve.png",
+    "items": [
+      {
+        "id": "summary_equity_curve",
+        "filename": "summary_equity_curve.png",
+        "caption": "Equity curve와 drawdown을 함께 표시한 대표 성과 그래프입니다.",
+        "section": "summary,results"
+      },
+      {
+        "id": "cost_impact",
+        "filename": "cost_impact.png",
+        "caption": "거래비용 반영 전후의 성과 차이를 보여주는 그래프입니다.",
+        "section": "cost_impact"
+      },
+      {
+        "id": "representative_win_trade",
+        "filename": "representative_win_trade.png",
+        "caption": "대표 수익 거래 candlestick chart입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "representative_loss_trade",
+        "filename": "representative_loss_trade.png",
+        "caption": "대표 손실 거래 candlestick chart입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "price_with_trades",
+        "filename": "price_with_trades.png",
+        "caption": "BTCUSDT close price와 저장된 entry/exit marker입니다.",
+        "section": "results"
+      },
+      {
+        "id": "trade_pnl_distribution",
+        "filename": "trade_pnl_distribution.png",
+        "caption": "저장된 completed lifecycle net PnL 분포입니다.",
+        "section": "results"
+      },
+      {
+        "id": "side_attribution",
+        "filename": "side_attribution.png",
+        "caption": "Long/Short별 net PnL과 완료 거래 수입니다.",
+        "section": "illusion_checks"
+      },
+      {
+        "id": "exit_reason_attribution",
+        "filename": "exit_reason_attribution.png",
+        "caption": "exit reason별 net PnL과 완료 거래 수입니다.",
+        "section": "illusion_checks"
+      }
+    ]
+  },
+  "setup": {
+    "exchange": "Binance",
+    "symbol": "BTCUSDT",
+    "market": "Spot-like offline backtest; short side is research-only simulated exposure",
+    "timeframe": "1m",
+    "period": "2026-04-20 00:00:00 UTC ~ 2026-05-19 23:59:00 UTC",
+    "comparison_variables": "Pre-owner validation window with high-slippage transaction-cost profile",
+    "initial_capital": "1,000,000.00",
+    "position_sizing": "Fixed starting-cash fraction with persisted strategy sizing from the locked replay",
+    "entry_conditions_summary": "Priority ensemble replay. Core failure-range fade signals and low-notional activity-scout entries were replayed without retuning on the pre-owner validation window.",
+    "exit_conditions_summary": "Stop loss, take profit, time exit, and scout preempt exits were applied by the persisted strategy logic.",
+    "cost_assumptions": "High-slippage profile: total fee 70,318.27, spread 70,318.27, slippage 177,651.14.",
+    "execution_assumption": "OHLCV-based saved replay. Same-candle stop/target ambiguity is audited from persisted metadata; no live execution or exchange order endpoint was used."
+  },
+  "hypothesis_and_theory": {
+    "hypotheses": [
+      "Priority Ensemble Activity Scout V1은 owner-window 이후가 아닌 pre-owner 구간에서도 동일한 진입 우위를 유지할 것이다.",
+      "High-slippage 조건에서는 높은 회전율 전략의 비용 민감도가 수익 곡선 하락으로 나타날 것이다."
+    ],
+    "assumptions": [
+      "완료된 1분봉 OHLCV와 persisted execution model만 사용합니다.",
+      "전략 파라미터를 이 구간에 맞춰 다시 조정하지 않습니다.",
+      "수수료, 스프레드, 슬리피지를 모두 비용으로 차감합니다."
+    ],
+    "economic_meaning": "이 전략은 단기 가격 반응, 실패한 움직임의 되돌림, 활동성 기반 scout 진입이 비용 이후에도 남는지 확인하는 검증입니다. 가격 움직임이 충분히 빠르게 확장되면 시간 청산 또는 목표 청산으로 손실을 상쇄할 수 있다는 가정이 들어 있지만, 이 결과에서는 비용과 낮은 hit ratio가 그 가정을 압도했습니다.",
+    "expectancy": {
+      "formula": "E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost",
+      "p_win": "+3.97%",
+      "avg_win": "2,206.10",
+      "p_loss": "+96.03%",
+      "avg_loss": "-1,561.66",
+      "cost": "318,287.68"
+    }
+  },
+  "strategy_rules": {
+    "pattern": "Priority core failure-range fade plus activity scout entries",
+    "indicators": "Completed-candle activity, direction/failure-range context, time-based exit controls, transaction-cost model",
+    "entry_direction": "Long / Short",
+    "filters": "Locked replay; no retuning on this validation window",
+    "long_entry": [
+      "Bullish scout or core activity condition is completed.",
+      "Signal candle and execution are separated.",
+      "Sizing is capped by fixed starting-cash fraction."
+    ],
+    "short_entry": [
+      "Bearish core or scout condition is completed.",
+      "Signal candle and execution are separated.",
+      "Sizing is capped by fixed starting-cash fraction."
+    ],
+    "exit": [
+      "Stop loss",
+      "Take profit",
+      "Time exit",
+      "Scout preempt exit"
+    ]
+  },
+  "metrics": {
+    "total_trades": 252,
+    "win_rate": "+3.97%",
+    "total_return": "-35.5861%",
+    "final_equity": "644,139.40",
+    "max_drawdown": "-35.61%",
+    "profit_factor": "0.0584",
+    "expectancy": "-1,412.15",
+    "sharpe": "-20.3805",
+    "sortino": "-24.8541",
+    "average_win": "2,206.10",
+    "average_loss": "-1,561.66",
+    "fee_total": "70,318.27",
+    "slippage_total": "177,651.14",
+    "spread_total": "70,318.27",
+    "gross_pnl": "-37,572.92",
+    "net_pnl": "-355,860.60"
+  },
+  "cost_impact": {
+    "gross_pnl": "-37,572.92",
+    "fee": "70,318.27",
+    "spread": "70,318.27",
+    "slippage": "177,651.14",
+    "total_transaction_cost": "318,287.68",
+    "net_pnl": "-355,860.60",
+    "final_return_after_costs": "-35.5861%",
+    "interpretation": "비용을 빼고 봐도 gross PnL이 음수였고, 수수료와 슬리피지를 반영하자 손실 폭이 더 커졌습니다."
+  },
+  "illusion_checks": {
+    "cost_sensitivity": "총비용 318,287.68이 net PnL 악화의 핵심입니다. 비용/gross PnL 비율은 8.4712입니다.",
+    "outlier_dependence": "최고 수익 거래가 있어도 낮은 hit ratio와 반복 손실을 상쇄하지 못했습니다.",
+    "window_dependence": "Pre-owner validation window의 high-slippage 결과입니다. 새 전략 결론이 아니라 최근 저장 결과를 리포트 payload로 변환한 기록입니다.",
+    "trade_count_quality": "완료 거래 252회로 거래 수 자체는 부족하지 않았지만, win rate +3.97%와 expectancy -1,412.15가 동시에 낮았습니다.",
+    "side_concentration": "Short 손실이 전체 손실의 대부분을 차지했고, Long도 net 기준 기대값이 음수였습니다.",
+    "same_candle_ambiguity": "동일 캔들 stop/target 모호성 카운트는 0입니다."
+  },
+  "representative_trades": {
+    "best_trade": {
+      "entry_time": "2026-05-13 08:03:00 UTC",
+      "exit_time": "2026-05-13 15:57:00 UTC",
+      "side": "Short",
+      "entry_price": "81,064.01",
+      "exit_price": "78,956.35",
+      "stop_price": "82,117.84",
+      "target_price": "78,956.35",
+      "net_pnl": "14,779.29",
+      "gross_pnl": "17,937.45",
+      "total_cost": "3,158.16",
+      "exit_reason": "Take Profit",
+      "reason": "Take Profit; fee 671.96, spread 671.96, slippage 1,814.23"
+    },
+    "worst_trade": {
+      "entry_time": "2026-04-23 11:25:00 UTC",
+      "exit_time": "2026-04-23 15:23:00 UTC",
+      "side": "Short",
+      "entry_price": "77,493.08",
+      "exit_price": "78,500.49",
+      "stop_price": "78,500.49",
+      "target_price": "75,478.26",
+      "net_pnl": "-17,663.65",
+      "gross_pnl": "-12,480.57",
+      "total_cost": "5,183.08",
+      "exit_reason": "Stop Loss",
+      "reason": "Stop Loss; fee 972.52, spread 972.52, slippage 3,238.03"
+    },
+    "typical_winner": {
+      "summary": "공식 lifecycle 평균 수익은 2,206.10입니다. 예시는 2026-04-27 13:15:00 UTC Short, entry 78,178.99, exit 77,726.00, net PnL 1,361.59, Time Exit입니다."
+    },
+    "typical_loser": {
+      "summary": "공식 lifecycle 평균 손실은 -1,561.66입니다. 예시는 2026-05-07 09:33:00 UTC Short, entry 81,203.16, exit 81,013.94, net PnL -1,540.29, Time Exit입니다."
+    }
+  },
+  "interpretation": {
+    "result_interpretation": "Equity curve와 drawdown은 전체 검증 구간에서 지속적으로 악화되었습니다. 손실은 높은 빈도의 Time Exit와 Short 방향 손실에서 주로 발생했고, Take Profit exit은 3회뿐이라 전체 손실 구조를 바꾸지 못했습니다.",
+    "risk_interpretation": "가격 반응을 포착한다는 신호 가설보다 비용, 낮은 승률, 시간 청산 손실 누적이 더 컸습니다. 특히 high-slippage 조건에서는 거래당 기대값이 빠르게 음수로 고정되었습니다.",
+    "final_conclusion": "이 결과는 실거래 후보가 아니라 비용 민감도 검증에서 탈락한 사례로 기록하는 것이 적절합니다."
+  },
+  "optional": {
+    "daily_report_copy": {
+      "first_line_summary": "252 trades. 3.97% win rate. 거래비용을 반영한 뒤 순손익과 기대값이 모두 음수로 확인되었습니다.",
+      "second_line_summary": "Priority Ensemble Activity Scout V1은 Binance BTCUSDT 1분봉에서 2026-04-20부터 2026-05-19까지 high-slippage 비용 조건을 기준으로 테스트했을 때, 총 수익률 -35.5861%와 Profit Factor 0.0584를 보였습니다.",
+      "graph_interpretation": "Equity curve와 drawdown이 특정 한 구간의 흔들림이 아니라 전체 검증 구간에서 지속적으로 악화되는지 확인해보았습니다.",
+      "kicker": "비용 반영 전에도 gross PnL이 음수였고, high-slippage 비용을 반영하자 총비용이 손실을 크게 확대했습니다."
+    },
+    "side_metrics": {
+      "LONG": {
+        "completed_trades": 137,
+        "hit_ratio": "+2.92%",
+        "expectancy": "-170.94",
+        "net_pnl": "-23,418.30",
+        "profit_factor": "0.0109"
+      },
+      "SHORT": {
+        "completed_trades": 115,
+        "hit_ratio": "+5.22%",
+        "expectancy": "-2,890.80",
+        "net_pnl": "-332,442.30",
+        "profit_factor": "0.0615"
+      }
+    },
+    "exit_reason_metrics": {
+      "Stop Loss": {
+        "completed_trades": 21,
+        "hit_ratio": "+0.00%",
+        "expectancy": "-5,120.61",
+        "net_pnl": "-107,532.89",
+        "profit_factor": "0.0000"
+      },
+      "Take Profit": {
+        "completed_trades": 3,
+        "hit_ratio": "+100.00%",
+        "expectancy": "4,054.79",
+        "net_pnl": "12,164.37",
+        "profit_factor": null
+      },
+      "Time Exit": {
+        "completed_trades": 196,
+        "hit_ratio": "+3.06%",
+        "expectancy": "-1,301.82",
+        "net_pnl": "-255,157.00",
+        "profit_factor": "0.0372"
+      },
+      "Scout Preempt": {
+        "completed_trades": 32,
+        "hit_ratio": "+3.12%",
+        "expectancy": "-166.72",
+        "net_pnl": "-5,335.08",
+        "profit_factor": "0.0061"
+      }
+    },
+    "payload_limitations": [
+      "이 payload는 저장된 완료 결과를 리포트용으로 변환한 것이며, 새 백테스트를 실행하지 않았습니다.",
+      "tick/trade 데이터가 아니라 OHLCV 기반 persisted replay입니다.",
+      "short side는 spot 실거래 주문이 아니라 research-only simulated exposure입니다.",
+      "대표 거래 예시는 execution metadata에서 고른 것이며, 공식 성과 수치는 entry-to-final-exit lifecycle attribution을 기준으로 기록했습니다."
+    ]
+  }
+}

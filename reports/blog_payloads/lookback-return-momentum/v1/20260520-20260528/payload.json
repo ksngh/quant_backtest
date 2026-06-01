@@ -1,0 +1,244 @@
+{
+  "title": {
+    "strategy_name": "Lookback Return Momentum",
+    "strategy_version": "v1",
+    "strategy_label": "Lookback Return Momentum V1",
+    "market_summary": "Binance BTCUSDT spot-style offline research data, 1m and 15m, 2026-05-20 00:00 UTC ~ 2026-05-28 08:15 UTC",
+    "period": "2026-05-20 00:00 UTC ~ 2026-05-28 08:15 UTC",
+    "pr": null
+  },
+  "artifact": {
+    "schema": "colocated_payload_images_v1",
+    "strategy_slug": "lookback-return-momentum",
+    "strategy_version_slug": "v1",
+    "period_slug": "20260520-20260528",
+    "image_reference_rule": "filenames_only_colocated_with_payload"
+  },
+  "images": {
+    "primary": "summary_equity_curve.png",
+    "items": [
+      {
+        "id": "summary_equity_curve",
+        "filename": "summary_equity_curve.png",
+        "caption": "Equity curve와 drawdown을 함께 표시한 대표 성과 그래프입니다.",
+        "section": "summary,results"
+      },
+      {
+        "id": "cost_impact",
+        "filename": "cost_impact.png",
+        "caption": "거래비용 반영 전후의 손익 차이를 보여주는 그래프입니다.",
+        "section": "cost_impact"
+      },
+      {
+        "id": "representative_win_trade",
+        "filename": "representative_win_trade.png",
+        "caption": "개별 거래 중 순손익이 양수였던 대표 거래 차트입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "representative_loss_trade",
+        "filename": "representative_loss_trade.png",
+        "caption": "손절로 종료된 대표 손실 거래 차트입니다.",
+        "section": "representative_trades"
+      }
+    ]
+  },
+  "setup": {
+    "exchange": "Binance public market data",
+    "symbol": "BTCUSDT",
+    "market": "Spot 기준 오프라인 백테스트",
+    "timeframe": "1m, 15m; 5m은 local closed candles가 없어 제외",
+    "period": "2026-05-20 00:00 UTC ~ 2026-05-28 08:15 UTC",
+    "comparison_variables": "1m 기본값과 15m 기본값 비교",
+    "initial_capital": "1,000,000 KRW converted to 666.6667 USDT at 1,500 KRW/USDT",
+    "position_sizing": "거래당 사용 가능 현금의 10%",
+    "entry_conditions_summary": "최근 N개 완료봉의 close-to-close 수익률이 기준 이상이면 Long, 기준 이하이면 Short",
+    "exit_conditions_summary": "손절 1.0R, 익절 1.5R, holding_bars 경과 시 시간 청산; 같은 캔들에서는 손절 우선",
+    "cost_assumptions": "수수료, 스프레드, 슬리피지를 모두 반영",
+    "execution_assumption": "완료된 OHLCV 캔들 기준의 오프라인 체결 가정; Short는 연구용 가상 포지션"
+  },
+  "hypothesis_and_theory": {
+    "hypotheses": [
+      "최근 N개 완료봉 수익률이 기준 이상이면 이후 holding_bars 동안 같은 상승 방향 수익률을 보일 것이다.",
+      "최근 N개 완료봉 수익률이 기준 이하이면 이후 holding_bars 동안 같은 하락 방향 수익률을 보일 것이다."
+    ],
+    "assumptions": [
+      "짧은 구간의 가격 이동은 일부 구간에서 다음 구간까지 이어질 수 있습니다.",
+      "신호가 충분히 강하면 손절, 익절, 시간 청산 구조 안에서 비용을 넘길 수 있습니다.",
+      "추세 필터나 거래량 필터 없이도 순수 모멘텀 신호의 기본 성격을 확인할 수 있습니다."
+    ],
+    "economic_meaning": "최근 close-to-close 이동이 단기 주문 흐름의 방향성을 일부 포착하는지 확인하는 기초 모멘텀 실험입니다.",
+    "expectancy": {
+      "formula": "E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost",
+      "p_win": "저장된 요약 기준 1m 0.00%, 15m 0.00%",
+      "avg_win": "저장된 요약 기준 없음",
+      "p_loss": "저장된 요약 기준 1m 100.00%, 15m 100.00%",
+      "avg_loss": "1m -0.1971 USDT, 15m -0.2693 USDT",
+      "cost": "1m 252.5280 USDT, 15m 45.6061 USDT"
+    }
+  },
+  "metrics": {
+    "total_trades": "1m 1285, 15m 169",
+    "win_rate": "저장된 요약 기준 1m 0.00%, 15m 0.00%",
+    "total_return": "1m -37.9957%, 15m -6.8468%",
+    "final_equity": "1m 413.3620 USDT, 15m 621.0216 USDT",
+    "max_drawdown": "1m -37.9957%, 15m -6.8468%",
+    "profit_factor": "1m 0.0000, 15m 0.0000",
+    "expectancy": "1m -0.1971 USDT, 15m -0.2693 USDT",
+    "sharpe": "1m -346.6343, 15m -115.5526",
+    "sortino": "1m -320.7748, 15m -101.7054",
+    "average_win": "저장된 요약 기준 없음",
+    "average_loss": "1m -0.1971 USDT, 15m -0.2693 USDT",
+    "fee_total": "1m 136.1029 USDT, 15m 21.7926 USDT",
+    "slippage_total": "1m 75.5942 USDT, 15m 17.2757 USDT",
+    "spread_total": "1m 40.8309 USDT, 15m 6.5378 USDT",
+    "gross_pnl": "1m -0.7767 USDT, 15m -0.0390 USDT",
+    "net_pnl": "1m -253.3047 USDT, 15m -45.6451 USDT"
+  },
+  "cost_impact": {
+    "gross_pnl": "1m -0.7767 USDT, 15m -0.0390 USDT",
+    "fee": "1m 136.1029 USDT, 15m 21.7926 USDT",
+    "spread": "1m 40.8309 USDT, 15m 6.5378 USDT",
+    "slippage": "1m 75.5942 USDT, 15m 17.2757 USDT",
+    "total_transaction_cost": "1m 252.5280 USDT, 15m 45.6061 USDT",
+    "net_pnl": "1m -253.3047 USDT, 15m -45.6451 USDT",
+    "final_return_after_costs": "1m -37.9957%, 15m -6.8468%",
+    "interpretation": "비용 차감 전 손익도 거의 없거나 음수였고, 수수료와 슬리피지를 반영하자 손실 폭이 크게 커졌습니다."
+  },
+  "illusion_checks": {
+    "cost_sensitivity": "신호 폭이 작고 거래 수가 많아 비용 차감 후 손실이 커졌습니다.",
+    "outlier_dependence": "전체 손익이 좋은 몇 개 거래로 개선되지 않았고, 작은 손실과 비용이 누적되었습니다.",
+    "window_dependence": "이번 기간은 첫 진단 구간이며, 별도 검증 구간이나 워크포워드 결과가 아닙니다.",
+    "trade_count_quality": "1m은 거래 수가 많았지만 기대값이 낮았고, 15m은 거래 수가 줄어도 순손익이 음수였습니다.",
+    "side_concentration": "Long과 Short 모두 비용 반영 후 순손익이 음수였습니다.",
+    "same_candle_ambiguity": "같은 캔들에서 손절과 익절이 모두 가능하면 손절이 먼저 발생한 것으로 처리했습니다."
+  },
+  "representative_trades": {
+    "best_trade": {
+      "entry_time": "2026-05-27T22:30:00Z",
+      "exit_time": "2026-05-27T23:00:00Z",
+      "side": "Short",
+      "timeframe": "15m",
+      "entry_price": 74633.6,
+      "exit_price": 74409.6992,
+      "stop_price": 74782.8672,
+      "target_price": 74409.6992,
+      "net_pnl": 0.065792,
+      "gross_pnl": 0.186986,
+      "exit_reason": "TAKE_PROFIT",
+      "reason": "15분봉에서 진입 방향이 맞아 익절로 끝난 설명용 양수 거래입니다."
+    },
+    "worst_trade": {
+      "entry_time": "2026-05-24T21:30:00Z",
+      "exit_time": "2026-05-24T22:00:00Z",
+      "side": "Short",
+      "timeframe": "15m",
+      "entry_price": 76147.39,
+      "exit_price": 76299.68478,
+      "stop_price": 76299.68478,
+      "target_price": 75918.94783,
+      "net_pnl": -0.317087,
+      "gross_pnl": -0.128142,
+      "exit_reason": "STOP_LOSS",
+      "reason": "15분봉에서 Short 모멘텀 신호 이후 반대 방향으로 움직이며 손절된 거래입니다."
+    }
+  },
+  "interpretation": {
+    "result_interpretation": "두 타임프레임 모두 비용 반영 후 수익률, 순손익, 기대값이 음수였습니다.",
+    "risk_interpretation": "거래 수가 많아질수록 수수료, 스프레드, 슬리피지가 성과를 빠르게 깎았습니다. Short는 실거래 주문이 아니라 연구용 가상 포지션입니다.",
+    "final_conclusion": "현재 결과만 보면 Lookback Return Momentum V1은 실전에 쓰기는 어려워 보이며, 전략 개선보다 먼저 데이터 보강과 별도 검증 설계가 필요합니다."
+  },
+  "interval_results": [
+    {
+      "timeframe": "1m",
+      "period": "2026-05-20 00:00 UTC ~ 2026-05-28 08:15 UTC",
+      "candles": 12016,
+      "trade_rows": 2570,
+      "completed_trades": 1285,
+      "parameters": {
+        "lookback_bars": 20,
+        "entry_threshold": 0.001,
+        "holding_bars": 5,
+        "risk_distance_pct": 0.002,
+        "stop_loss_r": 1.0,
+        "take_profit_r": 1.5
+      },
+      "gross_pnl_usdt": -0.776672,
+      "net_pnl_usdt": -253.304653,
+      "total_return_pct": -37.995698,
+      "final_equity_usdt": 413.362013,
+      "max_drawdown_pct": -37.995698,
+      "summary_win_rate_pct": 0.0,
+      "profit_factor": 0.0,
+      "expectancy_usdt": -0.197124,
+      "average_win_usdt": null,
+      "average_loss_usdt": -0.197124,
+      "sharpe": -346.634261,
+      "sortino": -320.774775,
+      "costs_usdt": {
+        "fees": 136.102885,
+        "spread": 40.830866,
+        "slippage": 75.59423,
+        "total": 252.527981
+      },
+      "exit_reason_counts": {
+        "STOP_LOSS": 65,
+        "TIME_EXIT": 1178,
+        "TAKE_PROFIT": 42
+      },
+      "side_net_pnl_usdt": {
+        "LONG": -127.762261,
+        "SHORT": -125.542392
+      },
+      "interpretation": "수수료, 스프레드, 슬리피지를 반영한 뒤 수익률과 기대값이 모두 음수였습니다."
+    },
+    {
+      "timeframe": "15m",
+      "period": "2026-05-20 00:00 UTC ~ 2026-05-28 08:15 UTC",
+      "candles": 802,
+      "trade_rows": 339,
+      "completed_trades": 169,
+      "parameters": {
+        "lookback_bars": 8,
+        "entry_threshold": 0.002,
+        "holding_bars": 4,
+        "risk_distance_pct": 0.002,
+        "stop_loss_r": 1.0,
+        "take_profit_r": 1.5
+      },
+      "gross_pnl_usdt": -0.038958,
+      "net_pnl_usdt": -45.645056,
+      "total_return_pct": -6.846758,
+      "final_equity_usdt": 621.021611,
+      "max_drawdown_pct": -6.846758,
+      "summary_win_rate_pct": 0.0,
+      "profit_factor": 0.0,
+      "expectancy_usdt": -0.269317,
+      "average_win_usdt": null,
+      "average_loss_usdt": -0.269317,
+      "sharpe": -115.552647,
+      "sortino": -101.705447,
+      "costs_usdt": {
+        "fees": 21.792589,
+        "spread": 6.537777,
+        "slippage": 17.275732,
+        "total": 45.606097
+      },
+      "exit_reason_counts": {
+        "STOP_LOSS": 72,
+        "TIME_EXIT": 54,
+        "TAKE_PROFIT": 43
+      },
+      "side_net_pnl_usdt": {
+        "LONG": -22.453495,
+        "SHORT": -23.061093
+      },
+      "interpretation": "수수료, 스프레드, 슬리피지를 반영한 뒤 수익률과 기대값이 모두 음수였습니다."
+    }
+  ],
+  "data_limitations": [
+    "5m은 local closed candles가 없어 이번 리포트에서 제외했습니다.",
+    "이번 결과는 첫 진단 구간이며 별도 검증 구간이나 워크포워드 검증이 아닙니다.",
+    "Short는 실거래 주문이 아니라 연구용 가상 포지션으로 처리했습니다."
+  ]
+}

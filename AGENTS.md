@@ -17,6 +17,8 @@ Required execution order:
 - Find the relevant `task.md`
 - If no relevant `task.md` exists, create it and stop
 - If a relevant `task.md` exists, execute only the work defined in that task
+- For strategy/model/backtest work, find and read the relevant `docs/strategy/*.md` after the task file and before implementation or execution
+- If a strategy/model/backtest task exists but no relevant strategy document exists, create or update only the appropriate `docs/strategy/*.md`, update state files, then stop
 - Update `STATUS.md` after execution
 - Append progress to `PROJECT_HISTORY.md` after execution
 - Update `BACKLOG.md` if the task was created, completed, blocked, reprioritized, or split
@@ -35,6 +37,7 @@ Progress tracking is mandatory for every task:
 Absolute rules:
 - No `task.md`, no execution.
 - No state-file reading, no execution.
+- No relevant `docs/strategy/*.md`, no strategy/model/backtest implementation or execution.
 - No state-file update, no completion.
 
 # Current Scope
@@ -70,11 +73,15 @@ Codex must not implement the following unless an assigned future task explicitly
 - Read `AGENTS.md` before working.
 - Read relevant docs before working.
 - Read the assigned task file before coding.
+- For any strategy/model/backtest implementation, parameter tuning, validation run, or reportable research run, read the relevant `docs/strategy/*.md` before coding or execution.
+- Strategy documents live under `docs/strategy/` and must be created from `docs/strategy/STRATEGY_TEMPLATE.md` when missing.
 - Every newly created task document must follow `tasks/TASK_TEMPLATE.md` (section structure/checklists/verification blocks).
 - Ledger segmentation rule: archive `BACKLOG.md` and `PROJECT_HISTORY.md` in fixed **50-task ranges** (for example `*_task_001_050.md`, `*_task_051_100.md`) and keep root files as recent high-signal windows with archive pointers.
 - For consistent command handling and reusable prompt formats, follow `docs/10_CODEX_COMMAND_GUIDE.md`.
 - Do not proceed with implementation or documentation changes unless a specific task document is assigned.
 - If no task document is assigned, stop and ask the project owner to assign or create a task, even if the user prompt is written as a direct command.
+- If the assigned task asks for strategy/model/backtest work and the relevant strategy document is missing, create or update only the strategy document, update state files, and stop before running any backtest or changing strategy code.
+- If implementation changes strategy logic, risk logic, cost assumptions, execution assumptions, validation windows, or research/live-trading boundary, update the relevant strategy document in the same task.
 - If the requirement is unclear, extract roles and write assumptions before implementation.
 - Make small, incremental changes.
 - Do not expand scope beyond the assigned task.
@@ -129,6 +136,7 @@ Raw requirement
 -> Role extraction
 -> Responsibility boundary check
 -> Task document
+-> Strategy document for model/backtest work
 -> Test plan
 -> Implementation
 -> Codex self-review
@@ -258,12 +266,22 @@ Backtest tasks may read:
 - root `AGENTS.md`
 - root `STATUS.md`
 - assigned task file
+- relevant `docs/strategy/*.md`
 - relevant `quant_bitcoin/` source/tests
 
 Backtest tasks must not:
 
 - modify frontend or backend API areas unless assigned
 - add UI concerns into core strategy/backtest modules
+- run, implement, tune, or validate a strategy/model before the relevant `docs/strategy/*.md` exists
+
+Backtest/research execution order:
+
+- Read root state files and the assigned task first.
+- Read the relevant `docs/strategy/*.md` next.
+- If the strategy document is missing, create it under `docs/strategy/`, update state files, and stop.
+- Only after both task and strategy document exist may the task run backtests, tune parameters, or modify strategy/model code.
+- Keep any passing or failing research result within the strategy document's declared research-only/live-trading boundary unless a later task explicitly changes that boundary.
 
 
 # Completion Rules
