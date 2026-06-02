@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 429: Task 317 Tistory image-embed and hypothesis-omission workflow revision completed (2026-06-02).
+Phase 431: Task 318 current-report Tistory image CSS-only revision completed (2026-06-02).
 
 ## Current Step
-Completed Task 317 `TISTORY_IMAGE_EMBED_AND_HYPOTHESIS_OMISSION_WORKFLOW_REVISION`.
+Completed Task 318 `CURRENT_REPORT_TISTORY_IMAGE_CSS_ONLY_REVISION`.
 
 ## Current Goal
-Prepare the completed Task 317 workflow documentation changes for owner review and PR.
+Prepare the completed Task 318 current-report CSS update for owner review and PR.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 317. Updated reusable `docs/blog` workflow/template/style/data/image/handoff rules and `report_template.html` so Tistory image placeholders can sit inside full-width `.section-image` wrappers and future daily reports omit standalone `가설` / hypothesis sections by default.
+Completed Task 318. Updated only the current Lookback Return Momentum `report-ko.html` artifact CSS so `.section-image` and Tistory image-wrapper output can fill the report content width while preserving local preview images. No report narrative, metrics, payload values, PNGs, reusable docs/templates, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, or `.env` files were changed.
 
 ## Recommended Next Step
-Recommended next step: review the Task 317 PR; do not start another task automatically.
+Recommended next step: owner review of the current report in Tistory after manually reinserting images; create a separate follow-up task only if Tistory emits an additional wrapper shape that still renders narrowly.
 
 ## Current Blockers (Short)
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
