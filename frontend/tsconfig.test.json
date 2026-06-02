@@ -9,6 +9,7 @@
   },
   "include": [
     "src/lib/performanceDiagnostics.ts",
+    "src/lib/chartSampling.ts",
     "src/lib/executionAssumptions.ts",
     "src/lib/fvgChannelOverlay.ts",
     "src/lib/fvgRetestDiagnostics.ts",

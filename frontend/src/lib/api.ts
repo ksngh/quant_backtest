@@ -8,6 +8,14 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKTEST_API_BASE_URL ?? "http://localhost:8000";
 
+export const DASHBOARD_GRAPH_MAX_POINTS = 3000;
+export const DASHBOARD_GRAPH_SAMPLING_MODE = "preserve_markers";
+
+export type BacktestRunDetailOptions = {
+  graph_max_points?: number;
+  graph_sampling_mode?: string;
+};
+
 function buildUrl(path: string, query?: Record<string, string | number | undefined>) {
   const base = API_BASE_URL.replace(/\/$/, "");
   const url = new URL(`${base}${path}`);
@@ -41,6 +49,12 @@ export async function listBacktestRuns(
 
 export async function getBacktestRun(
   runId: number,
+  options: BacktestRunDetailOptions = {
+    graph_max_points: DASHBOARD_GRAPH_MAX_POINTS,
+    graph_sampling_mode: DASHBOARD_GRAPH_SAMPLING_MODE,
+  },
 ): Promise<BacktestRunDetailResponse> {
-  return getJson<BacktestRunDetailResponse>(buildUrl(`/api/backtest-runs/${runId}`));
+  return getJson<BacktestRunDetailResponse>(
+    buildUrl(`/api/backtest-runs/${runId}`, options),
+  );
 }

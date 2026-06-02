@@ -18,6 +18,9 @@ from backend.quant_backtest_api.services.research_report import (
 )
 
 
+GRAPH_SAMPLING_MODE_PRESERVE_MARKERS = "preserve_markers"
+
+
 class BacktestResultsService:
     def __init__(self, repository: PostgresBacktestResultRepository | None) -> None:
         self.repository = repository
@@ -30,7 +33,13 @@ class BacktestResultsService:
             for item in self.repository.list_completed_runs(**kwargs)
         )
 
-    def load_run_for_graphs(self, backtest_run_id: int) -> dict[str, Any] | None:
+    def load_run_for_graphs(
+        self,
+        backtest_run_id: int,
+        *,
+        graph_max_points: int | None = None,
+        graph_sampling_mode: str = GRAPH_SAMPLING_MODE_PRESERVE_MARKERS,
+    ) -> dict[str, Any] | None:
         if self.repository is None:
             return None
         row = self.repository.load_run_for_graphs(backtest_run_id)
@@ -41,19 +50,30 @@ class BacktestResultsService:
         strategy_config = self._serialize_strategy_config(row.strategy_config)
         summary = self._serialize_dataclass(row.summary)
         trades = [self._serialize_trade(trade) for trade in row.trades]
-        graph_points = [self._serialize_graph_point(point) for point in row.graph_points]
+        full_graph_points = [self._serialize_graph_point(point) for point in row.graph_points]
         diagnostics = self._extract_research_diagnostics(
             run=run,
             summary=summary,
             trades=trades,
-            graph_points=graph_points,
+            graph_points=full_graph_points,
         )
+        graph_points, graph_sampling_metadata = self._sample_graph_points(
+            full_graph_points,
+            trades,
+            graph_max_points=graph_max_points,
+            graph_sampling_mode=graph_sampling_mode,
+        )
+        safe_full_graph_points = redact_sensitive({"graph_points": full_graph_points})["graph_points"]
         response = redact_sensitive({
             "run": run,
             "strategy_config": strategy_config,
             "summary": summary,
             "trades": trades,
             "graph_points": graph_points,
+            "chart_metadata": {
+                "schema_version": "chart_payload_metadata_v1",
+                "graph_points": graph_sampling_metadata,
+            },
             "diagnostics": diagnostics,
             "warnings": warnings,
         })
@@ -62,7 +82,7 @@ class BacktestResultsService:
             strategy_config=response["strategy_config"],
             summary=response["summary"],
             trades=response["trades"],
-            graph_points=response["graph_points"],
+            graph_points=safe_full_graph_points,
             diagnostics=response["diagnostics"],
             warnings=warnings,
         )
@@ -372,6 +392,170 @@ class BacktestResultsService:
             return None
         diagnostics["available_sections"] = sorted(available_sections)
         return diagnostics
+
+    def _sample_graph_points(
+        self,
+        graph_points: list[dict[str, Any]],
+        trades: list[dict[str, Any]],
+        *,
+        graph_max_points: int | None,
+        graph_sampling_mode: str,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        if graph_sampling_mode != GRAPH_SAMPLING_MODE_PRESERVE_MARKERS:
+            graph_sampling_mode = GRAPH_SAMPLING_MODE_PRESERVE_MARKERS
+
+        original_count = len(graph_points)
+        if graph_max_points is None or original_count <= graph_max_points:
+            marker_point_count = self._marker_point_count(graph_points, trades)
+            return graph_points, self._graph_sampling_metadata(
+                sampled=False,
+                original_count=original_count,
+                returned_count=original_count,
+                max_points=graph_max_points,
+                sampling_mode=graph_sampling_mode,
+                marker_point_count=marker_point_count,
+                preserved_marker_point_count=marker_point_count,
+            )
+
+        max_points = max(1, graph_max_points)
+        marker_indices = self._marker_graph_point_indices(graph_points, trades)
+        required_indices = {0, original_count - 1, *marker_indices}
+
+        if len(required_indices) > max_points:
+            selected_indices = {0, original_count - 1}
+            marker_slots = max(0, max_points - len(selected_indices))
+            selected_indices.update(self._evenly_spaced_indices(sorted(marker_indices), marker_slots))
+        else:
+            selected_indices = set(required_indices)
+            context_indices = self._marker_context_indices(marker_indices, original_count)
+            context_slots = max_points - len(selected_indices)
+            selected_indices.update(
+                self._take_ordered_indices(context_indices, context_slots, excluded=selected_indices)
+            )
+
+            fill_slots = max_points - len(selected_indices)
+            if fill_slots > 0:
+                fill_candidates = [
+                    index for index in range(original_count) if index not in selected_indices
+                ]
+                selected_indices.update(self._evenly_spaced_indices(fill_candidates, fill_slots))
+
+        ordered_indices = sorted(selected_indices)
+        sampled_points = [graph_points[index] for index in ordered_indices]
+        preserved_marker_count = sum(1 for index in marker_indices if index in selected_indices)
+        metadata = self._graph_sampling_metadata(
+            sampled=len(sampled_points) < original_count,
+            original_count=original_count,
+            returned_count=len(sampled_points),
+            max_points=graph_max_points,
+            sampling_mode=graph_sampling_mode,
+            marker_point_count=len(marker_indices),
+            preserved_marker_point_count=preserved_marker_count,
+        )
+        return sampled_points, metadata
+
+    def _marker_point_count(
+        self,
+        graph_points: list[dict[str, Any]],
+        trades: list[dict[str, Any]],
+    ) -> int:
+        return len(self._marker_graph_point_indices(graph_points, trades))
+
+    def _marker_graph_point_indices(
+        self,
+        graph_points: list[dict[str, Any]],
+        trades: list[dict[str, Any]],
+    ) -> set[int]:
+        trade_times = {
+            trade.get("candle_open_time")
+            for trade in trades
+            if trade.get("candle_open_time")
+        }
+        marker_indices: set[int] = set()
+        for index, point in enumerate(graph_points):
+            if (
+                point.get("signal")
+                or point.get("position_signal")
+                or point.get("execution_side")
+                or point.get("trade_id") is not None
+                or point.get("candle_open_time") in trade_times
+            ):
+                marker_indices.add(index)
+                continue
+            metadata = point.get("metadata")
+            if isinstance(metadata, dict) and metadata.get("trades"):
+                marker_indices.add(index)
+        return marker_indices
+
+    def _marker_context_indices(self, marker_indices: set[int], original_count: int) -> list[int]:
+        context_indices: set[int] = set()
+        for index in marker_indices:
+            if index > 0:
+                context_indices.add(index - 1)
+            if index + 1 < original_count:
+                context_indices.add(index + 1)
+        return sorted(context_indices)
+
+    def _take_ordered_indices(
+        self,
+        candidates: list[int],
+        limit: int,
+        *,
+        excluded: set[int],
+    ) -> set[int]:
+        selected: set[int] = set()
+        if limit <= 0:
+            return selected
+        for index in candidates:
+            if index in excluded:
+                continue
+            selected.add(index)
+            if len(selected) >= limit:
+                break
+        return selected
+
+    def _evenly_spaced_indices(self, candidates: list[int], limit: int) -> set[int]:
+        if limit <= 0 or not candidates:
+            return set()
+        if len(candidates) <= limit:
+            return set(candidates)
+        if limit == 1:
+            return {candidates[0]}
+
+        last_candidate_index = len(candidates) - 1
+        selected_positions = {
+            round(position * last_candidate_index / (limit - 1))
+            for position in range(limit)
+        }
+        selected = {candidates[position] for position in selected_positions}
+        for candidate in candidates:
+            if len(selected) >= limit:
+                break
+            selected.add(candidate)
+        return selected
+
+    def _graph_sampling_metadata(
+        self,
+        *,
+        sampled: bool,
+        original_count: int,
+        returned_count: int,
+        max_points: int | None,
+        sampling_mode: str,
+        marker_point_count: int,
+        preserved_marker_point_count: int,
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": "graph_sampling_v1",
+            "sampled": sampled,
+            "original_point_count": original_count,
+            "returned_point_count": returned_count,
+            "max_points": max_points,
+            "sampling_mode": sampling_mode,
+            "marker_point_count": marker_point_count,
+            "preserved_marker_point_count": preserved_marker_point_count,
+            "marker_points_preserved": preserved_marker_point_count == marker_point_count,
+        }
 
     def _metadata_subset(
         self, metadata: dict[str, Any], keys: tuple[str, ...]

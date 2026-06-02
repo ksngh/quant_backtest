@@ -212,6 +212,23 @@ export type BacktestGraphPoint = {
   metadata: Record<string, unknown> | null;
 };
 
+export type ChartGraphSamplingMetadata = {
+  schema_version: "graph_sampling_v1" | string;
+  sampled: boolean;
+  original_point_count: number;
+  returned_point_count: number;
+  max_points: number | null;
+  sampling_mode: string;
+  marker_point_count: number;
+  preserved_marker_point_count: number;
+  marker_points_preserved: boolean;
+};
+
+export type ChartPayloadMetadata = {
+  schema_version: "chart_payload_metadata_v1" | string;
+  graph_points?: ChartGraphSamplingMetadata | null;
+};
+
 export type BacktestRunDetailResponse = {
   run: {
     id: number;
@@ -262,6 +279,7 @@ export type BacktestRunDetailResponse = {
   };
   trades: BacktestTrade[];
   graph_points: BacktestGraphPoint[];
+  chart_metadata?: ChartPayloadMetadata | null;
   diagnostics?: BacktestResearchDiagnostics | null;
   research_report?: Record<string, unknown> | null;
   warnings: WarningMessage[];

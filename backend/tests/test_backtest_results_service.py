@@ -44,6 +44,23 @@ class RunListRow:
     completed_at: str | None
 
 
+def _graph_point(sequence: int, **overrides: Any) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "id": sequence,
+        "sequence": sequence,
+        "candle_open_time": f"2026-02-01T{sequence // 60:02d}:{sequence % 60:02d}:00Z",
+        "close_price": 100.0 + sequence,
+        "cash": 10_000.0,
+        "position": 0.0,
+        "equity": 10_000.0 + sequence,
+        "trade_id": None,
+        "signal": None,
+        "metadata": {},
+    }
+    row.update(overrides)
+    return row
+
+
 def test_serialize_list_item_exposes_configured_starting_cash() -> None:
     service = BacktestResultsService(None)
 
@@ -205,3 +222,66 @@ def test_serialize_trade_allows_missing_channel_metadata_for_legacy_rows() -> No
 
     assert "channel_geometry" not in row
     assert row["position_signal"] == "LONG_ENTRY"
+
+
+def test_sample_graph_points_preserves_boundaries_markers_and_order() -> None:
+    service = BacktestResultsService(None)
+    graph_points = [_graph_point(sequence) for sequence in range(1000)]
+    graph_points[10]["signal"] = "LONG_ENTRY"
+    graph_points[500]["position_signal"] = "LONG_EXIT"
+    graph_points[990]["metadata"] = {"trades": [{"position_signal": "SHORT_ENTRY"}]}
+    trades = [
+        {"candle_open_time": graph_points[10]["candle_open_time"]},
+        {"candle_open_time": graph_points[500]["candle_open_time"]},
+        {"candle_open_time": graph_points[990]["candle_open_time"]},
+    ]
+
+    sampled, metadata = service._sample_graph_points(
+        graph_points,
+        trades,
+        graph_max_points=100,
+        graph_sampling_mode="preserve_markers",
+    )
+
+    sampled_sequences = [point["sequence"] for point in sampled]
+    assert len(sampled) == 100
+    assert sampled_sequences[0] == 0
+    assert sampled_sequences[-1] == 999
+    assert 10 in sampled_sequences
+    assert 500 in sampled_sequences
+    assert 990 in sampled_sequences
+    assert sampled_sequences == sorted(sampled_sequences)
+    assert metadata == {
+        "schema_version": "graph_sampling_v1",
+        "sampled": True,
+        "original_point_count": 1000,
+        "returned_point_count": 100,
+        "max_points": 100,
+        "sampling_mode": "preserve_markers",
+        "marker_point_count": 3,
+        "preserved_marker_point_count": 3,
+        "marker_points_preserved": True,
+    }
+
+
+def test_sample_graph_points_is_deterministic() -> None:
+    service = BacktestResultsService(None)
+    graph_points = [_graph_point(sequence) for sequence in range(250)]
+    graph_points[125]["execution_side"] = "BUY"
+    trades = [{"candle_open_time": graph_points[125]["candle_open_time"]}]
+
+    first_sample, first_metadata = service._sample_graph_points(
+        graph_points,
+        trades,
+        graph_max_points=120,
+        graph_sampling_mode="preserve_markers",
+    )
+    second_sample, second_metadata = service._sample_graph_points(
+        graph_points,
+        trades,
+        graph_max_points=120,
+        graph_sampling_mode="preserve_markers",
+    )
+
+    assert first_sample == second_sample
+    assert first_metadata == second_metadata

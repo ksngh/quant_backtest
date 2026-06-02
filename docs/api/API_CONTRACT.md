@@ -75,15 +75,26 @@ Path parameter:
 
 - `backtest_run_id: integer` (positive)
 
+Query parameters:
+
+- `graph_max_points?: integer` (optional, 100 to 20000)
+- `graph_sampling_mode?: string` (optional, default: `preserve_markers`)
+
 Validation:
 
 - non-integer or `<= 0` => `400`
+- `graph_max_points < 100` or `> 20000` => `422`
 - missing completed run => `404`
 
 Semantics:
 
 - Must map to `load_run_for_graphs(backtest_run_id)`.
 - Must not synthesize run data by re-running strategies/backtests.
+- When `graph_max_points` is provided, `graph_points` may be reduced for dashboard chart performance.
+- Reduced graph payloads must preserve the first and last graph point, signal or execution marker points, and trade timestamps when those timestamps exist in the saved graph series.
+- Reduced graph payloads must keep chronological order and must not invent prices, equity, cash, timestamps, or signals.
+- Diagnostics and research-report summaries should remain based on the saved run data, not on an invented rerun.
+- `chart_metadata.graph_points` must describe any bounded graph response.
 
 ## 4.4 Optional `GET /api/backtest-runs/{backtest_run_id}/chart`
 
@@ -314,6 +325,20 @@ Field mapping notes:
       }
     }
   ],
+  "chart_metadata": {
+    "schema_version": "chart_payload_metadata_v1",
+    "graph_points": {
+      "schema_version": "graph_sampling_v1",
+      "sampled": true,
+      "original_point_count": 50000,
+      "returned_point_count": 3000,
+      "max_points": 3000,
+      "sampling_mode": "preserve_markers",
+      "marker_point_count": 24,
+      "preserved_marker_point_count": 24,
+      "marker_points_preserved": true
+    }
+  },
   "diagnostics": {
     "schema_version": "research_diagnostics_api_v1",
     "available_sections": [
@@ -386,6 +411,13 @@ Warning behavior:
 
 - `warnings` is always present (may be empty array).
 - Include `PATTERN_PLACEHOLDER_EQUITY` when run data indicates older placeholder-neutral pattern persistence (for example legacy pattern metadata without summary metadata, or zeroed cash/equity semantics).
+
+Chart payload behavior:
+
+- `chart_metadata` is additive and may be omitted by legacy-compatible responses.
+- The dashboard should request bounded detail responses with `graph_max_points` for large chart views instead of fetching and rendering unbounded `graph_points`.
+- If `chart_metadata.graph_points.sampled=true`, clients should display that the chart is sampled and show `returned_point_count` versus `original_point_count`.
+- `marker_points_preserved=false` means the saved run contained more marker/trade points than the requested chart budget could include; clients should treat the chart as a high-level overview rather than exact marker inspection.
 
 Cash/equity semantics:
 

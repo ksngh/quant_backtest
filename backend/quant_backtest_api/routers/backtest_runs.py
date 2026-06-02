@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.quant_backtest_api.dependencies import get_backtest_results_service
 from backend.quant_backtest_api.schemas.backtest import BacktestRunDetailResponse, BacktestRunsListResponse
-from backend.quant_backtest_api.services.backtest_results import BacktestResultsService
+from backend.quant_backtest_api.services.backtest_results import (
+    GRAPH_SAMPLING_MODE_PRESERVE_MARKERS,
+    BacktestResultsService,
+)
 
 router = APIRouter(prefix="/api", tags=["backtest-runs"])
 
@@ -63,11 +66,19 @@ def list_backtest_runs(
 @router.get("/backtest-runs/{backtest_run_id}", response_model=BacktestRunDetailResponse)
 def get_backtest_run_detail(
     backtest_run_id: int,
+    graph_max_points: int | None = Query(default=None, ge=100, le=20000),
+    graph_sampling_mode: str = Query(default=GRAPH_SAMPLING_MODE_PRESERVE_MARKERS),
     service: BacktestResultsService = Depends(get_backtest_results_service),
 ) -> BacktestRunDetailResponse:
     if backtest_run_id <= 0:
         raise HTTPException(status_code=400, detail="backtest_run_id must be positive")
-    detail = service.load_run_for_graphs(backtest_run_id)
+    if graph_sampling_mode != GRAPH_SAMPLING_MODE_PRESERVE_MARKERS:
+        raise HTTPException(status_code=400, detail="unsupported graph_sampling_mode")
+    detail = service.load_run_for_graphs(
+        backtest_run_id,
+        graph_max_points=graph_max_points,
+        graph_sampling_mode=graph_sampling_mode,
+    )
     if detail is None:
         raise HTTPException(status_code=404, detail="backtest run not found")
     return BacktestRunDetailResponse(**detail)
