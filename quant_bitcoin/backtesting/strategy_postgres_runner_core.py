@@ -87,6 +87,7 @@ from quant_bitcoin.risk.exit_plan import (
 from quant_bitcoin.strategies.actions import StrategyAction, StrategyActionType
 from quant_bitcoin.strategies.lookback_return_momentum import (
     STRATEGY_KEY as LOOKBACK_RETURN_MOMENTUM_KEY,
+    LookbackReturnMomentumCostAwareConfig,
     LookbackReturnMomentumConfig,
     LookbackReturnMomentumStrategy,
     build_lookback_return_momentum_actions,
@@ -324,6 +325,12 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--lookback-bars", type=int, default=None)
     parser.add_argument("--entry-threshold", type=_positive_finite_float, default=None)
     parser.add_argument("--holding-bars", type=int, default=None)
+    parser.add_argument("--risk-distance-mode", choices=["atr", "fixed_pct"], default=None)
+    parser.add_argument("--atr-period", type=int, default=None)
+    parser.add_argument("--atr-smoothing", choices=["RMA", "SMA", "EMA"], default=None)
+    parser.add_argument("--stop-loss-atr-multiple", type=_positive_finite_float, default=None)
+    parser.add_argument("--take-profit-atr-multiple", type=_positive_finite_float, default=None)
+    parser.add_argument("--minimum-atr-bps", type=_non_negative_finite_float, default=None)
     parser.add_argument("--risk-distance-pct", type=_positive_finite_float, default=None)
     parser.add_argument("--stop-loss-r", type=_positive_finite_float, default=None)
     parser.add_argument("--take-profit-r", type=_positive_finite_float, default=None)
@@ -1324,9 +1331,40 @@ def _build_lookback_return_momentum_config(
         lookback_bars=getattr(args, "lookback_bars", None),
         entry_threshold=getattr(args, "entry_threshold", None),
         holding_bars=getattr(args, "holding_bars", None),
+        risk_distance_mode=getattr(args, "risk_distance_mode", None),
+        atr_period=getattr(args, "atr_period", None),
+        atr_smoothing=getattr(args, "atr_smoothing", None),
+        stop_loss_atr_multiple=getattr(args, "stop_loss_atr_multiple", None),
+        take_profit_atr_multiple=getattr(args, "take_profit_atr_multiple", None),
+        minimum_atr_bps=getattr(args, "minimum_atr_bps", None),
         risk_distance_pct=getattr(args, "risk_distance_pct", None),
         stop_loss_r=getattr(args, "stop_loss_r", None),
         take_profit_r=getattr(args, "take_profit_r", None),
+    )
+
+
+def _build_lookback_return_momentum_cost_aware_config(
+    config: CostAwareEntryFilterConfig | None,
+) -> LookbackReturnMomentumCostAwareConfig | None:
+    if config is None:
+        return None
+    cost_config = config.transaction_cost_config or TransactionCostConfig()
+    fee_bps = (
+        cost_config.maker_fee_bps
+        if config.liquidity_role is LiquidityRole.MAKER
+        else cost_config.taker_fee_bps
+    )
+    return LookbackReturnMomentumCostAwareConfig(
+        enabled=config.enabled,
+        min_net_reward_bps=config.min_net_reward_bps,
+        min_net_rr=config.min_net_rr,
+        fee_bps=fee_bps,
+        spread_bps=cost_config.spread_bps,
+        slippage_bps=cost_config.slippage_bps,
+        minimum_slippage_bps=cost_config.minimum_slippage_bps,
+        volatility_slippage_multiplier=cost_config.volatility_slippage_multiplier,
+        liquidity_role=config.liquidity_role.value,
+        cost_profile_name=config.cost_profile_name,
     )
 
 
@@ -1757,8 +1795,13 @@ def _build_actions(
 ):
     if _is_lookback_return_momentum_strategy(strategy_key):
         config = lookback_return_momentum_config or LookbackReturnMomentumConfig()
-        strategy = LookbackReturnMomentumStrategy(config=config)
-        return strategy, build_lookback_return_momentum_actions(candles, config=config)
+        cost_config = _build_lookback_return_momentum_cost_aware_config(cost_aware_entry_filter_config)
+        strategy = LookbackReturnMomentumStrategy(config=config, cost_aware_config=cost_config)
+        return strategy, build_lookback_return_momentum_actions(
+            candles,
+            config=config,
+            cost_aware_config=cost_config,
+        )
 
     strategy = strategy_for_pattern(strategy_key, entry_filter_config=entry_filter_config)
     if strategy.strategy_key == "ORDER_BLOCK" and order_block_config is not None:
@@ -2553,20 +2596,65 @@ def _build_lookback_return_momentum_diagnostics(
         for action in actions
         if action.action_type in (StrategyActionType.EXIT_LONG, StrategyActionType.EXIT_SHORT)
     ]
+    cost_aware_blocked_actions = [
+        action
+        for action in actions
+        if action.action_type == StrategyActionType.SKIP
+        and (((action.metadata or {}).get("cost_aware_entry_filter") or {}).get("blocked") is True)
+    ]
+    invalid_atr_blocked_actions = [
+        action
+        for action in actions
+        if action.action_type == StrategyActionType.SKIP
+        and (action.reason == "INVALID_ATR_RISK_DISTANCE" or (action.metadata or {}).get("skip_reason") == "INVALID_ATR_RISK_DISTANCE")
+    ]
+    atr_too_small_blocked_actions = [
+        action
+        for action in actions
+        if action.action_type == StrategyActionType.SKIP
+        and (action.reason == "ATR_TOO_SMALL_FOR_COST" or (action.metadata or {}).get("skip_reason") == "ATR_TOO_SMALL_FOR_COST")
+    ]
     exit_reasons = [
         str((action.metadata or {}).get("exit_reason"))
         for action in exit_actions
         if (action.metadata or {}).get("exit_reason")
     ]
+    cost_aware_block_reasons = [
+        str(((action.metadata or {}).get("cost_aware_entry_filter") or {}).get("block_reason") or action.reason)
+        for action in cost_aware_blocked_actions
+        if (((action.metadata or {}).get("cost_aware_entry_filter") or {}).get("block_reason") or action.reason)
+    ]
+    attempted_entry_count = (
+        len(entry_actions)
+        + len(cost_aware_blocked_actions)
+        + len(invalid_atr_blocked_actions)
+        + len(atr_too_small_blocked_actions)
+    )
     return {
         "schema_version": "lookback_return_momentum_diagnostics_v1",
         "strategy_key": LOOKBACK_RETURN_MOMENTUM_KEY,
         "config": config.to_metadata(),
-        "candidate_entry_count": len(entry_actions),
+        "candidate_entry_count": attempted_entry_count,
+        "accepted_entry_count": len(entry_actions),
+        "cost_aware_blocked_entry_count": len(cost_aware_blocked_actions),
+        "invalid_atr_blocked_entry_count": len(invalid_atr_blocked_actions),
+        "atr_too_small_blocked_entry_count": len(atr_too_small_blocked_actions),
+        "cost_aware_block_rate": (
+            None
+            if attempted_entry_count == 0
+            else len(cost_aware_blocked_actions) / attempted_entry_count
+        ),
+        "cost_aware_block_reasons": sorted(set(cost_aware_block_reasons)),
         "exit_count": len(exit_actions),
         "exit_reasons": sorted(set(exit_reasons)),
         "long_entry_count": sum(1 for action in entry_actions if action.action_type == StrategyActionType.ENTER_LONG),
         "short_entry_count": sum(1 for action in entry_actions if action.action_type == StrategyActionType.ENTER_SHORT),
+        "blocked_long_entry_count": sum(1 for action in cost_aware_blocked_actions if (action.metadata or {}).get("signal_side") == "LONG"),
+        "blocked_short_entry_count": sum(1 for action in cost_aware_blocked_actions if (action.metadata or {}).get("signal_side") == "SHORT"),
+        "invalid_atr_long_entry_count": sum(1 for action in invalid_atr_blocked_actions if (action.metadata or {}).get("signal_side") == "LONG"),
+        "invalid_atr_short_entry_count": sum(1 for action in invalid_atr_blocked_actions if (action.metadata or {}).get("signal_side") == "SHORT"),
+        "atr_too_small_long_entry_count": sum(1 for action in atr_too_small_blocked_actions if (action.metadata or {}).get("signal_side") == "LONG"),
+        "atr_too_small_short_entry_count": sum(1 for action in atr_too_small_blocked_actions if (action.metadata or {}).get("signal_side") == "SHORT"),
         "trade_count": result.summary.trade_count,
         "completed_trade_count": (
             ((result.summary.metadata or {}).get("trade_attribution") or {})
@@ -3002,8 +3090,19 @@ def run(
             run_metadata=runtime_metadata
             | {
                 "cash_denomination": cash_denomination_metadata,
+                "cost_aware_entry_filter": _cost_aware_entry_filter_metadata(cost_aware_entry_filter_config),
+                "cost_profile": _cost_profile_metadata(args, transaction_cost_config),
+                "lookback_return_momentum": (
+                    lookback_return_momentum_config.to_metadata()
+                    if lookback_return_momentum_config is not None
+                    else {
+                        "schema_version": "lookback_return_momentum_config_v1",
+                        "enabled": False,
+                    }
+                ),
                 "reproducibility": reproducibility_metadata,
                 "research": research_metadata,
+                "workflow_settings": workflow_settings,
             },
         )
         persisted_run_id = repository.save_completed_backtest(payload)

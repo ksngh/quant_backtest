@@ -1,8 +1,8 @@
 # Backtest Report Data Rules
 
-이 문서는 백테스트 결과를 daily report 본문 작성 또는 이미지 생성 에이전트에게 넘기기 위한 저장 규칙입니다.
+이 문서는 백테스트 결과를 daily report HTML 작성 또는 이미지 생성 에이전트에게 넘기기 위한 저장 규칙입니다.
 
-목표는 백테스트 내부 기록을 그대로 노출하는 것이 아니라, `docs/blog/DAILY_REPORT_TEMPLATE.md`와 `docs/blog/DAILY_REPORT_STYLE.md`를 기준으로 한국어 리포트 본문과 리포트 이미지를 만들 수 있는 값만 작게 저장하는 것입니다.
+목표는 백테스트 내부 기록을 그대로 노출하는 것이 아니라, `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`, `docs/blog/report_template.html`을 기준으로 Tistory용 한국어 HTML 리포트와 리포트 이미지를 만들 수 있는 값만 작게 저장하는 것입니다.
 
 ## 1. 저장 단위
 
@@ -13,16 +13,18 @@
 ```text
 reports/blog_payloads/[strategy-slug]/[strategy-version-slug]/[period-slug]/
   payload.json
-  report-ko.md
+  report-ko.html
   summary_equity_curve.png
   cost_impact.png
   representative_win_trade.png
   representative_loss_trade.png
 ```
 
-full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 생성합니다.
+full report workflow에서는 `report-ko.html` 한국어 HTML 리포트까지 생성합니다.
 
-이 workflow에서는 `report-en.md`, `image_plan.md`, `image_plan.json`, `images/` 하위 폴더를 기본 생성하지 않습니다.
+이 workflow에서는 `report-en.html`, `report-en.md`, `image_plan.md`, `image_plan.json`, `images/` 하위 폴더를 기본 생성하지 않습니다.
+
+Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요청된 경우에만 내부 scratch 또는 legacy export로 다룹니다.
 
 폴더 이름 규칙:
 
@@ -30,26 +32,38 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
 - `strategy-version-slug`: 전략 버전을 소문자 ASCII로 정리합니다. 예: `v1`, `v2`.
 - `period-slug`: 백테스트 기간이 있으면 `YYYYMMDD-YYYYMMDD`를 사용합니다.
 - 기간을 알 수 없으면 리포트 작성일 `YYYYMMDD`를 사용합니다.
-- 같은 전략/기간의 리포트를 다시 만들 때는 기존 `payload.json`, `report-ko.md`, PNG를 삭제한 뒤 같은 목적의 재생성인지 확인합니다.
+- 같은 전략/기간의 리포트를 다시 만들 때는 기존 `payload.json`, `report-ko.html`, PNG를 삭제한 뒤 같은 목적의 재생성인지 확인합니다.
 - folder, payload, image filename에는 task 번호, run id, 내부 candidate id를 넣지 않습니다.
 
 이미지 저장 규칙:
 
 - 모든 생성 이미지는 `payload.json`과 같은 디렉터리에 저장합니다.
 - payload 이미지 참조에는 파일명만 넣습니다.
-- Markdown에서 이미지를 참조해야 할 때는 같은 폴더 기준 `./[filename].png`를 사용합니다.
+- HTML에서 이미지를 참조할 때는 같은 폴더 기준 `./[filename].png`를 사용합니다.
 - 이미지 참조에는 절대경로, `../`, 하위 `images/`, 외부 URL을 넣지 않습니다.
+- 이미지 생성 규칙은 `docs/blog/image_generation_prompt.md`의 stable visual contract를 따릅니다.
+- 이미지 크기를 맞추기 위해 chart content를 crop하지 않습니다. target canvas를 직접 생성하거나, aspect ratio를 유지한 뒤 padding으로 맞춥니다.
+- 대표 거래 이미지는 entry/exit 주변만 확대하지 않고 pre-entry와 post-exit candle context를 포함합니다.
+- 라벨, legend, annotation이 겹치면 plot 위 글자를 줄이고 별도 annotation band나 외부 legend로 옮깁니다.
 
-리포트 본문 저장 규칙:
+리포트 HTML 저장 규칙:
 
-- `report-ko.md`는 `payload.json`과 같은 디렉터리에 저장합니다.
-- `report-ko.md` 작성 전 `docs/blog/DAILY_REPORT_TEMPLATE.md`와 `docs/blog/DAILY_REPORT_STYLE.md`를 읽습니다.
-- `docs/blog/DAILY_REPORT_TEMPLATE.md`는 섹션 구조를 정하고, `docs/blog/DAILY_REPORT_STYLE.md`는 말투와 해석 방식을 정합니다.
-- `report-ko.md`는 `payload.json`과 같은 디렉터리에 있는 PNG 파일만 참조합니다.
-- Markdown 이미지 참조는 `./summary_equity_curve.png`처럼 같은 폴더 기준 상대 경로만 사용합니다.
+- `report-ko.html`은 `payload.json`과 같은 디렉터리에 저장합니다.
+- `report-ko.html` 작성 전 `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`, `docs/blog/report_template.html`을 읽습니다.
+- `docs/blog/report_template.html`은 HTML 레이아웃과 읽기 흐름을 정합니다.
+- Tistory hELLO 스킨 본문 폭을 기준으로 합니다. 기본 컨테이너 폭은 `1120px`이며, 모바일에서도 반응형으로 읽혀야 합니다.
+- HTML은 내부 CSS를 포함한 단일 파일이어야 하며 외부 CSS 파일에 의존하지 않습니다.
+- `docs/blog/DAILY_REPORT_TEMPLATE.md`는 섹션 구조를 정합니다.
+- `docs/blog/DAILY_REPORT_STYLE.md`는 말투와 해석 방식을 정합니다.
+- `report-ko.html`은 `payload.json`과 같은 디렉터리에 있는 PNG 파일만 참조합니다.
+- 이미지 참조는 `<img src="./summary_equity_curve.png">`처럼 같은 폴더 기준 상대 경로만 사용합니다.
+- 모든 이미지는 `<figure class="report-figure">`로 감쌉니다.
+- 모든 표는 `<div class="table-scroll">`로 감쌉니다.
+- main title은 전략명과 버전 중심으로 둡니다. 실험 세부 문구는 title이 아니라 요약/해석에 저장합니다.
+- subtitle/lead에 쓸 stable strategy description은 strategy 문서에서 가져옵니다.
 - payload에 없는 값은 추정하지 않고 `[확인 필요]`로 남깁니다.
 - 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, source file path, git commit, credential, config dump를 쓰지 않습니다.
-- research-only 또는 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
+- 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
 
 ## 2. 필드 이름 규칙
 
@@ -80,15 +94,19 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
     "strategy_name": "[전략명]",
     "strategy_version": "[전략 버전]",
     "strategy_label": "[전략명 전략버전]",
+    "stable_strategy_description": "[전략 자체를 설명하는 짧은 문장]",
+    "version_change_summary": "[이번 버전 또는 메커니즘 변경 요약 또는 null]",
+    "title_policy": "strategy_name_and_version_only",
     "market_summary": "[시장/심볼/타임프레임/기간]",
     "period": "[기간]",
     "pr": "[PR 번호 또는 링크]"
   },
   "artifact": {
-    "schema": "colocated_payload_images_v1",
+    "schema": "colocated_payload_images_html_report_v1",
     "strategy_slug": "[strategy-slug]",
     "strategy_version_slug": "[strategy-version-slug]",
     "period_slug": "[period-slug]",
+    "report_filename": "report-ko.html",
     "image_reference_rule": "filenames_only_colocated_with_payload"
   },
   "images": {
@@ -145,8 +163,20 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
       "[가정 3]"
     ],
     "economic_meaning": "[경제적 의미]",
+    "edge_mechanism": "[전략이 우위를 가질 수 있는 이유]",
+    "success_conditions": "[작동하기 쉬운 시장 조건]",
+    "failure_conditions": "[실패하기 쉬운 시장 조건]",
+    "cost_and_rr_context": "[신호 속도, turnover, 비용, 손익비의 관계]",
+    "rule_summary": "[진입/청산/비용/동일 캔들 등 결과 해석에 필요한 전략 규칙 요약]",
+    "references": [
+      {
+        "id": "[짧은 식별자]",
+        "title": "[문헌/자료 제목]",
+        "reason": "[이 전략 설명에 필요한 이유]"
+      }
+    ],
     "expectancy": {
-      "formula": "E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost",
+      "formula": "E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost",
       "p_win": "[승률 또는 확률]",
       "avg_win": "[평균 이익]",
       "p_loss": "[손실 확률]",
@@ -233,22 +263,55 @@ full report workflow에서는 `report-ko.md` 한국어 리포트 본문까지 �
   "interpretation": {
     "experiment_intent": "[이번 실험이 확인하려는 것]",
     "result_interpretation": "[저장 결과에서 일어난 일]",
-    "cause_interpretation": "[결과가 나온 원인 해석]",
+    "success_drivers": "[성과가 좋을 때 성공 원인]",
+    "failure_drivers": "[성과가 좋지 않을 때 실패 원인]",
+    "bounded_conclusion": "[현재 전략/버전/조건에서 말할 수 있는 결론]",
+    "generalization_boundary": "[이 결과만으로 전략군 전체를 판단할 수 없는 이유]",
+    "broader_claim_requirements": "[더 넓은 결론에 필요한 추가 검증]",
     "risk_interpretation": "[위험 및 한계 해석]",
-    "next_improvements": "[다음 실험에서 추가/제거/조정할 항목]"
+    "next_improvements": "[보완점과 이유]"
+  },
+  "presentation_notes": {
+    "table_purposes": [
+      "[표 이름: 이 표가 답하는 질문]"
+    ],
+    "wide_table_handling": "[split_tables_or_reduce_columns 또는 null]",
+    "forbidden_copy_checks": [
+      "그것은"
+    ]
   }
 }
 ```
 
 ## 4. 리포트 해석 및 누락 항목 저장 규칙
 
-`interpretation`은 별도 결론 문구를 저장하는 곳이 아닙니다. 아래 순서로 future report writer가 한 섹션 안에서 해석을 쓸 수 있도록 저장합니다.
+`interpretation`은 별도 결론 문구를 저장하는 곳이 아닙니다. 아래 순서로 future report writer가 `해석` 섹션 안에서 해석을 쓸 수 있도록 저장합니다.
 
 - `experiment_intent`: 이번 실험이 확인하려는 것.
 - `result_interpretation`: 저장 결과에서 실제로 일어난 일.
-- `cause_interpretation`: 비용, gross edge, 신호 품질, turnover, threshold, hold window, 필터 부재 등 원인 후보.
-- `risk_interpretation`: 연구 전용 경계, 비용/체결/구간 한계.
-- `next_improvements`: 다음 실험에서 추가하거나 제거할 조건.
+- `success_drivers`: 결과가 좋을 때 성과를 만든 조건. gross edge, win/loss structure, cost absorption, holding-period behavior, drawdown, reward/risk 등을 저장 근거로 씁니다.
+- `failure_drivers`: 결과가 나쁠 때 성과를 막은 조건. gross-vs-net gap, churn, exit mix, cost drag, insufficient edge, reward/risk geometry 등을 저장 근거로 씁니다.
+- `bounded_conclusion`: 현재 전략명, 버전, 조건, 기간, 비용 가정 안에서 말할 수 있는 결론을 저장합니다.
+- `generalization_boundary`: 이 결과만으로 전략군 전체를 기각하거나 보편적 성공을 주장할 수 없는 이유를 저장합니다.
+- `broader_claim_requirements`: 전략군 전체로 판단 범위를 넓히려면 필요한 검증을 저장합니다. 예: OOS/WFO, 기준선 비교, regime segmentation, 다른 심볼/기간/타임프레임, 다른 신호 정의.
+- `risk_interpretation`: 비용, 체결, 구간, 데이터 한계.
+- `next_improvements`: 보완점과 그 이유.
+
+해석 경계 저장 규칙:
+
+- 실패 결과라면 `bounded_conclusion`에는 `현재 버전은 이 조건에서 비용 반영 후 유효한 전략으로 보기 어렵다`에 해당하는 결론을 저장할 수 있습니다.
+- 실패 결과라도 `generalization_boundary`에는 왜 전략군 전체를 기각하기 이른지 저장합니다. 구현 버전, 신호 정의, 기간, 심볼, 타임프레임, 비용 가정, 파라미터 범위, 빠진 필터/확인 조건을 근거로 씁니다.
+- 성공 결과라면 `bounded_conclusion`에는 현재 조건에서 무엇이 통과했는지 저장합니다.
+- 성공 결과라도 넓은 검증이 없으면 `generalization_boundary`에 보편적 유효성을 주장할 수 없다고 저장합니다.
+- `broader_claim_requirements`는 더 큰 주장을 위한 필요한 검증을 적습니다. 결과를 꾸미기 위한 일반 문구가 아니라, 현재 payload의 부족한 축을 기준으로 씁니다.
+
+`title.stable_strategy_description`은 report subtitle과 첫 문단의 원천입니다. 실험별 행동을 쓰지 말고 전략 자체를 설명합니다.
+
+`title.version_change_summary`는 전략 버전이나 핵심 메커니즘이 바뀐 경우에만 채웁니다. 예를 들어 고정 R 손익 기준에서 ATR 기준 손익 기준으로 바뀌면 이 차이를 짧게 저장합니다.
+
+`hypothesis_and_theory.references`는 strategy 문서의 레퍼런스를 report writer가 짧게 연결할 수 있도록 저장합니다. 레퍼런스가 없으면 full report 생성 전에 strategy 문서를 먼저 보강합니다.
+
+`presentation_notes.table_purposes`는 큰 표를 만들기 전에 표가 답하는 질문을 기록하기 위한 선택 필드입니다. 목적이 다른 지표를 한 표에 섞지 않도록 돕습니다.
 
 패턴, 필터, 이미지, 타임프레임 coverage가 없다는 사실은 기본 payload 설명문에 넣지 않습니다. 의사결정에 중요하면 `risk_interpretation` 또는 `next_improvements`에만 넣습니다. 예를 들어 `5m` local closed candle coverage가 없어 빠진 비교는 리드 문장이 아니라 `next_improvements`에 저장합니다.
 
@@ -274,6 +337,8 @@ representative_loss_trade.png
 - 하단: drawdown 또는 underwater curve.
 - 별도의 `drawdown_curve.png`는 기본으로 만들지 않습니다.
 - 주석에는 strategy name, market/symbol, timeframe, period, total return, max drawdown, total trades, win rate, expectancy를 가능한 범위에서 넣습니다.
+- 권장 canvas는 `1800px x 1000px`입니다.
+- equity와 drawdown 패널, 제목, legend, axis label이 잘리지 않도록 padding을 둡니다.
 
 ### cost_impact.png
 
@@ -284,6 +349,8 @@ representative_loss_trade.png
 - bar chart만 가능할 때는 gross PnL, fee, spread, slippage, net PnL을 비교합니다.
 - 주석에는 total fee, total spread, total slippage, total transaction cost, gross PnL, net PnL, final return after costs를 가능한 범위에서 넣습니다.
 - chart title이나 label에는 `cost stress`라는 표현을 쓰지 않습니다.
+- 권장 canvas는 `1800px x 1000px`입니다.
+- 비용 항목과 순손익 라벨이 겹치면 수치를 annotation band나 표로 옮기고 chart bar/line 위에 긴 문장을 올리지 않습니다.
 
 ### representative_win_trade.png
 
@@ -293,6 +360,11 @@ representative_loss_trade.png
 - side, entry price, exit price, entry time, exit time, net PnL, exit reason을 표시합니다.
 - `representative_trades.best_trade`가 있으면 우선 사용합니다.
 - 없으면 전략 논리를 설명하기 쉬운 수익 거래를 고릅니다.
+- 권장 canvas는 `1800px x 1000px`입니다.
+- `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/representative_win_trade.png`처럼 surrounding candles와 별도 하단 annotation band가 보이도록 만듭니다.
+- 최소한 entry-to-exit 구간 전체, entry 전 `10`개 candle, exit 후 `10`개 candle을 포함합니다. 데이터가 부족하면 가능한 전체 주변 candle을 씁니다.
+- 거래 기간이 길면 진입 전후 context는 거래 길이의 `30%` 이상을 우선하되, 너무 촘촘하면 x축 tick 수를 줄이고 window를 crop하지 않습니다.
+- y축은 local high/low, entry, exit, stop, target을 모두 포함하고 여백을 둡니다.
 
 ### representative_loss_trade.png
 
@@ -302,6 +374,11 @@ representative_loss_trade.png
 - side, entry price, exit price, entry time, exit time, net PnL, exit reason을 표시합니다.
 - `representative_trades.worst_trade`가 있으면 우선 사용합니다.
 - 없으면 전략의 약점을 설명하기 쉬운 손실 거래를 고릅니다.
+- 권장 canvas는 `1800px x 1000px`입니다.
+- 수익 거래 이미지와 동일하게 surrounding candles와 별도 annotation band를 사용합니다.
+- 최소한 entry-to-exit 구간 전체, entry 전 `10`개 candle, exit 후 `10`개 candle을 포함합니다. 데이터가 부족하면 가능한 전체 주변 candle을 씁니다.
+- y축은 local high/low, entry, exit, stop, target을 모두 포함하고 여백을 둡니다.
+- 손실 원인 라벨이 candle이나 stop/target line과 겹치면 plot 위 긴 라벨을 제거하고 annotation band에서 설명합니다.
 
 ## 6. 선택 이미지
 
@@ -323,18 +400,25 @@ representative_loss_trade.png
 full report artifact 생성 후 아래를 확인합니다.
 
 - `payload.json` exists.
-- `report-ko.md` exists.
+- `report-ko.html` exists.
 - `summary_equity_curve.png` exists.
 - `cost_impact.png` exists.
 - `representative_win_trade.png` exists.
 - `representative_loss_trade.png` exists.
 - `images/` 하위 폴더가 없습니다.
-- `report-en.md`, `image_plan.md`, `image_plan.json` 파일이 없습니다.
+- `report-en.html`, `report-en.md`, `image_plan.md`, `image_plan.json` 파일이 없습니다.
 - 모든 equity curve 이미지는 drawdown을 같은 이미지 안에 포함합니다.
 - 별도의 `drawdown_curve.png`는 명시 요청이 없으면 생성하지 않습니다.
+- 모든 PNG가 의도한 canvas dimensions를 충족합니다.
+- 이미지 크기 조정 과정에서 crop이 사용되지 않았습니다.
+- axis label, tick label, title, subtitle, legend, annotation, entry/exit marker, stop/target line이 이미지 밖으로 잘리지 않았습니다.
+- representative trade 이미지는 candle data가 있을 때 pre-entry와 post-exit context를 포함합니다.
+- representative trade y-axis가 entry, exit, stop, target, local high/low를 padding과 함께 포함합니다.
+- chart text, right-edge price label, legend, callout이 서로 겹치지 않습니다.
+- dense metrics는 candle plot 위가 아니라 annotation band 또는 HTML 본문/표에 있습니다.
 - payload의 모든 이미지 참조는 `/`가 없는 파일명입니다.
-- `report-ko.md`의 모든 이미지 참조는 같은 폴더 기준 `./[filename].png`입니다.
-- `report-ko.md`에는 task 번호, run id, 내부 candidate id가 없습니다.
+- `report-ko.html`의 모든 이미지 참조는 같은 폴더 기준 `./[filename].png`입니다.
+- `report-ko.html`에는 task 번호, run id, 내부 candidate id가 없습니다.
 - 누락된 필수 값은 `[확인 필요]`로 남아 있습니다.
 
 ## 8. PR 저장 규칙
@@ -370,7 +454,7 @@ full report artifact 생성 후 아래를 확인합니다.
 기대값은 아래 수식의 항목을 채울 수 있어야 합니다.
 
 ```text
-E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost
+E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost
 ```
 
 수익률만 저장하지 말고, 승률, 평균 이익, 평균 손실, 손익비, 수수료, 슬리피지를 함께 저장합니다.
@@ -380,5 +464,5 @@ E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost
 - daily report 이미지에 task 번호, run id, 내부 candidate id를 노출하지 않습니다.
 - 저장된 graph/equity/trade/cost 데이터가 없는데 임의 곡선을 만들지 않습니다.
 - smoothing으로 성과 곡선을 보기 좋게 바꾸지 않습니다.
-- live trading, 실제 주문, private API, credential 사용을 하지 않습니다.
+- live trading, private API, credential 사용을 하지 않습니다.
 - payload에는 `.env`, API key, DB dump, 원본 CSV dump를 넣지 않습니다.

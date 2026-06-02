@@ -1,24 +1,32 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 394: Task 304 daily-report rewrite completed (2026-06-01).
+Phase 427: Task 316 image-regeneration and copy-revision completed (2026-06-02).
 
 ## Current Step
-Completed Task 304 `REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT` by rewriting the existing Lookback Return Momentum Korean daily report with the revised Task 303 prompt/workflow/style guidance.
+Completed Task 316 `REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION`.
 
 ## Current Goal
-Wait for the owner to assign the next bounded task. Recommended candidates remain a separate `5m` candle backfill execution task for missing momentum comparison coverage, locked OOS/WFO diagnostics, or another explicitly assigned report workflow task.
+Prepare the completed Task 316 changes for owner review and PR.
 
 ## Current Active Task
-None. Task 304 is completed; no next task has been started.
+None.
 
 ## Last Completed Step (Short)
-Completed Task 304. Rewrote `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` with the revised interpretation-centered daily-report guidance, removed discouraged wording and absent-artifact mentions from the main narrative, moved missing `5m` coverage to next-improvement language, expanded representative trade descriptions with available saved trade context, and aligned report-facing payload text where the rewritten narrative would otherwise conflict. No new backtest, tuning/search, strategy/code change, candle backfill, DB mutation, image generation, frontend/backend/API change, live trading behavior, exchange endpoint behavior, secret, or `.env` change was performed.
+Completed Task 316. Regenerated the current Lookback Return Momentum V1 report PNGs under Task 315 image rules and replaced awkward `강한 결론` wording in the current report plus reusable `docs/blog` rules.
 
 ## Recommended Next Step
-Recommended next step: assign a separate bounded task such as `5m` candle backfill for missing momentum comparison coverage, locked OOS/WFO diagnostics, or a future report workflow/payload exporter task if desired.
+Recommended next step: review the PR for Tasks 305-316 changes; do not start another task automatically.
 
 ## Current Blockers (Short)
+- Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
+- Task 311 note: completed. Persisted runs `1192`-`1209` tested `1 ATR` stop with `2.0/2.5/3.0 ATR` take-profit and `0.0/20.0` minimum ATR bps. Cost-feasible entries appeared at `1m` from `2.5 ATR`, and at `5m`/`15m` from `2.0 ATR`; however all filled variants were net negative after costs. `minimum_atr_bps=20.0` reclassified low-ATR rejected candidates as `ATR_TOO_SMALL_FOR_COST` but did not change accepted trades.
+- Task 312 note: completed. Generated the Tistory-ready daily-report artifact from Task 311 saved outputs only at `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/` with `payload.json`, `report-ko.html`, `summary_equity_curve.png`, `cost_impact.png`, `reward_cost_geometry.png`, `accepted_entries_by_variant.png`, `representative_win_trade.png`, and `representative_loss_trade.png`. No new backtest, DB mutation, strategy/code change, live trading behavior, exchange endpoint behavior, secret, or `.env` change was added.
+- Task 313 note: completed. Reusable `docs/blog` workflow/style/template/data/image/handoff rules and `docs/blog/report_template.html` now encode Tistory hELLO skin layout defaults, full-width image rules, left-first table alignment, and interpretation-boundary rules that avoid rejecting a whole strategy family from a bounded failed version or overclaiming universal success from a narrow pass. Existing report artifacts, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, and `.env` files were not edited by Task 313.
+- Task 314 note: completed. Regenerated the existing Task 312 artifact folder `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/` from saved Task 311 outputs using the Task 313 hELLO skin and interpretation rules. `report-ko.html` now uses the `1120px` centered `.report-page` hELLO layout, full-width image CSS, left-first table styling, and an interpretation that says the tested V1 configuration is not effective after costs under the current conditions while not rejecting momentum strategies generally. `payload.json` narrative fields and same-folder PNGs were refreshed; Task 311 numerical metrics match the saved manifest. No new backtest, DB mutation, strategy/code change, live trading behavior, exchange endpoints, secrets, or `.env` files were added.
+- Task 315 note: completed. Updated reusable `docs/blog` image-generation workflow/rule docs so future daily-report images use stable canvas sizes, no-crop/aspect-ratio-preserving resizing with padding, representative trade charts with pre-entry and post-exit context, the `20260520-20260528` representative win trade reference style, annotation bands for dense metrics, and label-overlap QA. `docs/blog/report_template.html` was preserved. Existing report artifacts and PNGs were not regenerated or edited by Task 315.
+- Task 316 note: completed. Regenerated the six current `Lookback Return Momentum V1` Task 314 artifact PNGs in place under Task 315 image rules, including no-crop 1800px-wide canvases, annotation bands, and representative win/loss trade charts with surrounding `15m` candle context. Updated `report-ko.html`, `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`, and `docs/blog/backtest_report_data_rules.md` so future wording uses `전략군 전체로 판단 범위를 넓히려면` instead of awkward `더 강한 결론` / `강한 결론`. Payload metrics were verified against the Task 311 manifest. No new backtest, DB mutation, strategy/code change, candle backfill, live trading behavior, exchange endpoint behavior, secret, or `.env` change was added.
+- Task 310 note: completed before Task 309. `git diff --name-only -- reports` still lists pre-existing dirty report artifacts from earlier tasks, but Task 310 did not edit report artifacts.
 - Task 279 note: no tested BTCUSDT 1m candidate passed the robustness matrix; Task 278 run `155`/`156` remains a directional diagnostic only, and all Task 279 candidates remain `DIAGNOSTIC_ONLY`.
 - Task 286 resolved the BTCUSDT 1m data blocker: local closed candles now cover `2026-04-20T00:00:00Z` through `2026-05-28T08:26:00Z` with `55227` continuous rows and `0` duplicate open times.
 - Task 282 note: Task 281 run `892` reproduces on the owner window but fails pre-owner validation and stress validation; keep it `LIKELY_OVERFIT_RESEARCH_ONLY`.
@@ -41,6 +49,10 @@ Recommended next step: assign a separate bounded task such as `5m` candle backfi
 - Task 302 note: completed report copy/readability revision task `tasks/TASK_302_LOOKBACK_RETURN_MOMENTUM_REPORT_COPY_READABILITY_REVISION.md`. Revised `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` to replace vague "성과가 약하다" phrasing with concrete saved-result descriptions, use compact tables for dense metrics, remove awkward English micro-headings, and keep same-folder image references. Updated `payload.json` only for the matching cost-impact interpretation sentence. No image generation, backtest, parameter tuning/search, strategy/code change, candle backfill, saved-run DB mutation, frontend/backend/API change, live trading behavior, exchange order/account/private endpoint behavior, secret, or `.env` change was added.
 - Task 303 note: completed daily-report interpretation/style workflow revision task `tasks/TASK_303_DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION.md`. Daily-report docs/prompts/workflow now require future Korean reports to avoid awkward wording, omit absent pattern/filter/artifact mentions by default, enrich representative trade examples with available context, and make interpretation sections synthesize experiment intent, observed result, concrete causes, and next improvements.
 - Task 304 note: completed daily-report rewrite task `tasks/TASK_304_REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT.md`. Rewrote `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/report-ko.md` with the Task 303 revised prompt/workflow/style guidance, kept same-folder image references and saved metrics, and updated only report-facing narrative fields in `payload.json` to match the rewritten interpretation. No backtest, tuning/search, strategy/code change, DB mutation, candle backfill, or image regeneration was performed.
+- Task 305 note: completed `tasks/TASK_305_LOOKBACK_RETURN_MOMENTUM_5M_COST_AWARE_RR_REVISION.md`. Updated the momentum strategy document, implemented and tested `cost_aware_entry_filter_v1`, verified complete `BTCUSDT` `1m`/`5m`/`15m` local candles for `2026-02-01T00:00:00Z <= candle time < 2026-05-01T00:00:00Z`, and persisted revised validation runs `1162` (`1m`), `1163` (`5m`), and `1164` (`15m`). All candidates were blocked by `COST_INFEASIBLE_NET_RR`; no fills occurred. Report saved at `reports/TASK_305_LOOKBACK_RETURN_MOMENTUM_5M_COST_AWARE_RR_REVISION.md`.
+- Task 306 note: completed `tasks/TASK_306_LOOKBACK_MOMENTUM_REPORT_OWNER_FEEDBACK_HTML_TEMPLATE_REVISION.md`. Rewrote the existing Lookback Return Momentum report with owner feedback and `docs/blog/report_template.html`, removed awkward opening/default-value/disclaimer phrasing, strengthened strategy-level theory/economic background, and interpreted the negative saved result through evidence-supported gross-vs-net, exit-mix, turnover, cost-drag, and reward/risk drivers. Updated only matching report-facing payload narrative fields; no new backtest, strategy/code change, DB mutation, image generation, or payload metric change was performed.
+- Task 307 note: completed `tasks/TASK_307_DAILY_REPORT_WORKFLOW_OWNER_FEEDBACK_RULE_REVISION.md`. Updated reusable daily-report workflow/docs/rules so future full-report output is HTML (`report-ko.html`) rather than Markdown, with `docs/blog/report_template.html` as layout/reading-flow reference. Encoded owner feedback for strategy-first opening, no old English micro-headings, no default caution section, final `해석` section, evidence-supported success/failure interpretation, and broader strategy-level theory/economic background. Existing report artifacts and payloads were not edited by Task 307.
+- Task 308 note: completed `tasks/TASK_308_LOOKBACK_RETURN_MOMENTUM_LOWER_ENTRY_THRESHOLD_BACKTEST_DAILY_REPORT.md`. The predeclared lower-threshold grid persisted runs `1168`-`1179`; all `1m`/`5m`/`15m` candidates remained blocked by `COST_INFEASIBLE_NET_RR` despite raw candidate increases. Generated the task report and colocated daily-report artifact with `payload.json`, `report-ko.html`, and four PNGs under `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-lower-threshold/`.
 - Task 283 note: target fixed-window gates passed historically, but Task 287 repaired-data replay rejected the locked comparator: full 0420+ return `-15.0301pct`, pre-owner `-18.8410pct`, and independent weekly aggregate `-10.0735pct`; keep it research-only.
 - Task 284 note: locked validation rejected robustness despite owner-window replay passing; Task 287 repaired-data rerun confirmed the underlying Task 283/284 candidate remains rejected. Historical Task 284 cost audit mismatch count was `0` across runs `960`-`993`.
 - Task 284 post-audit note: owner questioned whether the result was anomalous; read-only DB readback and in-memory reruns confirmed Task 283/284 paired runs match exactly, event-level short/long PnL formulas are consistent, and cost summaries match trade-level costs. The suspicious-looking result is driven by short-side concentration after 2026-05-20, cost-dominated pre-owner performance, overlapping owner windows, and missing April/May data, not by a detected persistence or fee-accounting mismatch.
@@ -74,6 +86,9 @@ Recommended next step: assign a separate bounded task such as `5m` candle backfi
 - Future/deferred candidate work: `BACKLOG.md`
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
+- Last completed task: `tasks/TASK_316_REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION.md`
+- Last completed task: `tasks/TASK_314_REGENERATE_TASK312_REPORT_WITH_HELLO_INTERPRETATION_RULES.md`
+- Last completed task: `tasks/TASK_315_DAILY_REPORT_IMAGE_GENERATION_RULE_CONSISTENCY_REVISION.md`
 - Last completed task: `tasks/TASK_258_FRONTEND_FVG_UPTREND_CHANNEL_L1_H1_L2_POINTS.md`
 - Last completed task: `tasks/TASK_259_FVG_V2_CHANNEL_CLOSE_BASED_RETEST_AND_TRADE_BOUNDED_OVERLAY.md`
 - Last completed task: `tasks/TASK_260_FVG_V2_CHANNEL_OWNER_PROFILE_DEFAULTS.md`
@@ -118,6 +133,17 @@ Recommended next step: assign a separate bounded task such as `5m` candle backfi
 - Last completed task: `tasks/TASK_302_LOOKBACK_RETURN_MOMENTUM_REPORT_COPY_READABILITY_REVISION.md`
 - Last completed task: `tasks/TASK_303_DAILY_REPORT_INTERPRETATION_STYLE_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_304_REWRITE_LOOKBACK_MOMENTUM_DAILY_REPORT_WITH_REVISED_PROMPT.md`
+- Last completed task: `tasks/TASK_305_LOOKBACK_RETURN_MOMENTUM_5M_COST_AWARE_RR_REVISION.md`
+- Last completed task: `tasks/TASK_306_LOOKBACK_MOMENTUM_REPORT_OWNER_FEEDBACK_HTML_TEMPLATE_REVISION.md`
+- Last completed task: `tasks/TASK_307_DAILY_REPORT_WORKFLOW_OWNER_FEEDBACK_RULE_REVISION.md`
+- Last completed task: `tasks/TASK_308_LOOKBACK_RETURN_MOMENTUM_LOWER_ENTRY_THRESHOLD_BACKTEST_DAILY_REPORT.md`
+- Last completed task: `tasks/TASK_310_TISTORY_DAILY_REPORT_WORKFLOW_STYLE_REVISION.md`
+- Last completed task: `tasks/TASK_309_LOOKBACK_RETURN_MOMENTUM_ATR_RISK_EXIT_REVISION.md`
+- Last completed task: `tasks/TASK_311_LOOKBACK_RETURN_MOMENTUM_ATR_REWARD_COST_GEOMETRY_DIAGNOSTIC.md`
+- Last completed task: `tasks/TASK_312_LOOKBACK_MOMENTUM_TASK311_DAILY_REPORT_GENERATION.md`
+- Last completed task: `tasks/TASK_313_DAILY_REPORT_HELLO_SKIN_INTERPRETATION_WORKFLOW_REVISION.md`
+- Current created task: `tasks/TASK_314_REGENERATE_TASK312_REPORT_WITH_HELLO_INTERPRETATION_RULES.md`
+- Current created task: `tasks/TASK_316_REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION.md`
 - Current created task: `tasks/TASK_288_REPAIRED_0420_FORWARD_NEW_MODEL_DEVELOPMENT.md`
 - Current created task: `tasks/TASK_265_HIGHER_TIMEFRAME_1H_4H_BACKFILL_AND_STRATEGY_CONTEXT.md`
 - Current created task: `tasks/TASK_272_ORDER_BLOCK_COST_AWARE_RR_ENTRY_GUARD.md`

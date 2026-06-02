@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lookback Return Momentum V1 낮은 진입 기준 비교 리포트</title>
+
+
+  <style>
+    :root {
+      --page: #ffffff;
+      --ink: #15171a;
+      --muted: #60666d;
+      --line: #d9dde3;
+      --soft-line: #eceff3;
+      --code-bg: #f6f7f9;
+      --table-head: #f7f8fa;
+      --max: 1580px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+    }
+
+    .report-shell {
+      width: min(96vw, var(--max));
+      margin: 0 auto;
+      padding: 54px 24px 96px;
+    }
+
+    .report-header {
+      margin-bottom: 54px;
+      padding-bottom: 26px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .report-kicker {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+    }
+
+    .report-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1.12;
+      font-weight: 720;
+      letter-spacing: -0.045em;
+    }
+
+    .report-subtitle {
+      max-width: 980px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.25vw, 1.16rem);
+      line-height: 1.68;
+    }
+
+    .report-content {
+      width: 100%;
+    }
+
+    .report-content > *:first-child { margin-top: 0; }
+
+    h2 {
+      margin: 86px 0 22px;
+      padding-top: 26px;
+      font-size: clamp(1.35rem, 1.8vw, 2rem);
+      line-height: 1.32;
+      font-weight: 720;
+      letter-spacing: -0.03em;
+      border-top: 1px solid var(--line);
+    }
+
+    .report-content > h2:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    h3 {
+      margin: 44px 0 14px;
+      font-size: clamp(1.06rem, 1.2vw, 1.28rem);
+      line-height: 1.42;
+      font-weight: 680;
+      letter-spacing: -0.015em;
+    }
+
+    h4 {
+      margin: 34px 0 12px;
+      font-size: 1rem;
+      line-height: 1.42;
+      font-weight: 680;
+    }
+
+    p {
+      max-width: 1080px;
+      margin: 0 0 17px;
+    }
+
+    .lead {
+      max-width: 1160px;
+      font-size: clamp(1.04rem, 1.18vw, 1.18rem);
+      line-height: 1.74;
+    }
+
+    ul, ol {
+      max-width: 1080px;
+      margin: 0 0 22px 0;
+      padding-left: 1.3rem;
+    }
+
+    li { margin: 6px 0; }
+
+    strong { font-weight: 700; }
+
+    a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      max-width: 1080px;
+      margin: 20px 0 28px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      border: 1px solid var(--soft-line);
+    }
+
+    pre code {
+      display: block;
+      white-space: pre;
+    }
+
+    blockquote {
+      max-width: 1080px;
+      margin: 24px 0 30px;
+      padding: 0 0 0 18px;
+      color: var(--muted);
+      border-left: 3px solid var(--line);
+    }
+
+    .table-scroll {
+      width: 100%;
+      margin: 20px 0 40px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: clamp(0.88rem, 0.92vw, 0.98rem);
+      line-height: 1.46;
+      font-variant-numeric: tabular-nums;
+    }
+
+    thead th {
+      background: var(--table-head);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: #22262a;
+      font-weight: 680;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--soft-line);
+      vertical-align: top;
+      text-align: left !important;
+      white-space: nowrap;
+    }
+
+    td:first-child,
+    th:first-child {
+      white-space: normal;
+      min-width: 150px;
+    }
+
+    tr:last-child td { border-bottom-color: var(--line); }
+
+    .report-figure {
+      width: 100%;
+      margin: 34px 0 48px;
+    }
+
+    .report-figure img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+    }
+
+    .report-figure figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 48px 0;
+    }
+
+    .note {
+      max-width: 1080px;
+      margin: 22px 0 30px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 860px) {
+      .report-shell {
+        width: 100%;
+        padding: 34px 16px 72px;
+      }
+      .report-header { margin-bottom: 38px; }
+      h2 { margin-top: 64px; padding-top: 22px; }
+      table { min-width: 760px; }
+      th, td { padding: 9px 10px; }
+    }
+
+    @media print {
+      html { font-size: 12px; }
+      .report-shell {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+      }
+      .table-scroll { overflow: visible; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      .report-figure { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="report-shell">
+    <header class="report-header">
+      <p class="report-kicker">백테스트 리포트</p>
+      <h1 class="report-title">Lookback Return Momentum V1 낮은 진입 기준 비교 리포트</h1>
+      <p class="report-subtitle">진입 기준을 낮췄을 때 raw 모멘텀 후보가 실제 진입으로 이어지는지 확인했습니다.</p>
+    </header>
+
+    <article class="report-content">
+
+
+      <h2>1. 핵심 요약</h2>
+      <p class="lead">Lookback Return Momentum은 최근 N개 완료봉의 종가 수익률이 기준을 넘으면 같은 방향의 흐름이 다음 몇 개 봉에도 이어질 수 있다고 보는 전략입니다. 이번 비교에서는 진입 기준을 낮추자 raw 후보는 늘었지만, 비용 반영 보상/위험 조건을 통과한 진입은 한 건도 없었습니다.</p>
+      <figure class="report-figure">
+        <img src="./summary_equity_curve.png" alt="진입 기준 하향 비교의 최종 자본과 후보 수" loading="lazy">
+        <figcaption>최종 자본은 모든 비교에서 변하지 않았고, raw 후보 수만 늘었습니다.</figcaption>
+      </figure>
+      <p>핵심은 진입 기준 자체가 아니라 진입 이후의 손익 구조입니다. 현재 구조는 목표 이익이 30 bps이고 손절 위험이 20 bps인데, 최소 왕복 비용 추정치가 36 bps 이상입니다. 그래서 기준을 낮춰 후보를 늘려도 비용 반영 순보상은 음수로 남았습니다.</p>
+      <div class="table-scroll"><table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>시장/심볼</td><td>Binance BTCUSDT</td></tr><tr><td>기간</td><td>2026-02-01 00:00 UTC ~ 2026-05-01 00:00 UTC 직전</td></tr><tr><td>타임프레임</td><td>1m, 5m, 15m</td></tr><tr><td>비교 대상</td><td>현재 진입 기준과 20%, 40%, 60% 낮춘 기준</td></tr><tr><td>초기 자본</td><td>1,000,000 KRW, 666.6667 USDT 환산</td></tr><tr><td>포지션 사이징</td><td>거래당 사용 가능 현금의 10%</td></tr><tr><td>비용 조건</td><td>수수료, 스프레드, 슬리피지 반영</td></tr></tbody></table></div>
+      <div class="table-scroll"><table><thead><tr><th>Timeframe</th><th>현재 후보</th><th>가장 낮춘 기준 후보</th><th>후보 증가율</th><th>Accepted entry</th></tr></thead><tbody><tr><td>1m</td><td>79,981</td><td>107,492</td><td>34.40%</td><td>0</td></tr><tr><td>5m</td><td>17,171</td><td>22,097</td><td>28.69%</td><td>0</td></tr><tr><td>15m</td><td>5,937</td><td>7,449</td><td>25.47%</td><td>0</td></tr></tbody></table></div>
+
+      <h2>2. 가설</h2>
+      <ul>
+        <li>진입 기준을 낮추면 최근 수익률이 기준을 넘는 raw momentum 후보 수가 늘어날 것이다.</li>
+        <li>후보 수 증가가 의미 있으려면 비용 반영 후 보상/위험 조건을 통과한 진입도 함께 늘어날 것이다.</li>
+      </ul>
+
+      <h2>3. 전략에 포함된 가정과 이론적 배경</h2>
+      <p>이 전략은 최근 수익률이 단기 주문 흐름과 참여자 반응을 일부 요약한다고 봅니다. 가격이 모든 정보를 즉시 반영하지 않거나 추세 추종 참여가 이어지면 최근 움직임이 다음 몇 개 봉까지 지속될 수 있습니다.</p>
+      <p>다만 빠른 신호는 turnover를 늘립니다. 거래가 많아질수록 수수료, 스프레드, 슬리피지 부담도 커집니다. 따라서 방향이 일부 맞더라도 평균 후속 움직임이 비용과 손익비를 넘지 못하면 기대값은 낮아집니다.</p>
+      <ul>
+        <li>우위가 생기려면 최근 방향성이 진입 후에도 충분히 이어져야 합니다.</li>
+        <li>성공 조건은 목표가까지 이어지는 움직임이 비용을 흡수할 만큼 커지는 것입니다.</li>
+        <li>실패 조건은 기준만 낮아져 작은 신호가 늘고, 보상/위험 구조는 그대로 남는 경우입니다.</li>
+      </ul>
+      <pre><code>E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost</code></pre>
+
+      <h2>4. 전략 규칙</h2>
+      <p>지표는 최근 N개 완료봉의 close-to-close 수익률입니다. 수익률이 양수 기준 이상이면 Long 후보, 음수 기준 이하이면 Short 후보로 분류합니다.</p>
+      <pre><code>momentum_return = close[t] / close[t - lookback_bars] - 1</code></pre>
+      <p>진입 후보가 생겨도 비용 반영 gate를 통과해야 실제 진입으로 이어집니다. 이 gate는 planned take-profit, stop-loss, 수수료, 스프레드, 슬리피지를 사용해 순보상과 순손익비를 계산합니다.</p>
+
+      <h2>5. 백테스트 설정</h2>
+      <div class="table-scroll"><table><thead><tr><th>Timeframe</th><th>비교</th><th>Entry threshold</th><th>Raw candidates</th><th>후보 증가율</th><th>Accepted</th><th>Blocked</th></tr></thead><tbody><tr><td>1m</td><td>현재 비교 기준</td><td>0.0010</td><td>79,981</td><td>-</td><td>0</td><td>79,981</td></tr><tr><td>1m</td><td>20% 하향</td><td>0.0008</td><td>88,660</td><td>10.85%</td><td>0</td><td>88,660</td></tr><tr><td>1m</td><td>40% 하향</td><td>0.0006</td><td>97,860</td><td>22.35%</td><td>0</td><td>97,860</td></tr><tr><td>1m</td><td>60% 하향</td><td>0.0004</td><td>107,492</td><td>34.40%</td><td>0</td><td>107,492</td></tr><tr><td>5m</td><td>현재 비교 기준</td><td>0.0015</td><td>17,171</td><td>-</td><td>0</td><td>17,171</td></tr><tr><td>5m</td><td>20% 하향</td><td>0.0012</td><td>18,723</td><td>9.04%</td><td>0</td><td>18,723</td></tr><tr><td>5m</td><td>40% 하향</td><td>0.0009</td><td>20,372</td><td>18.64%</td><td>0</td><td>20,372</td></tr><tr><td>5m</td><td>60% 하향</td><td>0.0006</td><td>22,097</td><td>28.69%</td><td>0</td><td>22,097</td></tr><tr><td>15m</td><td>현재 비교 기준</td><td>0.0020</td><td>5,937</td><td>-</td><td>0</td><td>5,937</td></tr><tr><td>15m</td><td>20% 하향</td><td>0.0016</td><td>6,411</td><td>7.98%</td><td>0</td><td>6,411</td></tr><tr><td>15m</td><td>40% 하향</td><td>0.0012</td><td>6,899</td><td>16.20%</td><td>0</td><td>6,899</td></tr><tr><td>15m</td><td>60% 하향</td><td>0.0008</td><td>7,449</td><td>25.47%</td><td>0</td><td>7,449</td></tr></tbody></table></div>
+      <p>나머지 조건은 고정했습니다. Risk distance는 진입가의 0.2%, 손절은 1.0R, 익절은 1.5R입니다. 비용 반영 gate는 순보상 0 bps 이상, 순손익비 1.0 이상을 요구했습니다.</p>
+
+      <h2>6. 결과</h2>
+      <h3>6.1 수익 곡선</h3>
+      <p>모든 비교에서 accepted entry가 0이었습니다. 그래서 거래 실행, 청산, realized PnL, drawdown은 발생하지 않았습니다.</p>
+      <figure class="report-figure">
+        <img src="./summary_equity_curve.png" alt="수익 곡선과 후보 수 요약" loading="lazy">
+        <figcaption>진입 후보 수는 늘었지만 최종 자본과 drawdown은 변하지 않았습니다.</figcaption>
+      </figure>
+      <h3>6.2 비교 결과</h3>
+      <p>가장 낮춘 기준에서 raw 후보는 1m 107,492개, 5m 22,097개, 15m 7,449개까지 늘었습니다. 하지만 모든 후보가 같은 사유로 차단됐습니다.</p>
+      <div class="table-scroll"><table><thead><tr><th>Timeframe</th><th>가장 낮춘 기준</th><th>Raw candidates</th><th>현재 기준 대비 증가</th><th>Accepted</th><th>차단 사유</th></tr></thead><tbody><tr><td>1m</td><td>0.0004</td><td>107,492</td><td>34.40%</td><td>0</td><td>비용 반영 손익비 불충족</td></tr><tr><td>5m</td><td>0.0006</td><td>22,097</td><td>28.69%</td><td>0</td><td>비용 반영 손익비 불충족</td></tr><tr><td>15m</td><td>0.0008</td><td>7,449</td><td>25.47%</td><td>0</td><td>비용 반영 손익비 불충족</td></tr></tbody></table></div>
+      <h3>6.3 거래비용 영향</h3>
+      <figure class="report-figure">
+        <img src="./cost_impact.png" alt="고정 손익 구조와 최소 거래비용 비교" loading="lazy">
+        <figcaption>현재 고정 손익 구조에서는 gross reward보다 최소 왕복 비용이 더 큽니다.</figcaption>
+      </figure>
+      <p>실현 거래비용은 0 USDT입니다. 진입 전 gate에서 모두 차단되어 체결이 없었기 때문입니다. 더 중요한 값은 pre-entry 계산입니다. Gross reward 30 bps에서 최소 왕복 비용 36 bps를 빼면 순보상은 최대 -6 bps입니다.</p>
+      <h3>6.4 청산 구성</h3>
+      <p>청산은 발생하지 않았습니다. 진입이 없었기 때문에 손절, 익절, 시간 청산 비중도 계산할 수 없습니다.</p>
+
+      <h2>7. 대표 거래</h2>
+      <p>대표 수익 거래와 대표 손실 거래는 생기지 않았습니다. 모든 후보가 진입 전 비용 gate에서 멈췄기 때문에, 아래 이미지는 거래 사례 대신 후보가 어느 단계에서 차단됐는지를 보여줍니다.</p>
+      <h3>대표 수익 거래</h3>
+      <figure class="report-figure">
+        <img src="./representative_win_trade.png" alt="대표 수익 거래 없음" loading="lazy">
+        <figcaption>수익 거래가 생기기 전에 모든 후보가 차단됐습니다.</figcaption>
+      </figure>
+      <h3>대표 손실 거래</h3>
+      <figure class="report-figure">
+        <img src="./representative_loss_trade.png" alt="대표 손실 거래 없음" loading="lazy">
+        <figcaption>손실 거래도 생기지 않았습니다. 포지션이 열리지 않았기 때문입니다.</figcaption>
+      </figure>
+
+      <h2>8. 해석</h2>
+      <p>이번 실험은 entry_threshold를 낮추면 no-entry 문제가 풀리는지 확인했습니다. 저장된 결과에서는 후보 수가 분명히 늘었습니다. 하지만 accepted entry는 12개 비교 모두에서 0이었습니다.</p>
+      <p>따라서 실패 원인은 진입 기준이 높아서 후보가 없었던 것이 아닙니다. 후보는 충분히 많았습니다. 문제는 fixed 0.2% risk distance와 1.5R target 구조가 비용 반영 후 순보상을 남기지 못한다는 점입니다.</p>
+      <p>entry_threshold 하향은 신호 빈도를 바꿉니다. 그러나 target, stop, cost gate는 그대로입니다. 그래서 같은 gate를 유지하는 한 후보 증가가 체결 증가로 이어지지 않았습니다.</p>
+      <p>보완점은 다음과 같습니다.</p>
+      <ul>
+        <li>Reward/risk geometry를 별도로 검토해야 합니다. 현재 gross reward 30 bps는 최소 왕복 비용 36 bps보다 작습니다.</li>
+        <li>Risk distance와 take-profit multiple을 사전에 정의한 grid로 따로 검증해야 합니다. 이 값들이 바뀌어야 순보상 구조가 달라집니다.</li>
+        <li>Timeframe별 비용 가정을 분리해 확인해야 합니다. 1m, 5m, 15m은 turnover와 평균 이동 폭이 다르기 때문입니다.</li>
+        <li>비용 gate를 완화하는 실험은 별도 목적의 gross-vs-net diagnostic으로 분리해야 합니다. gate를 끄거나 낮추면 실제 진입은 보이겠지만, 그것은 다른 질문입니다.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

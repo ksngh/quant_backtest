@@ -5,9 +5,12 @@ import pytest
 
 from quant_bitcoin.strategies.actions import StrategyActionType, StrategyQuantityMode
 from quant_bitcoin.strategies.lookback_return_momentum import (
+    LookbackReturnMomentumCostAwareConfig,
     LookbackReturnMomentumConfig,
     LookbackReturnSignal,
     build_lookback_return_momentum_actions,
+    calculate_atr_risk_context,
+    cost_aware_entry_filter_decision,
     calculate_lookback_return_momentum_signal,
     calculate_momentum_return,
     calculate_risk_levels,
@@ -60,8 +63,13 @@ def test_insufficient_lookback_and_invalid_denominator_do_not_signal() -> None:
     assert invalid.reason == "INVALID_CLOSE"
 
 
-def test_fixed_percent_risk_levels_are_side_specific() -> None:
-    config = LookbackReturnMomentumConfig(risk_distance_pct=0.002, stop_loss_r=1.0, take_profit_r=1.5)
+def test_fixed_percent_risk_levels_are_side_specific_when_explicit() -> None:
+    config = LookbackReturnMomentumConfig(
+        risk_distance_mode="fixed_pct",
+        risk_distance_pct=0.002,
+        stop_loss_r=1.0,
+        take_profit_r=1.5,
+    )
 
     long_risk = calculate_risk_levels(100.0, "LONG", config)
     short_risk = calculate_risk_levels(100.0, "SHORT", config)
@@ -74,8 +82,47 @@ def test_fixed_percent_risk_levels_are_side_specific() -> None:
     assert short_risk.take_profit_price == pytest.approx(99.7)
 
 
+def test_atr_risk_levels_are_side_specific() -> None:
+    config = LookbackReturnMomentumConfig(
+        risk_distance_mode="atr",
+        stop_loss_atr_multiple=1.0,
+        take_profit_atr_multiple=1.0,
+    )
+
+    long_risk = calculate_risk_levels(100.0, "LONG", config, atr_value=2.0)
+    short_risk = calculate_risk_levels(100.0, "SHORT", config, atr_value=2.0)
+
+    assert long_risk.risk_distance_mode == "atr"
+    assert long_risk.r_distance == pytest.approx(2.0)
+    assert long_risk.stop_price == pytest.approx(98.0)
+    assert long_risk.take_profit_price == pytest.approx(102.0)
+    assert long_risk.atr_value == pytest.approx(2.0)
+    assert short_risk.r_distance == pytest.approx(2.0)
+    assert short_risk.stop_price == pytest.approx(102.0)
+    assert short_risk.take_profit_price == pytest.approx(98.0)
+
+
+def test_atr_context_uses_completed_signal_candle_without_future_candle() -> None:
+    config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=2)
+    candles = _candles(
+        [100.0, 101.0, 200.0],
+        highs=[101.0, 103.0, 250.0],
+        lows=[99.0, 100.0, 150.0],
+    )
+
+    signal_context = calculate_atr_risk_context(candles.iloc[:2], config)
+    future_context = calculate_atr_risk_context(candles, config)
+
+    assert signal_context["atr_is_valid"] is True
+    assert signal_context["atr_value"] == pytest.approx(2.5)
+    assert signal_context["current_candle_included"] is True
+    assert signal_context["requires_closed_candle"] is True
+    assert future_context["atr_value"] != pytest.approx(signal_context["atr_value"])
+
+
 def test_build_actions_blocks_duplicate_entries_while_position_is_open() -> None:
     config = LookbackReturnMomentumConfig(
+        risk_distance_mode="fixed_pct",
         lookback_bars=1,
         entry_threshold=0.001,
         holding_bars=3,
@@ -100,6 +147,7 @@ def test_build_actions_blocks_duplicate_entries_while_position_is_open() -> None
 
 def test_time_exit_closes_at_close_after_holding_bars() -> None:
     config = LookbackReturnMomentumConfig(
+        risk_distance_mode="fixed_pct",
         lookback_bars=1,
         entry_threshold=0.001,
         holding_bars=2,
@@ -119,7 +167,7 @@ def test_time_exit_closes_at_close_after_holding_bars() -> None:
 
 
 def test_long_same_candle_stop_and_target_resolves_to_stop_first() -> None:
-    config = LookbackReturnMomentumConfig(lookback_bars=1, entry_threshold=0.001)
+    config = LookbackReturnMomentumConfig(risk_distance_mode="fixed_pct", lookback_bars=1, entry_threshold=0.001)
     candles = _candles(
         [100.0, 101.0, 101.0],
         highs=[100.0, 101.0, 101.5],
@@ -137,7 +185,7 @@ def test_long_same_candle_stop_and_target_resolves_to_stop_first() -> None:
 
 
 def test_short_stop_and_target_are_calculated_separately() -> None:
-    config = LookbackReturnMomentumConfig(lookback_bars=1, entry_threshold=0.001)
+    config = LookbackReturnMomentumConfig(risk_distance_mode="fixed_pct", lookback_bars=1, entry_threshold=0.001)
     candles = _candles(
         [100.0, 99.0, 99.0],
         highs=[100.0, 99.0, 99.1],
@@ -153,8 +201,247 @@ def test_short_stop_and_target_are_calculated_separately() -> None:
     assert actions[1].metadata["realized_r_multiple"] == pytest.approx(1.5)
 
 
+def test_cost_aware_filter_blocks_infeasible_long_entry() -> None:
+    config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=1, lookback_bars=1, entry_threshold=0.001)
+    cost_config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        fee_bps=20.0,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        liquidity_role="TAKER",
+        cost_profile_name="unit_test",
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+        cost_aware_config=cost_config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.SKIP
+    assert actions[0].reason == "COST_INFEASIBLE_NET_RR"
+    metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert metadata["blocked"] is True
+    assert metadata["estimated_round_trip_cost_bps"] == pytest.approx(40.0)
+    assert metadata["net_reward_bps"] > 0.0
+    assert metadata["net_rr"] < 1.0
+    assert metadata["risk_distance_mode"] == "atr"
+    assert metadata["atr_period"] == 1
+    assert actions[0].metadata["entry_status"] == "REJECTED"
+
+
+def test_cost_aware_filter_blocks_infeasible_short_entry() -> None:
+    config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=1, lookback_bars=1, entry_threshold=0.001)
+    cost_config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        fee_bps=20.0,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        liquidity_role="TAKER",
+        cost_profile_name="unit_test",
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 99.0], highs=[101.0, 100.0], lows=[99.0, 98.0]),
+        config=config,
+        cost_aware_config=cost_config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.SKIP
+    assert actions[0].reason == "COST_INFEASIBLE_NET_RR"
+    metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert metadata["blocked"] is True
+    assert metadata["estimated_round_trip_cost_bps"] == pytest.approx(40.0)
+    assert metadata["net_reward_bps"] > 0.0
+    assert metadata["net_rr"] < 1.0
+    assert metadata["risk_distance_mode"] == "atr"
+    assert metadata["atr_period"] == 1
+
+
+def test_cost_aware_filter_attaches_metadata_to_accepted_long_entry() -> None:
+    config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=1, lookback_bars=1, entry_threshold=0.001)
+    cost_config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        fee_bps=0.0,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        liquidity_role="TAKER",
+        cost_profile_name="unit_test",
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+        cost_aware_config=cost_config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.ENTER_LONG
+    metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert metadata["blocked"] is False
+    assert metadata["net_reward_bps"] > 0.0
+    assert metadata["net_rr"] == pytest.approx(1.0)
+    assert metadata["risk_distance_mode"] == "atr"
+    assert metadata["atr_period"] == 1
+    assert metadata["block_reason"] is None
+
+
+def test_minimum_atr_bps_filter_blocks_small_atr_candidate() -> None:
+    config = LookbackReturnMomentumConfig(
+        risk_distance_mode="atr",
+        atr_period=1,
+        lookback_bars=1,
+        entry_threshold=0.001,
+        minimum_atr_bps=250.0,
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.SKIP
+    assert actions[0].reason == "ATR_TOO_SMALL_FOR_COST"
+    assert actions[0].metadata["entry_status"] == "REJECTED"
+    assert actions[0].metadata["atr_bps"] == pytest.approx(2.0 / 101.0 * 10_000.0)
+    minimum_filter = actions[0].metadata["minimum_atr_bps_filter"]
+    assert minimum_filter["enabled"] is True
+    assert minimum_filter["blocked"] is True
+    assert minimum_filter["minimum_atr_bps"] == pytest.approx(250.0)
+    assert minimum_filter["block_reason"] == "ATR_TOO_SMALL_FOR_COST"
+
+
+def test_asymmetric_atr_target_can_pass_cost_aware_gate_after_costs() -> None:
+    config = LookbackReturnMomentumConfig(
+        risk_distance_mode="atr",
+        atr_period=1,
+        lookback_bars=1,
+        entry_threshold=0.001,
+        stop_loss_atr_multiple=1.0,
+        take_profit_atr_multiple=3.0,
+        minimum_atr_bps=100.0,
+    )
+    cost_config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        fee_bps=20.0,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        liquidity_role="TAKER",
+        cost_profile_name="unit_test",
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+        cost_aware_config=cost_config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.ENTER_LONG
+    assert "minimum_atr_bps_filter_v1" in actions[0].metadata["filters_enabled"]
+    assert "cost_aware_entry_filter_v1" in actions[0].metadata["filters_enabled"]
+    assert actions[0].metadata["minimum_atr_bps"] == pytest.approx(100.0)
+    assert actions[0].metadata["atr_bps"] == pytest.approx(2.0 / 101.0 * 10_000.0)
+    cost_metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert cost_metadata["blocked"] is False
+    assert cost_metadata["estimated_round_trip_cost_bps"] == pytest.approx(40.0)
+    assert cost_metadata["net_reward_bps"] > 0.0
+    assert cost_metadata["net_rr"] > 1.0
+    assert cost_metadata["take_profit_atr_multiple"] == pytest.approx(3.0)
+
+
+def test_cost_aware_filter_attaches_metadata_to_accepted_short_entry() -> None:
+    config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=1, lookback_bars=1, entry_threshold=0.001)
+    cost_config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        fee_bps=0.0,
+        spread_bps=0.0,
+        slippage_bps=0.0,
+        liquidity_role="TAKER",
+        cost_profile_name="unit_test",
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 99.0], highs=[101.0, 100.0], lows=[99.0, 98.0]),
+        config=config,
+        cost_aware_config=cost_config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.ENTER_SHORT
+    metadata = actions[0].metadata["cost_aware_entry_filter"]
+    assert metadata["blocked"] is False
+    assert metadata["net_reward_bps"] > 0.0
+    assert metadata["net_rr"] == pytest.approx(1.0)
+    assert metadata["risk_distance_mode"] == "atr"
+    assert metadata["atr_period"] == 1
+    assert "cost_aware_entry_filter_v1" in actions[0].metadata["filters_enabled"]
+
+
+def test_cost_aware_filter_uses_volatility_adjusted_slippage() -> None:
+    config = LookbackReturnMomentumCostAwareConfig(
+        enabled=True,
+        min_net_reward_bps=0.0,
+        min_net_rr=1.0,
+        slippage_bps=1.0,
+        minimum_slippage_bps=2.0,
+        volatility_slippage_multiplier=0.1,
+    )
+    risk = calculate_risk_levels(
+        100.0,
+        "LONG",
+        LookbackReturnMomentumConfig(risk_distance_mode="fixed_pct"),
+    )
+
+    decision = cost_aware_entry_filter_decision(
+        risk,
+        {"high": 102.0, "low": 98.0, "close": 100.0},
+        config,
+    )
+
+    assert decision["volatility_bps"] == pytest.approx(400.0)
+    assert decision["effective_slippage_bps"] == pytest.approx(41.0)
+
+
 def test_timeframe_defaults() -> None:
     assert config_for_timeframe("1m").lookback_bars == 20
     assert config_for_timeframe("5m").lookback_bars == 12
     assert config_for_timeframe("15m").lookback_bars == 8
     assert config_for_timeframe("15m").entry_threshold == pytest.approx(0.002)
+    assert config_for_timeframe("15m").risk_distance_mode == "atr"
+    assert config_for_timeframe("15m").atr_period == 14
+    assert config_for_timeframe("15m").minimum_atr_bps == pytest.approx(0.0)
+
+
+def test_invalid_atr_blocks_entry_with_diagnostic_metadata() -> None:
+    config = LookbackReturnMomentumConfig(
+        risk_distance_mode="atr",
+        atr_period=14,
+        lookback_bars=1,
+        entry_threshold=0.001,
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type is StrategyActionType.SKIP
+    assert actions[0].reason == "INVALID_ATR_RISK_DISTANCE"
+    assert actions[0].metadata["entry_status"] == "REJECTED"
+    assert actions[0].metadata["atr_is_valid"] is False
+    assert actions[0].metadata["atr_metadata"]["atr_period"] == 14
