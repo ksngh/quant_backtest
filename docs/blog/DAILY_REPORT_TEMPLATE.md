@@ -38,7 +38,8 @@ HTML 작성 규칙:
 - `report-ko.html`은 `payload.json`과 같은 디렉터리에 있는 PNG만 참조합니다.
 - 이미지 경로는 같은 폴더 기준 `./summary_equity_curve.png`처럼 씁니다.
 - Markdown 이미지는 최종 리포트에 사용하지 않습니다.
-- task 번호, run id, 내부 candidate id, DB dump, source file path, git commit, credential, config dump를 본문에 쓰지 않습니다.
+- task 번호, run id, 내부 candidate id, DB dump, git commit, credential, config dump를 본문에 쓰지 않습니다.
+- source file path는 기본적으로 쓰지 않습니다. 다만 `백테스트 설정`의 코드 블록을 "의사코드"가 아니라 정확 구현 인용으로 명시하는 별도 report task라면, 짧은 source reference를 함께 둡니다.
 
 Tistory hELLO 스킨 레이아웃 규칙:
 
@@ -168,6 +169,9 @@ Tistory hELLO 스킨 레이아웃 규칙:
 - 전략 문서에 적힌 근거와 레퍼런스를 사용합니다.
 - 전략 문서에 근거와 레퍼런스가 없으면 full report 생성을 멈추고 strategy 문서 보강을 먼저 요구합니다.
 - 레퍼런스는 긴 인용문이 아니라 짧은 근거 연결로 씁니다. 예: `Jegadeesh and Titman(1993)의 가격 모멘텀 연구처럼, 정보 반영 지연과 추세 추종은 단기 방향 지속의 근거가 될 수 있습니다.`
+- 레퍼런스 이름만 나열하지 않습니다. 문헌이 어떤 메커니즘을 설명하는지, 그 메커니즘이 현재 전략 규칙과 어떻게 연결되는지까지 씁니다.
+- 현재 백테스트가 그 메커니즘을 직접 증명한 것인지, 아니면 그 메커니즘과 일관되거나 반대되는 결과만 보여준 것인지 구분합니다.
+- 필요하면 짧은 수학식으로 전략 가정을 설명하되, 식 바로 뒤에 쉬운 말로 뜻을 풉니다.
 
 모멘텀 전략 예시:
 
@@ -179,6 +183,34 @@ Tistory hELLO 스킨 레이아웃 규칙:
 <p>
   하지만 빠른 신호는 거래 수를 늘리고 비용 부담을 키웁니다.
   따라서 방향이 일부 맞더라도 평균 후속 움직임이 비용과 손익비를 넘지 못하면 기대값은 낮아집니다.
+</p>
+```
+
+모멘텀 메커니즘을 설명할 때는 저장 근거와 strategy 문서가 허용하는 범위에서 아래 축을 사용할 수 있습니다.
+
+- 과소반응: 새로운 정보가 가격에 한 번에 반영되지 않고, 뒤늦은 매수/매도가 이어질 수 있습니다.
+- 느린 포지션 조정: 큰 참여자는 유동성, 위험 한도, 벤치마크, 승인 절차, 헤지 수요 때문에 포지션을 한 번에 바꾸지 못할 수 있습니다.
+- 리스크 프리미엄: 모멘텀 수익은 급격한 반전, crash, tail risk를 부담한 보상일 수 있습니다.
+- 헤저와 투기자 구조: 선물이나 파생상품 구조가 중요한 시장에서는 투기자가 헤저의 위험 이전 수요를 받아주는 대가로 수익을 얻는 해석을 검토할 수 있습니다.
+- Bitcoin spot caveat: 주식/선물 문헌의 메커니즘을 spot Bitcoin에 그대로 적용하지 말고, 시장 구조 차이와 저장된 테스트 범위를 함께 씁니다.
+
+수학식 예시:
+
+```html
+<pre><code>r_t^{(L)} = P_t / P_{t-L} - 1
+signal_t = sign(r_t^{(L)})</code></pre>
+<p>
+  여기서 r_t^{(L)}는 최근 L개 완료봉 동안의 수익률입니다.
+  이 값이 기준을 넘을 때 같은 방향의 흐름이 이어진다고 가정합니다.
+</p>
+```
+
+조건부 기대값 예시:
+
+```html
+<pre><code>E[r_{t+1} | r_t^{(L)} &gt; theta] &gt; E[r_{t+1} | r_t^{(L)} &lt;= theta]</code></pre>
+<p>
+  이 식은 최근 수익률이 기준을 넘은 뒤의 평균 후속 수익률이 그렇지 않은 경우보다 높아야 전략 가정이 성립한다는 뜻입니다.
 </p>
 ```
 
@@ -221,9 +253,43 @@ Tistory hELLO 스킨 레이아웃 규칙:
 규칙:
 
 - 설정은 사실만 씁니다.
+- 중요한 파라미터가 실제 진입, 청산, 지표 계산, 비용 필터를 정의한다면 값만 나열하지 말고 작동 방식을 설명합니다.
+- `백테스트 설정`에는 plain-language summary와 함께 짧은 의사코드 또는 Python-style snippet을 넣을 수 있습니다.
+- 코드 블록은 기본적으로 설명용 의사코드로 표시합니다. 실제 source code를 그대로 옮긴 경우에만 정확 구현 인용이라고 밝힙니다.
+- 의사코드는 독자가 규칙을 이해할 만큼만 씁니다. 내부 class name, task id, run id, DB field dump는 쓰지 않습니다.
+- 완료봉 기준과 no-lookahead를 분명히 씁니다. 어떤 candle이 decision candle인지, 어느 구간의 close/high/low를 쓰는지, 진입이 언제 체결된 것으로 보는지 설명합니다.
+- 지표가 핵심이면 입력값, window, warm-up 부족 시 처리 방식을 함께 씁니다.
+- rule-based exit이 있으면 stop, target, time exit, 같은 캔들 stop/target 충돌 처리처럼 결과 해석에 영향을 주는 청산 규칙을 설명합니다.
+- 비용 또는 reward/risk guard가 핵심 결과를 좌우하면 비용 차감 후 reward/risk가 어떻게 계산되는지 설명합니다.
 - 공개 리포트에서 당연한 backtest 고지를 길게 쓰지 않습니다.
 - 실제 주문 여부를 설명하는 자명한 문구는 넣지 않습니다.
 - 실패 전략도 실전 적용 가능한 전략처럼 쓰지 않습니다.
+
+Lookback Return Momentum 의사코드 예시:
+
+```html
+<pre><code># explanatory pseudocode
+lookback_return = close[t - 1] / close[t - 1 - lookback_bars] - 1
+
+if lookback_return &gt;= entry_threshold:
+    signal = "long"
+elif allow_short and lookback_return &lt;= -entry_threshold:
+    signal = "short"
+else:
+    signal = "flat"</code></pre>
+```
+
+ATR 의사코드 예시:
+
+```html
+<pre><code># explanatory pseudocode
+true_range = max(
+    high[t] - low[t],
+    abs(high[t] - close[t - 1]),
+    abs(low[t] - close[t - 1]),
+)
+atr = rolling_or_rma_average(true_range, window=atr_period)</code></pre>
+```
 
 ## 7. 결과
 
@@ -298,9 +364,33 @@ Tistory hELLO 스킨 레이아웃 규칙:
 - entry/exit timestamp, side, 보유 시간, gross PnL, 비용, net PnL, 진입 후 추세 지속/반전, equity 상태 같은 저장 근거만 사용합니다.
 - 거래량, 캔들 body/range, 변동성, drawdown 맥락이 없으면 만들지 않습니다.
 - 대표 거래 설명은 성공/실패 원인을 뒷받침해야 합니다.
+- 대표 거래 설명은 거래 story와 diagnostic interpretation을 함께 담습니다.
+- 아래 질문은 작성자가 확인해야 하는 의무이지, 최종 리포트의 visible heading, 목차, 체크리스트가 아닙니다.
+  - 왜 이 거래가 발생했는가.
+  - 진입 조건이 저장된 규칙대로 작동했는가.
+  - 청산 조건이 의도대로 작동했는가.
+  - 수익/손실이 전략 논리에서 나온 것인가, 우연한 변동성에서 나온 것인가.
+  - 이 거래 하나가 전체 성과를 과도하게 왜곡하는가.
+  - 같은 유형의 거래가 반복적으로 나타나는가.
+  - 백테스트 엔진, 체결 순서, stop/target 처리, 비용 계산, fill logic bug 신호가 있는가.
+- 위 질문을 `진입 조건`, `청산 조건`, `버그 가능성` 같은 별도 heading으로 만들지 않습니다. 문단이나 compact bullet 안에 자연스럽게 녹입니다.
+- 단일 trade chart로 말할 수 있는 것과 전체 trade recurrence로만 말할 수 있는 것을 구분합니다.
+- aggregate recurrence evidence가 없으면 `비슷한 거래가 반복됐는지는 추가 trade attribution이 필요합니다`처럼 한계나 보완점으로 씁니다.
+- 엔진/체결 로직 의심은 저장 근거가 있을 때만 씁니다. 같은 캔들 stop/target 충돌, 비정상 가격 fill, 비용 누락, timestamp 역전 같은 구체 신호 없이 bug 가능성을 암시하지 않습니다.
 - 대표 거래 이미지는 entry/exit candle만 확대하지 않고 주변 candle context를 보여줘야 합니다.
 - `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/representative_win_trade.png`처럼 trade chart와 하단 annotation band가 분리된 구도를 선호합니다.
 - 이미지 자체가 crop되어 있거나 label이 겹쳐 있으면 HTML에서 조정하지 말고 이미지 생성 규칙에 따라 다시 만들어야 합니다.
+
+대표 거래 문장 예시:
+
+```html
+<p>
+  이 거래는 최근 완료봉 수익률이 기준을 넘은 뒤 같은 방향으로 진입한 사례입니다.
+  진입 직후에는 목표 방향으로 움직였지만, 이후 변동성이 커지며 청산 조건이 먼저 작동했습니다.
+  저장된 거래 비용과 보유 시간 기준으로 보면 손익은 전략 신호의 지속성보다 짧은 구간 변동성에 더 크게 좌우됐습니다.
+  다만 이 한 거래만으로 전체 성과 왜곡 여부나 같은 유형의 반복 여부를 판단하려면 거래군 attribution이 더 필요합니다.
+</p>
+```
 
 ## 9. 해석
 
@@ -381,8 +471,13 @@ HTML 저장 전 아래를 확인합니다.
 - 영어식 micro-heading을 쓰지 않았는가?
 - 공개 리포트에 자명한 backtest 고지 문구를 넣지 않았는가?
 - 결과 원인이 저장된 수치와 대표 거래 근거로 설명되는가?
-- 이론적 배경이 전략의 경제적 가정, 성공 조건, 실패 조건, 비용/손익비, 레퍼런스를 함께 다루는가?
+- 이론적 배경이 전략의 경제적 가정, 메커니즘, 성공 조건, 실패 조건, 비용/손익비, 레퍼런스, 현재 백테스트의 증거 범위를 함께 다루는가?
 - `전략 규칙`이 별도 기본 섹션이 아니라 이론/배경 섹션 안에 들어갔는가?
+- `백테스트 설정`이 중요한 rule/indicator를 단순 파라미터 표로만 두지 않고 의사코드 또는 작동 방식 설명을 포함하는가?
+- 의사코드와 정확 구현 인용이 구분되어 있는가?
+- 완료봉 기준, no-lookahead, 지표 warm-up, 청산 우선순위가 필요한 만큼 설명됐는가?
+- 대표 거래가 owner diagnostic 질문을 visible heading/checklist로 만들지 않고 자연스러운 설명 안에 반영하는가?
+- 대표 거래에서 단일 차트 근거, aggregate recurrence 근거, engine/fill sanity check, 누락 근거가 구분되는가?
 - 표가 너무 크거나 목적이 모호하면 나누거나 줄였는가?
 - standalone `가설`/hypothesis 섹션을 만들지 않았는가?
 - 최종 섹션 제목이 `해석`인가?

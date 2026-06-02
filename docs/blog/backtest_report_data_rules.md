@@ -62,7 +62,8 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 - main title은 전략명과 버전 중심으로 둡니다. 실험 세부 문구는 title이 아니라 요약/해석에 저장합니다.
 - subtitle/lead에 쓸 stable strategy description은 strategy 문서에서 가져옵니다.
 - payload에 없는 값은 추정하지 않고 `[확인 필요]`로 남깁니다.
-- 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, source file path, git commit, credential, config dump를 쓰지 않습니다.
+- 본문에는 task 번호, run id, 내부 candidate id, DB dump, 원본 CSV dump, git commit, credential, config dump를 쓰지 않습니다.
+- source file path는 기본적으로 쓰지 않습니다. 다만 `백테스트 설정`의 코드 블록을 정확 구현 인용으로 명시하는 별도 report task라면 짧은 source reference를 허용합니다.
 - 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
 
 ## 2. 필드 이름 규칙
@@ -150,7 +151,24 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
     "entry_conditions_summary": "[진입 조건 요약]",
     "exit_conditions_summary": "[청산 조건 요약]",
     "cost_assumptions": "[수수료/스프레드/슬리피지 가정]",
-    "execution_assumption": "[OHLCV 체결 가정]"
+    "execution_assumption": "[OHLCV 체결 가정]",
+    "algorithm_explanation": {
+      "plain_language_summary": "[전략 규칙이 어떻게 작동하는지 요약]",
+      "entry_logic_pseudocode": "[설명용 의사코드 또는 null]",
+      "exit_logic_pseudocode": "[설명용 의사코드 또는 null]",
+      "indicator_calculations": [
+        {
+          "name": "[indicator name]",
+          "pseudocode": "[설명용 의사코드]",
+          "inputs": "[high/low/close 등 입력값]",
+          "window": "[window/period]",
+          "warmup_policy": "[warm-up 부족 시 처리]"
+        }
+      ],
+      "no_lookahead_note": "[완료봉 기준과 미래 데이터 미사용 설명]",
+      "fill_timing_note": "[진입/청산 체결 timing 설명]",
+      "source_reference": "[정확 구현 인용일 때만 짧은 source reference 또는 null]"
+    }
   },
   "hypothesis_and_theory": {
     "tested_assumptions": [
@@ -164,6 +182,22 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
     ],
     "economic_meaning": "[경제적 의미]",
     "edge_mechanism": "[전략이 우위를 가질 수 있는 이유]",
+    "mechanism_detail": "[우위가 생길 수 있는 행동적/경제적/시장구조적 메커니즘]",
+    "failure_mechanism": "[가정이 깨지는 원인 또는 불리한 regime]",
+    "evidence_boundary": "[현재 백테스트가 실제로 검증한 범위와 검증하지 못한 범위]",
+    "optional_formulas": [
+      {
+        "formula": "[짧은 수식]",
+        "plain_language": "[수식의 의미]"
+      }
+    ],
+    "momentum_mechanisms": {
+      "underreaction": "[과소반응/정보 반영 지연 설명 또는 null]",
+      "slow_position_adjustment": "[느린 포지션 조정 설명 또는 null]",
+      "risk_premium_tail_risk": "[리스크 프리미엄/tail risk 설명 또는 null]",
+      "hedger_speculator_structure": "[헤저/투기자 구조 설명 또는 null]",
+      "bitcoin_spot_caveat": "[spot Bitcoin 적용 한계 또는 null]"
+    },
     "success_conditions": "[작동하기 쉬운 시장 조건]",
     "failure_conditions": "[실패하기 쉬운 시장 조건]",
     "cost_and_rr_context": "[신호 속도, turnover, 비용, 손익비의 관계]",
@@ -237,6 +271,16 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
       "volume_context": "[local baseline 대비 거래량 설명 또는 null]",
       "follow_through_context": "[진입 후 추세 지속/반전/횡보 여부 또는 null]",
       "equity_context": "[근처 drawdown/equity curve 상태 또는 null]",
+      "diagnostic_narrative_inputs": {
+        "why_trade_happened": "[왜 이 거래가 발생했는지]",
+        "entry_condition_check": "[진입 조건 정상 작동 근거 또는 null]",
+        "exit_condition_check": "[청산 조건 정상 작동 근거 또는 null]",
+        "pnl_source_interpretation": "[전략 논리 대 변동성/노이즈 해석 또는 null]",
+        "performance_distortion_check": "[전체 성과 왜곡 여부 또는 null]",
+        "recurrence_evidence": "[같은 유형 반복 여부 또는 null]",
+        "engine_fill_sanity_check": "[백테스트 엔진/체결 로직 이상 신호 여부 또는 null]",
+        "missing_evidence_note": "[판단 근거가 부족한 항목 또는 null]"
+      },
       "exit_reason": "[청산 이유]",
       "reason": "[대표 거래로 고른 이유]"
     },
@@ -256,6 +300,16 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
       "volume_context": "[local baseline 대비 거래량 설명 또는 null]",
       "follow_through_context": "[진입 후 추세 지속/반전/횡보 여부 또는 null]",
       "equity_context": "[근처 drawdown/equity curve 상태 또는 null]",
+      "diagnostic_narrative_inputs": {
+        "why_trade_happened": "[왜 이 거래가 발생했는지]",
+        "entry_condition_check": "[진입 조건 정상 작동 근거 또는 null]",
+        "exit_condition_check": "[청산 조건 정상 작동 근거 또는 null]",
+        "pnl_source_interpretation": "[전략 논리 대 변동성/노이즈 해석 또는 null]",
+        "performance_distortion_check": "[전체 성과 왜곡 여부 또는 null]",
+        "recurrence_evidence": "[같은 유형 반복 여부 또는 null]",
+        "engine_fill_sanity_check": "[백테스트 엔진/체결 로직 이상 신호 여부 또는 null]",
+        "missing_evidence_note": "[판단 근거가 부족한 항목 또는 null]"
+      },
       "exit_reason": "[청산 이유]",
       "reason": "[대표 거래로 고른 이유]"
     }
@@ -312,12 +366,17 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 `title.version_change_summary`는 전략 버전이나 핵심 메커니즘이 바뀐 경우에만 채웁니다. 예를 들어 고정 R 손익 기준에서 ATR 기준 손익 기준으로 바뀌면 이 차이를 짧게 저장합니다.
 
 `hypothesis_and_theory`는 legacy object name일 수 있지만 최종 리포트에 standalone `가설` section을 만들라는 뜻이 아닙니다. `tested_assumptions`가 있으면 `가설` heading 없이 `핵심 요약`, `백테스트 설정`, 또는 `해석`에 녹입니다. `references`는 strategy 문서의 레퍼런스를 report writer가 짧게 연결할 수 있도록 저장합니다. 레퍼런스가 없으면 full report 생성 전에 strategy 문서를 먼저 보강합니다.
+`hypothesis_and_theory.mechanism_detail`, `failure_mechanism`, `evidence_boundary`, `optional_formulas`, `momentum_mechanisms`는 레퍼런스 이름만 나열하는 것을 막기 위한 선택 필드입니다. 현재 백테스트가 메커니즘을 직접 증명하지 못하면 `evidence_boundary`에 그 한계를 저장합니다.
+모멘텀 계열 리포트에서는 strategy 문서와 저장 근거가 허용하는 범위에서 과소반응, 느린 포지션 조정, 리스크 프리미엄/tail risk, 헤저/투기자 구조, spot Bitcoin 적용 한계를 저장합니다. 해당 구조가 현재 시장이나 instrument에 맞지 않으면 null로 둡니다.
+
+`setup.algorithm_explanation`은 `백테스트 설정`에서 rule mechanics를 설명하기 위한 선택 필드입니다. 중요한 진입/청산/indicator/cost guard가 있으면 의사코드와 no-lookahead 설명을 저장합니다. 기본값은 explanatory pseudocode입니다. 정확 구현 인용일 때만 `source_reference`를 채우고, 일반 daily report에서는 내부 구현 세부사항을 불필요하게 노출하지 않습니다.
 
 `presentation_notes.table_purposes`는 큰 표를 만들기 전에 표가 답하는 질문을 기록하기 위한 선택 필드입니다. 목적이 다른 지표를 한 표에 섞지 않도록 돕습니다.
 
 패턴, 필터, 이미지, 타임프레임 coverage가 없다는 사실은 기본 payload 설명문에 넣지 않습니다. 의사결정에 중요하면 `risk_interpretation` 또는 `next_improvements`에만 넣습니다. 예를 들어 `5m` local closed candle coverage가 없어 빠진 비교는 리드 문장이 아니라 `next_improvements`에 저장합니다.
 
 대표 거래에는 데이터가 있을 때만 시장 상황 맥락을 저장합니다. 거래량, candle body/range, volatility, 보유 시간, 비용 비중, 진입 후 추세 지속/반전/횡보, 근처 drawdown/equity 상태가 없으면 null로 두고 리포트에서 만들지 않습니다.
+`representative_trades.*.diagnostic_narrative_inputs`는 대표 거래 설명을 더 깊게 쓰기 위한 선택 필드입니다. 이 필드의 항목은 최종 리포트의 visible heading이나 체크리스트가 아니라, 자연스러운 거래 설명 안에 녹일 근거입니다. 단일 차트만으로 판단할 수 없는 recurrence, performance distortion, engine/fill sanity는 aggregate 근거가 없으면 null 또는 `missing_evidence_note`로 남깁니다.
 
 ## 5. Tistory 이미지 삽입 메모
 

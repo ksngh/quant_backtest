@@ -221,7 +221,8 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - 첫 문단을 시장/심볼/기간 요약으로 시작하지 않습니다.
 - 어색한 `기본값` 비교 라벨, 영어식 micro-heading, 별도 주의사항 기본 섹션을 만들지 않습니다.
 - 최종 해석 섹션 제목은 `해석`입니다.
-- task 번호, run id, 내부 candidate id, source file path, DB dump, config dump, git commit은 쓰지 않습니다.
+- task 번호, run id, 내부 candidate id, DB dump, config dump, git commit은 쓰지 않습니다.
+- source file path는 기본적으로 쓰지 않습니다. 다만 `백테스트 설정`의 코드 블록을 정확 구현 인용으로 명시하는 별도 report task라면 짧은 source reference를 허용합니다.
 - 실패한 전략은 실전 적용 가능하다고 쓰지 않습니다.
 - `report-en.html`은 명시 요청이 없으면 만들지 않습니다.
 - 전략 소개 문장에 시장/심볼을 반복하지 않습니다. 시장/심볼은 테스트 개요에서 다룹니다.
@@ -230,6 +231,12 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - 이론적 배경에는 strategy 문서의 경제적/행동적/시장구조적 근거와 레퍼런스를 반영합니다.
 - `5m`처럼 local closed candle coverage가 없어 빠진 비교는 핵심 요약이나 리드 문장이 아니라 한계 또는 보완점에 씁니다.
 - 대표 수익/손실 거래는 가능한 근거만 사용해 당시 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전 여부, equity curve/drawdown 맥락을 설명합니다.
+- 대표 거래 설명에는 왜 거래가 발생했는지, 진입/청산 조건이 의도대로 작동했는지, 손익이 전략 논리에서 나온 것인지 변동성에 좌우된 것인지, 전체 성과 왜곡 여부, 반복 유형 여부, 백테스트 엔진/체결 로직 이상 신호를 가능한 근거 안에서 녹입니다. 이 항목들은 visible 목차나 체크리스트로 만들지 않습니다.
+- `백테스트 설정`은 중요한 파라미터를 표로만 나열하지 않습니다. 진입/청산 rule, indicator, 비용 필터가 결과를 좌우하면 작동 방식을 plain Korean과 짧은 의사코드로 설명합니다.
+- 의사코드는 기본적으로 explanatory pseudocode로 표시합니다. 정확 구현을 그대로 옮긴 경우에만 source reference를 둡니다.
+- 완료봉 기준, no-lookahead, indicator warm-up, entry fill timing, stop/target/time exit, 같은 캔들 처리처럼 결과 해석에 영향을 주는 실행 규칙을 필요한 만큼 설명합니다.
+- 이론적 배경은 레퍼런스 이름 나열로 끝내지 않습니다. 전략 가정, 우위가 생길 수 있는 메커니즘, 실패 메커니즘, 현재 백테스트가 실제로 검증한 범위를 함께 씁니다.
+- 모멘텀 전략은 strategy 문서가 뒷받침하는 범위에서 과소반응, 느린 포지션 조정, 리스크 프리미엄/tail risk, hedger/speculator 구조, spot Bitcoin 적용 한계를 설명합니다.
 - 보완점은 무엇을 바꿀지와 왜 이번 결과가 그 보완을 요구하는지를 함께 설명합니다.
 - `그것은`은 최종 리포트 문장에 쓰지 않습니다.
 - 이미지가 제공되면 `.section-image` 안에서 본문 폭 전체를 사용하도록 둡니다. HTML에서 작은 고정 폭으로 줄이지 않습니다.
@@ -264,6 +271,12 @@ artifact 완료 전에 아래를 확인합니다.
 - 모든 PNG가 의도한 canvas dimensions를 충족하고, crop으로 잘린 부분이 없습니다.
 - 대표 거래 이미지는 주변 candle context가 보이며, entry/exit/stop/target label과 annotation이 서로 겹치지 않습니다.
 - strategy 문서의 이론/근거/레퍼런스가 반영되었습니다.
+- `전략에 포함된 가정과 이론적 배경`이 레퍼런스 이름만 나열하지 않고 메커니즘, 실패 조건, 현재 백테스트의 증거 경계를 설명합니다.
+- `백테스트 설정`이 entry/exit/indicator/cost guard의 작동 방식을 필요한 만큼 설명하고, 중요한 rule은 짧은 의사코드나 코드형 설명을 포함합니다.
+- 의사코드는 explanatory pseudocode인지 정확 구현 인용인지 구분되어 있습니다.
+- 완료봉 기준, no-lookahead, indicator warm-up, entry fill timing, 같은 캔들 stop/target 처리 같은 실행 가정이 필요한 만큼 설명되었습니다.
+- `대표 거래`가 왜 거래가 발생했는지, 진입/청산 정상 작동 여부, 전략 논리 대 변동성 해석, 성과 왜곡 여부, 반복 여부, 엔진/체결 로직 이상 신호를 자연스러운 narrative 안에서 다룹니다.
+- 대표 거래 diagnostic 항목이 별도 목차, 하위 heading, 기계적 체크리스트로 노출되지 않았습니다.
 - `그것은` 표현이 없습니다.
 - 실패한 버전의 결과를 전략군 전체 기각으로 확대하지 않았습니다.
 - 성공한 버전의 결과를 보편적 유효성으로 과장하지 않았습니다.
@@ -301,7 +314,12 @@ daily report 요청만으로 새 전략 개발이나 새 백테스트를 자동 
 - optional image filenames.
 - 진입 조건 요약.
 - 청산 조건 요약.
+- entry/exit rule의 작동 방식 설명.
+- 주요 indicator 계산 설명.
+- 완료봉/no-lookahead/체결 timing 설명.
+- 설명용 의사코드 또는 source-derived code reference.
 - 비용 조건.
+- 비용 필터 또는 reward/risk guard 계산 설명.
 - 총 거래 수.
 - 승률.
 - 총 수익률.
@@ -324,6 +342,9 @@ daily report 요청만으로 새 전략 개발이나 새 백테스트를 자동 
 - 동일 캔들 처리 영향.
 - 대표 수익 거래.
 - 대표 손실 거래.
+- 대표 거래의 진입/청산 정상 작동 근거.
+- 대표 거래의 전략 논리 대 변동성 해석.
+- 대표 거래의 성과 왜곡/반복 유형/엔진 또는 체결 로직 sanity check 근거.
 - 결과 해석.
 - 위험 해석.
 - 보완점.
