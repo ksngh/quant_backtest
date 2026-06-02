@@ -5,6 +5,7 @@
 - Strategy name:
 - Strategy version:
 - Strategy slug:
+- Stable strategy description:
 - Owner task:
 - Status: `research_only`
 - Last updated:
@@ -27,8 +28,27 @@ Describe the price behavior this strategy tries to capture.
 - Phenomenon:
 - Why it may appear in BTC:
 - Economic or microstructure rationale:
+- Behavioral rationale:
 - Expected market regime:
 - Regimes where this should not work:
+- Report-ready summary:
+
+## 3.1 Theory and References
+
+This section is required before generating a full daily/Tistory report for this strategy.
+
+- Why this strategy might have an edge:
+- What market mechanism it assumes:
+- What participant behavior it assumes:
+- Why the chosen timeframe can expose the mechanism:
+- When the theory should fail:
+- References:
+  - `[reference id]`:
+    - Title:
+    - Author/source:
+    - Year/date:
+    - Link or local path:
+    - Why it matters for this strategy:
 
 ## 4. Hypothesis
 
@@ -53,6 +73,7 @@ List only factors that are needed to observe the phenomenon.
 - Confirmation condition:
 - Invalid setup condition:
 - Look-ahead prevention rule:
+- Report-facing rule summary:
 
 ## 7. Entry Logic
 
@@ -113,6 +134,7 @@ E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost
 - Expected R multiple:
 - Required break-even win rate:
 - Minimum acceptable trade count:
+- Cost and reward/risk explanation for reports:
 
 ## 12. Validation Plan
 

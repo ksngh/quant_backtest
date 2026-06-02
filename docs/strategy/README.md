@@ -16,6 +16,21 @@ state files -> relevant task.md -> relevant docs/strategy/*.md -> implementation
 - 관련 task는 있지만 strategy 문서가 없으면 `STRATEGY_TEMPLATE.md`를 기준으로 strategy 문서를 만들고 멈춥니다.
 - strategy 문서와 task가 모두 있어야 전략 구현, 파라미터 튜닝, 백테스트 실행, 검증 run 저장을 진행할 수 있습니다.
 - 전략 로직, 리스크 로직, 비용 가정, 체결 가정, 검증 구간, research-only/live-trading boundary가 바뀌면 같은 task 안에서 strategy 문서를 업데이트합니다.
+- daily report 또는 Tistory HTML report를 생성하려면 strategy 문서에 report writer가 재사용할 수 있는 stable strategy description, 이론적/경제적 근거, 성공/실패 조건, 비용/손익비 맥락, 레퍼런스가 있어야 합니다.
+- 위 항목이 비어 있으면 full report를 먼저 만들지 말고, 현재 task 범위 안에서 strategy 문서를 보강하거나 별도 strategy-document task를 만든 뒤 멈춥니다.
+- report writer는 전략 배경을 즉석에서 새로 만들지 않고 strategy 문서의 근거와 레퍼런스를 사용합니다.
+
+## Report-Ready Requirements
+
+전략 문서는 리포트 생성을 위해 아래 내용을 포함해야 합니다.
+
+- Stable strategy description: 제목 아래 subtitle이나 첫 문단에 쓸 수 있는 한 문장 설명.
+- Economic rationale: 전략이 왜 우위를 가질 수 있는지.
+- Behavioral or market-structure rationale: 정보 반영 지연, 추세 추종, 유동성, 주문 흐름 등 관련 메커니즘.
+- Success conditions: 어떤 시장 상태에서 잘 작동할 수 있는지.
+- Failure conditions: 어떤 시장 상태에서 실패하기 쉬운지.
+- Cost and reward/risk context: turnover, 비용, 손익비가 기대값에 주는 영향.
+- References: 문헌, 거래소/시장구조 문서, 또는 프로젝트 내 연구 문서. 긴 인용문보다 리포트에서 연결할 수 있는 짧은 근거를 남깁니다.
 
 ## File Naming
 

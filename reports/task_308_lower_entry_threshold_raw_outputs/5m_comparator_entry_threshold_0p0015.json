@@ -1,0 +1,1077 @@
+{
+  "strategy": {
+    "name": "LOOKBACK_RETURN_MOMENTUM_RESEARCH_STRATEGY",
+    "strategy_type": "lookback_return_momentum",
+    "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+    "pattern": "LOOKBACK_RETURN_MOMENTUM"
+  },
+  "portfolio": {
+    "starting_cash": 666.6666666666666,
+    "ending_cash": 666.6666666666666,
+    "ending_position": 0.0,
+    "final_equity": 666.6666666666666,
+    "total_return": 0.0,
+    "account_state": {
+      "free_cash_after": 666.6666666666666,
+      "margin_used_after": 0.0,
+      "short_proceeds_locked_after": 0.0,
+      "short_collateral_locked_after": 0.0,
+      "available_buying_power_after": 666.6666666666666,
+      "cash_after_semantics": "cash_after equals free_cash_after when flat",
+      "equity_after": 666.6666666666666,
+      "equity_after_semantics": "candle-close mark-to-market equity after applying actions at this timestamp"
+    }
+  },
+  "summary": {
+    "trade_count": 0,
+    "buy_count": 0,
+    "sell_count": 0,
+    "max_drawdown": 0.0,
+    "metadata": {
+      "gross_pnl": 0,
+      "net_pnl": 0.0,
+      "transaction_cost": {
+        "maker_fee_bps": 0.0,
+        "taker_fee_bps": 10.0,
+        "spread_bps": 3.0,
+        "slippage_bps": 5.0,
+        "minimum_slippage_bps": 1.0,
+        "volatility_slippage_multiplier": 0.1,
+        "default_liquidity_role": "TAKER",
+        "zero_transaction_cost_assumption": false,
+        "volatility_slippage_source": "candle high-low range divided by close, in basis points"
+      },
+      "cost_profile": {
+        "schema_version": "transaction_cost_profile_v1",
+        "profile_key": "conservative_crypto_1m",
+        "description": "Conservative 1m crypto assumptions with spread, slippage, and volatility adjustment.",
+        "maker_fee_bps": 0.0,
+        "taker_fee_bps": 10.0,
+        "spread_bps": 3.0,
+        "slippage_bps": 5.0,
+        "minimum_slippage_bps": 1.0,
+        "volatility_slippage_multiplier": 0.1,
+        "zero_cost_profile": false,
+        "source": "offline_static_preset",
+        "overrides_allowed": false,
+        "cost_sensitivity": {
+          "cost_to_gross_pnl_ratio": null,
+          "break_even_cost_bps": null
+        }
+      },
+      "cost_summary": {
+        "total_fee_cost": 0,
+        "total_spread_cost": 0,
+        "total_slippage_cost": 0,
+        "total_cost": 0,
+        "gross_pnl": 0,
+        "net_pnl": 0.0,
+        "short_carrying_cost": 0.0,
+        "cost_to_gross_pnl_ratio": null,
+        "zero_transaction_cost_assumption": false,
+        "zero_cost_warning": null,
+        "diagnostic_severity": null,
+        "volatility_slippage_source": "candle high-low range divided by close, in basis points"
+      },
+      "limitations": [
+        "No borrow fees modeled",
+        "No futures funding modeled",
+        "No maintenance margin or liquidation model"
+      ],
+      "short_performance": {
+        "short_close_count": 0,
+        "short_win_count": 0,
+        "short_loss_count": 0
+      },
+      "position_sizing": {
+        "mode": "CASH_FRACTION",
+        "value": 0.1,
+        "insufficient_funds_policy": "RESIZE",
+        "action_quantity_precedence": "action.quantity overrides engine sizing when provided"
+      },
+      "short_exposure_policy": {
+        "mode": "CASH_BOUNDED",
+        "default_policy": "short exposure is bounded by cash unless explicit simulated-margin mode is enabled",
+        "scope": "backtest_only",
+        "spot_short_execution": "simulated only; not a real spot exchange order capability",
+        "modeled_economics": {
+          "borrow_fees": false,
+          "futures_funding": false,
+          "maintenance_margin": false,
+          "liquidation": false,
+          "initial_margin": false
+        },
+        "unsupported_economics": [
+          "No borrow fees modeled",
+          "No futures funding modeled",
+          "No maintenance margin or liquidation model"
+        ]
+      },
+      "short_economics": {
+        "schema_version": "short_economics_research_v1",
+        "enabled": false,
+        "scope": "backtest_only_simulation",
+        "borrow_fee_bps_per_day": 0.0,
+        "funding_bps_per_interval": 0.0,
+        "maintenance_margin_rate": 0.0,
+        "liquidation_buffer_rate": 0.0,
+        "real_spot_short_execution": false,
+        "real_futures_or_margin_execution": false,
+        "cash_bounded_short": true,
+        "simulated_margin": false,
+        "borrow_fees_modeled": false,
+        "futures_funding_modeled": false,
+        "maintenance_margin_modeled": false,
+        "liquidation_modeled": false,
+        "total_borrow_cost": 0.0,
+        "total_funding_cost": 0.0,
+        "total_carrying_cost": 0.0,
+        "funding_event_count": 0,
+        "liquidation_diagnostics": {
+          "schema_version": "short_liquidation_diagnostics_v1",
+          "enabled": false,
+          "diagnostic_only": true,
+          "would_liquidate": false,
+          "event_count": 0,
+          "events": [],
+          "minimum_buffer_ratio": null
+        },
+        "warning": "Short results are simulation-only and exclude borrow fees, futures funding, maintenance margin, and liquidation."
+      },
+      "simulated_margin": {
+        "enabled": false,
+        "leverage": 1.0,
+        "insufficient_margin_policy": "BLOCK",
+        "scope": "backtest_only",
+        "unsupported_economics": [
+          "No borrow fees modeled",
+          "No futures funding modeled",
+          "No maintenance margin or liquidation model"
+        ]
+      },
+      "guardrails": {
+        "scope": "backtest_only",
+        "max_account_drawdown": null,
+        "max_consecutive_losses": null,
+        "max_daily_loss": null,
+        "close_open_position_on_breach": false,
+        "max_position_notional": null,
+        "max_symbol_notional": null,
+        "max_leverage_simulated": null,
+        "forced_exit_behavior": "disabled by default; when enabled the strategy engine simulates a close at current candle price"
+      },
+      "pattern_regime_thresholds": {
+        "schema_version": "pattern_regime_thresholds_v1",
+        "enabled": false,
+        "default_thresholds": {
+          "minimum_volume_ratio": null,
+          "breakout_atr_multiplier": null,
+          "minimum_pattern_score": null,
+          "block_entry": false,
+          "block_reason": null
+        },
+        "market_regime_overrides": {},
+        "volatility_regime_overrides": {},
+        "liquidity_regime_overrides": {},
+        "spread_regime_overrides": {},
+        "trend_regime_overrides": {}
+      },
+      "account_state": {
+        "free_cash_after": 666.6666666666666,
+        "margin_used_after": 0.0,
+        "short_proceeds_locked_after": 0.0,
+        "short_collateral_locked_after": 0.0,
+        "available_buying_power_after": 666.6666666666666,
+        "cash_after_semantics": "cash_after equals free_cash_after when flat",
+        "equity_after": 666.6666666666666,
+        "equity_after_semantics": "candle-close mark-to-market equity after applying actions at this timestamp"
+      },
+      "equity_semantics": {
+        "execution_equity_after": "net account value immediately after the fill at effective execution price",
+        "mark_to_market_equity_after": "net account value after the fill marked to the candle close",
+        "equity_points.equity": "primary equity series; new entry candles use execution-price valuation to avoid same-candle fill/close PnL, other candles use candle-close mark-to-market",
+        "equity_points.mark_price": "candle close retained for market-price reference",
+        "equity_points.equity_valuation_price": "price used for primary equity at that point",
+        "final_equity": "last value from the primary equity series"
+      },
+      "execution_metrics": {
+        "filled_execution_count": 0,
+        "skipped_action_count": 17171,
+        "blocked_action_count": 0,
+        "entry_count": 0,
+        "exit_count": 0,
+        "partial_exit_count": 0,
+        "full_exit_count": 0,
+        "open_ending_position": 0.0,
+        "realized_pnl": 0.0,
+        "unrealized_pnl": 0.0,
+        "gross_pnl": 0,
+        "net_pnl": 0.0,
+        "total_cost": 0,
+        "short_carrying_cost": 0.0,
+        "max_drawdown": 0.0
+      },
+      "performance_metrics": {
+        "schema_version": "performance_metrics_v1",
+        "interval": "5m",
+        "risk_free_rate": 0.0,
+        "period_count": 25631,
+        "annualization_factor": 105120.0,
+        "annualized_return": 0.0,
+        "annualized_volatility": 0.0,
+        "downside_deviation": null,
+        "sharpe_ratio": null,
+        "sortino_ratio": null,
+        "calmar_ratio": null,
+        "max_drawdown": 0.0,
+        "max_drawdown_duration_periods": 0,
+        "current_drawdown_duration_periods": 0,
+        "max_recovery_duration_periods": null,
+        "total_return": 0.0,
+        "warnings": []
+      },
+      "trade_attribution": {
+        "schema_version": "trade_attribution_metrics_v1",
+        "aggregation_policy": {
+          "trade_outcome_unit": "entry_to_final_exit_lifecycle",
+          "partial_exit_policy": "partial exits contribute realized pnl to the open lifecycle and do not increment completed_trade_count until final exit",
+          "missing_group_key": "UNKNOWN",
+          "profit_factor_zero_loss_policy": "null with profit_factor_is_infinite=true when gross loss is zero and gross profit is positive",
+          "exposure_policy": "point_fraction_with_nonzero_position",
+          "turnover_policy": "sum_filled_notional_divided_by_initial_equity"
+        },
+        "trade_metrics": {
+          "completed_trade_count": 0,
+          "closing_execution_count": 0,
+          "partial_exit_execution_count": 0,
+          "win_count": 0,
+          "loss_count": 0,
+          "breakeven_count": 0,
+          "hit_ratio": null,
+          "average_win": null,
+          "average_loss": null,
+          "payoff_ratio": null,
+          "expectancy": null,
+          "gross_profit": 0,
+          "gross_loss": 0,
+          "profit_factor": null,
+          "profit_factor_is_infinite": false,
+          "average_r": null,
+          "median_r": null,
+          "max_consecutive_losses": 0,
+          "average_trade_duration_seconds": null,
+          "median_trade_duration_seconds": null
+        },
+        "exposure": {
+          "exposure_fraction": 0.0,
+          "exposed_point_count": 0,
+          "total_point_count": 25632
+        },
+        "turnover": {
+          "total_filled_notional": 0,
+          "turnover_ratio": 0.0
+        },
+        "attribution": {
+          "by_pattern_type": {},
+          "by_pattern_direction": {},
+          "by_position_side": {},
+          "by_exit_reason": {},
+          "by_timeframe": {},
+          "by_session": {},
+          "by_market_regime": {},
+          "by_liquidity_regime": {},
+          "by_spread_regime": {},
+          "by_weekday_tag": {}
+        },
+        "warnings": [
+          "no completed trade lifecycles"
+        ]
+      },
+      "timing_diagnostics": {
+        "schema_version": "trade_timing_diagnostics_v1",
+        "path_mode": "HIGH_LOW",
+        "trade_count": 0,
+        "completed_trade_count": 0,
+        "aggregate": {
+          "average_mfe_r": null,
+          "average_mae_r": null,
+          "average_realized_r": null,
+          "average_bars_to_mfe": null,
+          "average_bars_to_mae": null
+        },
+        "trades": [],
+        "flags": [],
+        "flag_count": 0,
+        "warnings": [],
+        "partial_exit_policy": "partial exits are approximated as one entry-to-final-exit lifecycle; MFE/MAE is measured over the full lifecycle window"
+      },
+      "risk_exit_audit": {
+        "schema_version": "risk_exit_audit_v1",
+        "completed_exit_count": 0,
+        "exit_reason_distribution": {},
+        "dominance": {
+          "stop_loss_dominance_ratio": 0,
+          "time_stop_dominance_ratio": 0,
+          "soft_invalidation_dominance_ratio": 0
+        },
+        "target_quality": {
+          "take_profit_average_r": null,
+          "hard_stop_average_r": null,
+          "first_target_hit_rate": null,
+          "final_target_hit_rate": null,
+          "average_target_distance_r": null,
+          "average_target_distance_price": null,
+          "by_target_source": {}
+        },
+        "outcome_attribution": {
+          "schema_version": "risk_exit_outcome_attribution_v1",
+          "grouping_fields": [
+            "pattern_type",
+            "direction",
+            "entry_mode",
+            "target_source",
+            "exit_reason",
+            "intrabar_policy"
+          ],
+          "groups": []
+        },
+        "path_attribution": {
+          "mfe_mae_source": "summary_metadata.timing_diagnostics.trades",
+          "groups_with_mfe_mae": 0,
+          "average_mfe_r": null,
+          "average_mae_r": null
+        },
+        "intrabar_ambiguity": {
+          "ambiguous_stop_target_count": 0,
+          "ambiguous_stop_target_net_pnl": 0.0,
+          "ambiguous_stop_target_pnl_contribution_ratio": null
+        },
+        "stop_movement": {
+          "break_even_or_trailing_stop_count": 0,
+          "break_even_or_trailing_stop_net_pnl": 0.0,
+          "metadata_source": "exit_metadata.stop_moved_by_break_even_or_trailing"
+        },
+        "cost_dominance": {
+          "total_cost": 0.0,
+          "cost_to_abs_closing_pnl_ratio": null
+        },
+        "partial_exit": {
+          "partial_exit_net_pnl": 0.0,
+          "total_closing_net_pnl": 0.0,
+          "partial_exit_pnl_contribution_ratio": null
+        },
+        "validation": {
+          "critical_count": 0,
+          "warnings": [
+            "no closing executions available for risk audit"
+          ]
+        },
+        "flags": [],
+        "warnings": [
+          "no closing executions available for risk audit"
+        ]
+      },
+      "score_calibration": {
+        "schema_version": "pattern_score_calibration_v1",
+        "score_contract": "pattern_score is a heuristic quality score, not a calibrated probability.",
+        "scored_trade_count": 0,
+        "total_completed_trade_count": 0,
+        "bucket_size": 0.2,
+        "minimum_pattern_score": null,
+        "buckets": [
+          {
+            "bucket": "[0.0,0.2)",
+            "trade_count": 0,
+            "sample_warning": false,
+            "average_score": null,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false,
+            "gross_profit": 0,
+            "gross_loss": 0,
+            "pattern_types": {}
+          },
+          {
+            "bucket": "[0.2,0.4)",
+            "trade_count": 0,
+            "sample_warning": false,
+            "average_score": null,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false,
+            "gross_profit": 0,
+            "gross_loss": 0,
+            "pattern_types": {}
+          },
+          {
+            "bucket": "[0.4,0.6)",
+            "trade_count": 0,
+            "sample_warning": false,
+            "average_score": null,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false,
+            "gross_profit": 0,
+            "gross_loss": 0,
+            "pattern_types": {}
+          },
+          {
+            "bucket": "[0.6,0.8)",
+            "trade_count": 0,
+            "sample_warning": false,
+            "average_score": null,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false,
+            "gross_profit": 0,
+            "gross_loss": 0,
+            "pattern_types": {}
+          },
+          {
+            "bucket": "[0.8,1.0]",
+            "trade_count": 0,
+            "sample_warning": false,
+            "average_score": null,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false,
+            "gross_profit": 0,
+            "gross_loss": 0,
+            "pattern_types": {}
+          }
+        ],
+        "pattern_direction_buckets": [],
+        "score_lift": {
+          "low_score_trade_count": 0,
+          "high_score_trade_count": 0,
+          "low_score_average_outcome": null,
+          "high_score_average_outcome": null,
+          "high_minus_low_outcome": null,
+          "interpretation": "INSUFFICIENT_BUCKET_COVERAGE",
+          "confidence_note": "Insufficient low/high score bucket coverage for lift inference."
+        },
+        "fold_analysis": {
+          "fold_count": 0,
+          "has_oos_folds": false,
+          "folds": []
+        },
+        "component_analysis": {
+          "total_component_count": 0,
+          "placeholder_component_count": 0,
+          "placeholder_component_rate": null,
+          "components": [],
+          "observed_components": [],
+          "placeholder_components": []
+        },
+        "threshold_sensitivity": [
+          {
+            "minimum_pattern_score": 0.0,
+            "trade_count": 0,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false
+          },
+          {
+            "minimum_pattern_score": 0.2,
+            "trade_count": 0,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false
+          },
+          {
+            "minimum_pattern_score": 0.4,
+            "trade_count": 0,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false
+          },
+          {
+            "minimum_pattern_score": 0.6,
+            "trade_count": 0,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false
+          },
+          {
+            "minimum_pattern_score": 0.8,
+            "trade_count": 0,
+            "hit_ratio": null,
+            "expectancy": null,
+            "average_r": null,
+            "median_r": null,
+            "profit_factor": null,
+            "profit_factor_is_infinite": false
+          }
+        ],
+        "atr_multiplier_sensitivity": {
+          "schema_version": "atr_multiplier_sensitivity_v1",
+          "setting_count": 0,
+          "has_comparable_settings": false,
+          "groups": [],
+          "interpretation": "INSUFFICIENT_ATR_MULTIPLIER_VARIANTS"
+        },
+        "candidate_diagnostics": {
+          "schema_version": "chart_pattern_candidate_overfit_attribution_v1",
+          "diagnostic_trade_count": 0,
+          "groups": [],
+          "has_overfit_warning": false,
+          "has_guard_hit": false
+        },
+        "flags": [
+          {
+            "code": "MISSING_SCORE_METADATA",
+            "severity": "WARNING",
+            "category": "score_calibration",
+            "message": "No completed trade has pattern_score metadata.",
+            "evidence": {
+              "total_completed_trade_count": 0
+            },
+            "suggested_next_analysis": "Compare pattern score thresholds against walk-forward/OOS validation before changing strategy settings."
+          }
+        ],
+        "flag_count": 1,
+        "warnings": [
+          "No completed trade has pattern_score metadata."
+        ],
+        "inference_strength": "PARTIAL"
+      },
+      "performance_diagnostics": {
+        "schema_version": "backtest_performance_diagnostics_v1",
+        "flags": [
+          {
+            "code": "NO_COMPLETED_TRADES",
+            "severity": "WARNING",
+            "category": "sample",
+            "message": "No completed trade lifecycle exists, so performance inference is weak.",
+            "evidence": {
+              "completed_trade_count": 0.0
+            },
+            "suggested_next_analysis": "Extend the sample window or inspect no-fill/open-position behavior."
+          },
+          {
+            "code": "LOW_EXPOSURE",
+            "severity": "INFO",
+            "category": "exposure",
+            "message": "The strategy spends very little time in a position.",
+            "evidence": {
+              "exposure_fraction": 0.0
+            },
+            "suggested_next_analysis": "Check whether filters or entry modes suppress most opportunities."
+          },
+          {
+            "code": "SHORT_SIMULATION_ONLY",
+            "severity": "INFO",
+            "category": "short_economics",
+            "message": "Short results are simulation-only and omit borrow/funding/liquidation economics.",
+            "evidence": {
+              "short_close_count": 0.0,
+              "short_economics_scope": "backtest_only_simulation"
+            },
+            "suggested_next_analysis": "Separate long and short attribution before comparing live feasibility."
+          }
+        ],
+        "flag_count": 3,
+        "highest_severity": "WARNING",
+        "warnings": [
+          "sample size is small; inference strength is weak"
+        ],
+        "suggested_next_analysis": [
+          "Extend the sample window or inspect no-fill/open-position behavior.",
+          "Check whether filters or entry modes suppress most opportunities.",
+          "Separate long and short attribution before comparing live feasibility."
+        ],
+        "inference_strength": "WEAK",
+        "run_parameters_seen": [],
+        "graph_point_count": 25632
+      },
+      "cash_denomination": {
+        "schema_version": "backtest_cash_denomination_v1",
+        "source_starting_cash": 1000000.0,
+        "source_currency": "KRW",
+        "quote_currency": "USDT",
+        "effective_quote_starting_cash": 666.6666666666666,
+        "engine_starting_cash": 666.6666666666666,
+        "converted": true,
+        "conversion_rate": 1500.0,
+        "conversion_pair": "KRW/USDT",
+        "conversion_source": "manual_cli_krw_per_usdt",
+        "starting_cash_currency_was_explicit": true,
+        "starting_cash_was_explicit": true,
+        "quote_currency_was_explicit": false,
+        "engine_accounting_currency": "USDT",
+        "quote_cash_semantics": "strategy engine cash, costs, PnL, and equity are denominated in the symbol quote currency",
+        "live_fx_lookup_used": false,
+        "scope": "offline_backtest_research_only"
+      },
+      "research": {
+        "schema_version": "research_run_metadata_v1",
+        "enabled": true,
+        "task_id": "TASK_308",
+        "variant_id": "5m_comparator_entry_threshold_0p0015",
+        "window_id": "20260201_20260501",
+        "run_group": "lower_entry_threshold_grid",
+        "scope": "offline_backtest_research_only"
+      },
+      "pattern_execution_policy": {
+        "schema_version": "pattern_execution_policy_v1",
+        "enabled": false,
+        "skipped_reason": "not_a_pattern_strategy",
+        "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+        "scope": "offline_backtest_research_only"
+      },
+      "workflow_settings": {
+        "schema_version": "canonical_cli_workflow_settings_v1",
+        "enforce_candle_continuity": true,
+        "market_regime_enabled": false,
+        "market_regime": {
+          "enabled": false,
+          "window": 20,
+          "minimum_average_trading_value": 1000000.0
+        },
+        "pattern_regime_thresholds": {
+          "schema_version": "pattern_regime_thresholds_v1",
+          "enabled": false,
+          "default_thresholds": {
+            "minimum_volume_ratio": null,
+            "breakout_atr_multiplier": null,
+            "minimum_pattern_score": null,
+            "block_entry": false,
+            "block_reason": null
+          },
+          "market_regime_overrides": {},
+          "volatility_regime_overrides": {},
+          "liquidity_regime_overrides": {},
+          "spread_regime_overrides": {},
+          "trend_regime_overrides": {}
+        },
+        "cost_aware_entry_filter": {
+          "schema_version": "cost_aware_entry_filter_config_v1",
+          "enabled": true,
+          "min_net_reward_bps": 0.0,
+          "min_net_rr": 1.0
+        },
+        "fvg_order_block_confluence": {
+          "schema_version": "fvg_order_block_confluence_config_v1",
+          "enabled": false,
+          "source": "LOCAL_ENTRY_CANDLES",
+          "local_break_mode": "BREAK_PREVIOUS_RANGE",
+          "lookback_bars": 100,
+          "mode": "ZONE_OVERLAP",
+          "require_fresh": false,
+          "scope": "offline_backtest_research_only",
+          "default_behavior_preserved": true
+        },
+        "order_block_risk_exit": {
+          "schema_version": "order_block_risk_exit_config_v1",
+          "mode": "PREVIOUS_CANDLE_1R",
+          "enabled": true,
+          "fallback_on_unsupported_entry_mode": true,
+          "supported_entry_modes": [
+            "MARKET_ON_CONFIRMATION_CLOSE"
+          ],
+          "scope": "offline_backtest_research_only"
+        },
+        "guardrails": {
+          "scope": "backtest_only",
+          "max_account_drawdown": null,
+          "max_consecutive_losses": null,
+          "max_daily_loss": null,
+          "close_open_position_on_breach": false,
+          "max_position_notional": null,
+          "max_symbol_notional": null,
+          "max_leverage_simulated": null,
+          "forced_exit_behavior": "disabled by default; when enabled the strategy engine simulates a close at current candle price"
+        },
+        "cash_denomination": {
+          "schema_version": "backtest_cash_denomination_v1",
+          "source_starting_cash": 1000000.0,
+          "source_currency": "KRW",
+          "quote_currency": "USDT",
+          "effective_quote_starting_cash": 666.6666666666666,
+          "engine_starting_cash": 666.6666666666666,
+          "converted": true,
+          "conversion_rate": 1500.0,
+          "conversion_pair": "KRW/USDT",
+          "conversion_source": "manual_cli_krw_per_usdt",
+          "starting_cash_currency_was_explicit": true,
+          "starting_cash_was_explicit": true,
+          "quote_currency_was_explicit": false,
+          "engine_accounting_currency": "USDT",
+          "quote_cash_semantics": "strategy engine cash, costs, PnL, and equity are denominated in the symbol quote currency",
+          "live_fx_lookup_used": false,
+          "scope": "offline_backtest_research_only"
+        },
+        "owner_default_profile": {
+          "schema_version": "owner_fvg_v2_channel_default_profile_v1",
+          "profile_key": "owner_fvg_v2_channel_default_v1",
+          "enabled": false,
+          "applies_to_pattern": "FAIR_VALUE_GAP",
+          "selected_pattern": "LOOKBACK_RETURN_MOMENTUM",
+          "defaulted_fields": [],
+          "explicit_fields": [],
+          "skipped_fields": [],
+          "start_time_defaulted": false,
+          "applied_values": {
+            "cost_profile": "conservative_crypto_1m",
+            "enable_fvg_close_volume_filter": false,
+            "enable_fvg_v2": false,
+            "enable_fvg_v2_channel": false,
+            "enable_market_regime": false,
+            "enforce_candle_continuity": true,
+            "fvg_channel_max_wait_bars": null,
+            "fvg_channel_standalone_scan": false,
+            "fvg_channel_window": 20,
+            "fvg_close_volume_baseline_mode": "prior_only",
+            "fvg_close_volume_input_mode": "base_volume",
+            "fvg_close_volume_window": 20,
+            "fvg_min_close_volume_ratio": 2.0,
+            "fvg_stop_mode": "fvg_boundary_atr_buffer",
+            "fvg_use_fibonacci_confluence": false,
+            "fvg_use_trend_score": false,
+            "krw_per_usdt": 1500.0,
+            "position_sizing_mode": "cash_fraction",
+            "position_sizing_value": 0.1,
+            "starting_cash": 1000000.0,
+            "starting_cash_currency": "KRW"
+          },
+          "scope": "offline_backtest_research_only"
+        },
+        "owner_order_block_default_profile": {
+          "schema_version": "owner_order_block_default_profile_v1",
+          "profile_key": "owner_order_block_default_v1",
+          "enabled": false,
+          "applies_to_pattern": "ORDER_BLOCK",
+          "selected_pattern": "LOOKBACK_RETURN_MOMENTUM",
+          "defaulted_fields": [],
+          "explicit_fields": [],
+          "skipped_fields": [],
+          "applied_values": {
+            "cost_profile": "conservative_crypto_1m",
+            "ob_risk_exit_mode": "previous_candle_1r"
+          },
+          "scope": "offline_backtest_research_only"
+        }
+      },
+      "cost_aware_entry_filter": {
+        "schema_version": "cost_aware_entry_filter_config_v1",
+        "enabled": true,
+        "min_net_reward_bps": 0.0,
+        "min_net_rr": 1.0,
+        "cost_profile_name": "conservative_crypto_1m",
+        "liquidity_role": "TAKER"
+      },
+      "fvg_order_block_confluence": {
+        "schema_version": "fvg_order_block_confluence_config_v1",
+        "enabled": false,
+        "source": "LOCAL_ENTRY_CANDLES",
+        "local_break_mode": "BREAK_PREVIOUS_RANGE",
+        "lookback_bars": 100,
+        "mode": "ZONE_OVERLAP",
+        "require_fresh": false,
+        "scope": "offline_backtest_research_only",
+        "default_behavior_preserved": true
+      },
+      "order_block": {
+        "schema_version": "order_block_detector_config_v1",
+        "minimum_volume_ratio": 1.5,
+        "weak_volume_ratio": 1.3,
+        "default_entry_reference": "ZONE_MID",
+        "default_risk_reward": 2.0,
+        "stop_atr_buffer_multiplier": 0.2
+      },
+      "order_block_entry_volume_filter": {
+        "schema_version": "order_block_entry_volume_filter_config_v1",
+        "enabled": false,
+        "window": 20,
+        "minimum_volume_ratio": 1.0,
+        "baseline_mode": "PRIOR_ONLY",
+        "volume_input_mode": "BASE_VOLUME",
+        "require_full_window": true,
+        "fail_closed_on_invalid": true,
+        "scope": "offline_backtest_research_only"
+      },
+      "order_block_mtf_filter": {
+        "schema_version": "order_block_mtf_filter_config_v1",
+        "enabled": false,
+        "timeframes": [
+          "15m",
+          "1h"
+        ],
+        "require_all_timeframes": true,
+        "fail_closed_on_missing": true,
+        "context_source": "resampled_completed_base_candles",
+        "scope": "offline_backtest_research_only"
+      },
+      "order_block_risk_exit": {
+        "schema_version": "order_block_risk_exit_config_v1",
+        "mode": "PREVIOUS_CANDLE_1R",
+        "enabled": true,
+        "fallback_on_unsupported_entry_mode": true,
+        "supported_entry_modes": [
+          "MARKET_ON_CONFIRMATION_CLOSE"
+        ],
+        "scope": "offline_backtest_research_only"
+      },
+      "liquidity_sweep_reversal": {
+        "schema_version": "liquidity_sweep_reversal_config_v1",
+        "liquidity_pool_lookback_bars": 80,
+        "min_liquidity_pool_age_bars": 5,
+        "min_sweep_atr_multiplier": 0.05,
+        "min_sweep_bps": 2.0,
+        "reclaim_max_bars": 2,
+        "displacement_max_bars_after_sweep": 3,
+        "minimum_displacement_body_ratio": 0.55,
+        "minimum_displacement_atr_multiplier": 0.8,
+        "minimum_volume_ratio": 1.5,
+        "minimum_pattern_score": 0.7,
+        "require_fvg_confluence": false,
+        "require_order_block_confluence": false,
+        "require_both_fvg_and_ob": false,
+        "entry_mode": "BEST_NET_RR_BETWEEN_FVG_MIDPOINT_AND_OB_618",
+        "target_r_multiple": 2.0,
+        "min_gross_rr": 1.2,
+        "min_net_rr": 1.0,
+        "min_net_reward_bps": 8.0,
+        "enable_tradability_gates": false,
+        "enable_mtf_confirmation": false,
+        "mtf_timeframes": [
+          "15m"
+        ],
+        "scope": "offline_backtest_research_only"
+      },
+      "liquidity_sweep_reversal_risk_exit": {
+        "schema_version": "liquidity_sweep_reversal_risk_exit_config_v1",
+        "stop_buffer_atr_multiplier": 0.1,
+        "target_r_multiple": 2.0,
+        "min_gross_rr": 1.2,
+        "scope": "offline_backtest_research_only"
+      },
+      "session_range_liquidity_breakout_reversal": {
+        "schema_version": "session_range_liquidity_breakout_reversal_config_v1",
+        "enabled": true,
+        "range_lookback_bars": 120,
+        "breakout_buffer_bps": 0.0,
+        "minimum_range_bps": 10.0,
+        "minimum_volume_ratio": 0.8,
+        "minimum_body_ratio": 0.25,
+        "signal_mode": "FAILED_BREAKOUT_REVERSAL",
+        "direction_mode": "BOTH",
+        "minimum_pattern_score": 0.4,
+        "target_r_multiple": 4.0,
+        "stop_atr_buffer_multiplier": 0.2,
+        "max_bars_in_trade": 240,
+        "scope": "offline_backtest_research_only"
+      },
+      "lookback_return_momentum": {
+        "schema_version": "lookback_return_momentum_config_v1",
+        "enabled": true,
+        "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+        "strategy_version": "v1",
+        "lookback_bars": 12,
+        "entry_threshold": 0.0015,
+        "holding_bars": 6,
+        "risk_distance_pct": 0.002,
+        "stop_loss_r": 1.0,
+        "take_profit_r": 1.5,
+        "risk_distance_rule": "R_distance = entry_price * risk_distance_pct",
+        "entry_timing": "signal_candle_close",
+        "exit_precedence": "stop_loss_then_take_profit_then_time_exit",
+        "position_policy": "flat_only_no_reverse",
+        "scope": "offline_backtest_research_only"
+      }
+    }
+  },
+  "executions": [],
+  "events": [],
+  "diagnostics": {
+    "pattern_event_count": 0,
+    "execution_count": 0,
+    "event_ids": [],
+    "pattern_execution_policy": {
+      "schema_version": "pattern_execution_policy_v1",
+      "enabled": false,
+      "skipped_reason": "not_a_pattern_strategy",
+      "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+      "scope": "offline_backtest_research_only"
+    },
+    "lookback_return_momentum": {
+      "schema_version": "lookback_return_momentum_diagnostics_v1",
+      "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+      "config": {
+        "schema_version": "lookback_return_momentum_config_v1",
+        "enabled": true,
+        "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+        "strategy_version": "v1",
+        "lookback_bars": 12,
+        "entry_threshold": 0.0015,
+        "holding_bars": 6,
+        "risk_distance_pct": 0.002,
+        "stop_loss_r": 1.0,
+        "take_profit_r": 1.5,
+        "risk_distance_rule": "R_distance = entry_price * risk_distance_pct",
+        "entry_timing": "signal_candle_close",
+        "exit_precedence": "stop_loss_then_take_profit_then_time_exit",
+        "position_policy": "flat_only_no_reverse",
+        "scope": "offline_backtest_research_only"
+      },
+      "candidate_entry_count": 17171,
+      "accepted_entry_count": 0,
+      "cost_aware_blocked_entry_count": 17171,
+      "cost_aware_block_rate": 1.0,
+      "cost_aware_block_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "exit_count": 0,
+      "exit_reasons": [],
+      "long_entry_count": 0,
+      "short_entry_count": 0,
+      "blocked_long_entry_count": 8554,
+      "blocked_short_entry_count": 8617,
+      "trade_count": 0,
+      "completed_trade_count": 0,
+      "average_net_r": null,
+      "scope": "offline_backtest_research_only"
+    }
+  },
+  "warnings": [
+    "no fills",
+    "market_regime_disabled"
+  ],
+  "reproducibility": {
+    "schema_version": "backtest_reproducibility_v1",
+    "created_by": "quant-bitcoin-strategy-backtest",
+    "dataset": {
+      "source": "binance_spot",
+      "symbol": "BTCUSDT",
+      "interval": "5m",
+      "requested_start_time": "2026-02-01T00:00:00Z",
+      "requested_end_time": "2026-04-30T23:55:00Z",
+      "actual_start_time": "2026-02-01T00:00:00Z",
+      "actual_end_time": "2026-04-30T23:55:00Z",
+      "candle_count": 25632,
+      "candle_content_hash": "c1a9afb7a1c130bbcfc2943d687288767f80c17dc126002c7fa0da1382a17719",
+      "quality": {
+        "schema_version": "candle_quality_summary_v1",
+        "row_count": 25632,
+        "duplicate_timestamp_count": 0,
+        "interval_gap_count": 0,
+        "continuity_checked": true
+      }
+    },
+    "strategy": {
+      "key": "LOOKBACK_RETURN_MOMENTUM",
+      "name": "LOOKBACK_RETURN_MOMENTUM_RESEARCH_STRATEGY",
+      "version": "v1",
+      "parameters_hash": "073910dfe36d9f93f5c690fb03fd7bdba51b8cc3d13e8bd01e42b7a0f343c9c0"
+    },
+    "engine": {
+      "name": "BasicBacktester",
+      "version": "basic_backtester_v1",
+      "starting_cash": 666.6666666666666,
+      "source_starting_cash": 1000000.0,
+      "cash_denomination": {
+        "schema_version": "backtest_cash_denomination_v1",
+        "source_starting_cash": 1000000.0,
+        "source_currency": "KRW",
+        "quote_currency": "USDT",
+        "effective_quote_starting_cash": 666.6666666666666,
+        "engine_starting_cash": 666.6666666666666,
+        "converted": true,
+        "conversion_rate": 1500.0,
+        "conversion_pair": "KRW/USDT",
+        "conversion_source": "manual_cli_krw_per_usdt",
+        "starting_cash_currency_was_explicit": true,
+        "starting_cash_was_explicit": true,
+        "quote_currency_was_explicit": false,
+        "engine_accounting_currency": "USDT",
+        "quote_cash_semantics": "strategy engine cash, costs, PnL, and equity are denominated in the symbol quote currency",
+        "live_fx_lookup_used": false,
+        "scope": "offline_backtest_research_only"
+      },
+      "trade_quantity": 1.0
+    },
+    "config_hashes": {
+      "dataset": "daa9909b22411e32893c3129eff45681af9b39c8615d476c29b16c3683b23912",
+      "strategy_parameters": "073910dfe36d9f93f5c690fb03fd7bdba51b8cc3d13e8bd01e42b7a0f343c9c0",
+      "engine": "39f975948c13b97608ac9a9d167b484984811937ef77f45e31e10b6b6c63fc7b",
+      "full_config": "10ac749041ebfb1e9c928abb8d70c352885a01b5343adde526d415ffb569939e"
+    },
+    "random_seeds": {
+      "walk_forward": null,
+      "monte_carlo": null
+    },
+    "environment": {
+      "database_url": "postgresql://***:***@localhost:5432/quant_bitcoin",
+      "profile_enabled": false
+    },
+    "sensitive_values_redacted": true
+  },
+  "cash_denomination": {
+    "schema_version": "backtest_cash_denomination_v1",
+    "source_starting_cash": 1000000.0,
+    "source_currency": "KRW",
+    "quote_currency": "USDT",
+    "effective_quote_starting_cash": 666.6666666666666,
+    "engine_starting_cash": 666.6666666666666,
+    "converted": true,
+    "conversion_rate": 1500.0,
+    "conversion_pair": "KRW/USDT",
+    "conversion_source": "manual_cli_krw_per_usdt",
+    "starting_cash_currency_was_explicit": true,
+    "starting_cash_was_explicit": true,
+    "quote_currency_was_explicit": false,
+    "engine_accounting_currency": "USDT",
+    "quote_cash_semantics": "strategy engine cash, costs, PnL, and equity are denominated in the symbol quote currency",
+    "live_fx_lookup_used": false,
+    "scope": "offline_backtest_research_only"
+  },
+  "backtest_run_id": 1172,
+  "runtime": {
+    "runtime_schema_version": "v1",
+    "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+    "created_by": "quant-bitcoin-strategy-backtest",
+    "candle_count": 25632,
+    "total_elapsed_ms": 5709.476,
+    "candle_load_elapsed_ms": 211.158,
+    "action_build_elapsed_ms": 1517.933,
+    "engine_elapsed_ms": 408.263,
+    "persistence_elapsed_ms": 3414.139,
+    "json_output_elapsed_ms": 11.393,
+    "pattern_timings": [
+      {
+        "pattern_key": "LOOKBACK_RETURN_MOMENTUM",
+        "candle_count": 25632,
+        "events_detected": 0,
+        "actions_emitted": 17171,
+        "elapsed_ms": 1517.933
+      }
+    ]
+  }
+}

@@ -1,71 +1,119 @@
 # Agent Handoff Prompt
 
-아래 프롬프트는 저장된 백테스트 리포트 payload를 다른 에이전트에게 전달해 `docs/blog/DAILY_REPORT_TEMPLATE.md` 구조와 `docs/blog/DAILY_REPORT_STYLE.md` 문체를 따르는 한국어 리포트 본문을 작성하게 할 때 사용합니다.
+아래 프롬프트는 저장된 백테스트 리포트 payload를 다른 에이전트에게 전달해 `docs/blog/report_template.html`, `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`를 따르는 한국어 HTML 리포트를 작성하게 할 때 사용합니다.
 
-payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프롬프트는 `report-ko.md` 본문 작성에만 사용합니다.
+payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프롬프트는 `report-ko.html` 작성에만 사용합니다.
 
 ## Copy Prompt
 
 ````text
-당신은 퀀트 백테스트 결과를 매일 기록하는 리서치 에디터입니다.
+당신은 퀀트 백테스트 결과를 Tistory 블로그에 투고할 수 있는 HTML 리포트로 작성하는 리서치 에디터입니다.
 
-입력으로 제공되는 backtest_report_payload만 사용해서 `docs/blog/DAILY_REPORT_TEMPLATE.md` 구조와 `docs/blog/DAILY_REPORT_STYLE.md` 문체를 따르는 한국어 백테스트 리포트 본문을 작성하세요.
+입력으로 제공되는 backtest_report_payload만 사용해서 한국어 백테스트 리포트 HTML을 작성하세요.
 
-작성 결과는 artifact folder의 `report-ko.md`로 저장될 문서입니다.
+작성 결과는 artifact folder의 `report-ko.html`로 저장될 최종 문서입니다.
+Markdown은 최종 산출물이 아닙니다.
+Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
+본문 컨테이너 기본 폭은 1120px이며, 모바일 폭에서도 제목, subtitle, bullet, 표가 읽혀야 합니다.
 
-작성 전에 `docs/blog/DAILY_REPORT_TEMPLATE.md`와 `docs/blog/DAILY_REPORT_STYLE.md`를 기준으로 삼습니다.
-템플릿은 섹션 구조와 이미지 배치를 정하고, 스타일 문서는 말투, 금지 표현, 내부 용어 변환, 해석 방식을 정합니다.
+작성 전에 아래 문서를 기준으로 삼습니다.
+
+- `docs/blog/report_template.html`: HTML 레이아웃, header, article, figure, table-scroll 구조
+- `docs/blog/DAILY_REPORT_TEMPLATE.md`: 섹션 구조와 이미지/표 배치
+- `docs/blog/DAILY_REPORT_STYLE.md`: 말투, 금지 표현, 내부 용어 변환, 해석 방식
 
 작성 원칙:
 
+- HTML만 출력합니다.
+- `docs/blog/report_template.html`의 전체 문서 구조를 사용합니다.
+- `<main class="report-page">` 컨테이너를 사용하고, 내부 CSS에는 `--page-max-width: 1120px`, `width: calc(100% - 32px)`, `margin: 0 auto` 기준이 있어야 합니다.
+- `<article class="report-content">` 안에 리포트 본문을 작성합니다.
+- 제목은 `strategy_label`을 우선 사용합니다. `낮은 진입 기준 비교` 같은 실험 세부 문구를 main title에 붙이지 않습니다.
+- subtitle은 payload의 `stable_strategy_description` 또는 strategy 문서의 stable strategy description을 사용합니다.
+- 실험에서 무엇을 바꿨는지는 subtitle이 아니라 `핵심 요약` 또는 `해석`에서 다룹니다.
+- version이나 핵심 메커니즘이 바뀌면 `핵심 요약`에 이전/현재 차이를 짧게 씁니다.
+- 첫 문단은 전략이 무엇인지 plain Korean으로 설명합니다.
+- 첫 문단을 시장/심볼/기간/비용 요약으로 시작하지 않습니다.
 - 존댓말로 작성합니다.
 - 문장은 짧고 명확하게 씁니다.
 - 매일 작성 가능한 길이로 유지합니다.
 - 제공된 숫자와 문장만 사용합니다.
 - 누락된 값은 추정하지 말고 `[확인 필요]`로 남깁니다.
 - 결과가 좋아 보여도 과장하지 않습니다.
-- 비용, 슬리피지, 착시 가능성은 반드시 언급합니다.
-- 이미지가 제공되면 해당 섹션에 markdown image로 넣습니다.
-- 이미지 참조는 같은 폴더 기준 `./[filename].png` 형식을 사용합니다.
+- 결과가 나빠도 테스트한 전략/버전의 실패를 전략군 전체 실패로 확대하지 않습니다.
+- 결과가 좋아도 넓은 검증 없이 보편적 유효성을 주장하지 않습니다.
+- `해석` 섹션에서는 현재 결과로 말할 수 있는 범위와 말할 수 없는 범위를 분리합니다.
+- 실패한 리포트에서는 필요한 경우 `현재 버전은 이 조건에서 비용 반영 후 유효한 전략으로 보기 어렵습니다. 다만 이 결과만으로 전략군 전체를 기각하기는 이릅니다.`와 같은 의미의 문장을 쓰고, 왜 기각하기 이른지 저장 근거의 경계를 설명합니다.
+- 비용, 슬리피지, 착시 가능성은 필요한 곳에서 언급합니다.
+- 이미지가 제공되면 `<figure class="report-figure">`와 `<img src="./[filename].png">`로 넣습니다.
+- 이미지는 본문 폭 전체를 사용하도록 둡니다. 작은 고정 폭을 지정하지 않습니다.
+- 이미지를 HTML에서 억지로 작게 줄이거나 crop해서 문제를 숨기지 않습니다. 이미지가 잘렸거나 글자가 겹쳐 보이면 이미지 생성 규칙에 따라 재생성 대상입니다.
+- 넓은 표는 `<div class="table-scroll">`로 감쌉니다.
+- 표는 왼쪽 정렬을 기본으로 합니다. 숫자 컬럼은 필요한 경우에만 오른쪽 정렬하고, 가운데 정렬을 기본값으로 쓰지 않습니다.
 - payload의 `filename`에 하위 폴더나 절대경로가 있으면 그대로 쓰지 말고 `[확인 필요]`로 남깁니다.
 - 이미지 파일명이나 chart title에 task 번호, run id, 내부 candidate id를 쓰지 않습니다.
 - payload에 없는 이미지를 새로 만들었다고 쓰지 않습니다.
-- 이미지가 없으면 해당 이미지 줄에는 `[확인 필요]`를 남깁니다.
+- 이미지가 없으면 해당 figure를 만들지 말고 필요한 값에 `[확인 필요]`를 남깁니다.
 - payload에 없는 숫자, 원인, 개선 방향을 새로 계산하거나 추정하지 않습니다.
 - 가설은 반드시 `~할 것이다` 형태로 씁니다.
-- PR 항목은 유지합니다.
+- PR 항목은 payload에 있을 때만 설정 표에 넣습니다.
 - `git commit` 항목은 쓰지 않습니다.
-- 제목과 본문에서는 `strategy_label`을 우선 사용합니다.
 - task 번호, run id, 내부 candidate id는 제목, 본문, 이미지 설명에 쓰지 않습니다.
-- 아래 표현은 쓰지 않습니다.
+- 아래 표현이나 구조는 쓰지 않습니다.
   - `단순히`
   - `질문에서 출발한다`
-- 결론 섹션을 따로 만들지 않습니다. 해석 섹션에서 실험 의도, 결과, 원인, 다음 보완점을 함께 정리합니다.
-- 패턴/필터/이미지/비교 타임프레임이 없다는 사실은 기본적으로 본문에 쓰지 않습니다. 필요하면 한계나 다음 보완점에만 씁니다.
+  - 어색한 `기본값` 비교 라벨
+  - 영어식 setup/numbers/kicker 제목
+  - 별도 주의사항 기본 섹션
+  - 긴 해석/보완점 결합 제목
+  - 주문 관련 자명한 고지 문구
+  - short exposure를 가짜 포지션이라고 설명하는 문구
+  - `그것은`
+- 결론 섹션을 따로 만들지 않습니다. `해석` 섹션에서 실험 의도, 결과, 원인, 보완점을 함께 정리합니다.
+- 패턴/필터/이미지/비교 타임프레임이 없다는 사실은 기본적으로 본문에 쓰지 않습니다. 필요하면 한계나 보완점에만 씁니다.
 - 대표 거래는 가능한 경우 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전, equity curve/drawdown 맥락을 함께 설명합니다. 없는 데이터는 추정하지 않습니다.
+- 이론적 배경은 전략이 왜 우위를 가질 수 있는지, 어떤 경제적/행동적 메커니즘을 가정하는지, 어떤 조건에서 성공/실패하는지, 비용과 손익비가 어떻게 작동하는지까지 다룹니다.
+- 이론적 배경은 strategy document와 payload의 references를 근거로 씁니다. 레퍼런스가 없으면 `[확인 필요]`로 남기고 임의 문헌을 만들지 않습니다.
+- `전략 규칙`은 별도 기본 섹션으로 만들지 않습니다. 진입/청산/비용/동일 캔들 처리 규칙은 `전략에 포함된 가정과 이론적 배경` 안에 편입합니다.
+- 결과가 좋으면 gross edge, win/loss structure, cost absorption, holding-period behavior, drawdown, reward/risk 등 저장 근거로 성공 원인을 설명합니다.
+- 결과가 나쁘면 gross-vs-net gap, churn, exit mix, cost drag, insufficient edge, reward/risk geometry 등 저장 근거로 실패 원인을 설명합니다.
+- 결과가 나쁠 때는 현재 버전과 조건에서의 결론을 먼저 쓰고, 전략군 전체를 기각하려면 왜 추가 검증이 필요한지 설명합니다. 구현 버전, 기간, 심볼, 타임프레임, 비용 가정, 파라미터 범위, 적용하지 않은 regime/유동성/확인 필터, OOS/WFO 또는 기준선 비교 부족을 저장 근거 범위 안에서 다룹니다.
+- 결과가 좋을 때는 현재 조건에서 성공한 이유를 쓰되, 넓은 기간/시장/비용/OOS 검증이 없으면 보편적 성공으로 과장하지 않습니다.
+- ATR, liquidation, delayed-exit, microstructure, behavior, regime 설명은 payload, strategy document, 또는 명시된 source가 뒷받침할 때만 씁니다.
 - 아래 항목은 최종 리포트에 만들지 않습니다.
   - 실험 ID
   - 데이터 버전
   - 실험 config
   - 산출물 경로
-  - 산출 파일
+  - 산출 파일 목록
   - 체크리스트
   - 부록
   - 산출물 부재 설명
   - 빈 패턴/필터 표 행
   - 별도 결론 섹션
 
-필수 섹션:
+필수 HTML 섹션:
 
 1. 핵심 요약
 2. 가설
 3. 전략에 포함된 가정과 이론적 배경
-4. 전략 규칙
-5. 백테스트 설정
-6. 결과
-7. 주의해서 볼 점
-8. 대표 거래
-9. 해석과 다음 보완점
+4. 백테스트 설정
+5. 결과
+6. 대표 거래
+7. 해석
+
+섹션 작성 규칙:
+
+- `h2`는 메인 섹션에 사용합니다.
+- `h3`는 하위 섹션에 사용합니다.
+- 첫 요약 문단에는 `class="lead"`를 붙입니다.
+- 이미지는 `figure.report-figure`를 사용합니다.
+- 표는 `div.table-scroll` 안에 넣습니다.
+- 해석의 보완점은 `<ul><li>...</li></ul>`로 씁니다.
+- 보완점 앞에는 `보완점은 다음과 같습니다.` 같은 문장을 씁니다.
+- 각 보완점에는 왜 이번 결과가 그 보완을 요구하는지까지 씁니다.
+- `첫째`, `둘째`, `셋째`로 나열하지 않습니다.
+- 표는 목적이 분명할 때만 사용합니다. 너무 큰 표는 나누거나 핵심 열만 남깁니다.
 
 입력 payload 구조:
 
@@ -75,15 +123,19 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
     "strategy_name": "",
     "strategy_version": "",
     "strategy_label": "",
+    "stable_strategy_description": "",
+    "version_change_summary": "",
+    "title_policy": "strategy_name_and_version_only",
     "market_summary": "",
     "period": "",
     "pr": ""
   },
   "artifact": {
-    "schema": "colocated_payload_images_v1",
+    "schema": "colocated_payload_images_html_report_v1",
     "strategy_slug": "",
     "strategy_version_slug": "",
     "period_slug": "",
+    "report_filename": "report-ko.html",
     "image_reference_rule": "filenames_only_colocated_with_payload"
   },
   "images": {
@@ -133,8 +185,20 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
     "hypotheses": ["", ""],
     "assumptions": ["", "", ""],
     "economic_meaning": "",
+    "edge_mechanism": "",
+    "success_conditions": "",
+    "failure_conditions": "",
+    "cost_and_rr_context": "",
+    "rule_summary": "",
+    "references": [
+      {
+        "id": "",
+        "title": "",
+        "reason": ""
+      }
+    ],
     "expectancy": {
-      "formula": "E[R] = P(win) × AvgWin - P(loss) × AvgLoss - Cost",
+      "formula": "E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost",
       "p_win": "",
       "avg_win": "",
       "p_loss": "",
@@ -188,6 +252,9 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
       "stop_price": "",
       "target_price": "",
       "net_pnl": "",
+      "gross_pnl": "",
+      "transaction_cost": "",
+      "hold_duration": "",
       "exit_reason": "",
       "reason": ""
     },
@@ -200,6 +267,9 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
       "stop_price": "",
       "target_price": "",
       "net_pnl": "",
+      "gross_pnl": "",
+      "transaction_cost": "",
+      "hold_duration": "",
       "exit_reason": "",
       "reason": ""
     }
@@ -207,30 +277,44 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
   "interpretation": {
     "experiment_intent": "",
     "result_interpretation": "",
-    "cause_interpretation": "",
+    "success_drivers": "",
+    "failure_drivers": "",
+    "bounded_conclusion": "",
+    "generalization_boundary": "",
+    "broader_claim_requirements": "",
     "risk_interpretation": "",
     "next_improvements": ""
+  },
+  "presentation_notes": {
+    "table_purposes": [""],
+    "wide_table_handling": "",
+    "forbidden_copy_checks": ["그것은"]
   }
 }
 ```
 
 출력 형식:
 
-- Markdown만 출력합니다. 이 Markdown은 `report-ko.md`로 저장됩니다.
-- 제목은 `# [strategy_label] 백테스트 리포트` 형식을 사용합니다.
+- 완성된 HTML 문서만 출력합니다.
+- `<!doctype html>`로 시작합니다.
+- `<html lang="ko">`를 사용합니다.
+- `docs/blog/report_template.html`의 CSS와 `.report-page` 구조를 유지합니다.
+- 제목은 `[strategy_label]` 형식을 사용합니다.
 - `strategy_label`이 없으면 `strategy_name`과 `strategy_version`을 조합합니다.
+- main title에 실험 세부 문구를 붙이지 않습니다.
+- `REPORT_TYPE` 또는 kicker에 `백테스트 리포트`를 둡니다.
 - `images.primary`가 있으면 핵심 요약과 결과 섹션에 넣습니다.
 - `cost_impact.png`가 있으면 거래비용 영향 섹션에 넣습니다.
 - `representative_win_trade.png`가 있으면 대표 수익 거래 섹션에 넣습니다.
 - `representative_loss_trade.png`가 있으면 대표 손실 거래 섹션에 넣습니다.
 - 이미지 참조는 `./[filename].png` 형태로 씁니다.
-- 이미지 파일명이 없거나 하위 폴더를 포함하면 이미지 줄에는 `[확인 필요]`를 남깁니다.
-- 섹션을 새로 추가하지 않습니다.
-- `final_conclusion` 같은 legacy payload 값이 있어도 별도 결론 섹션을 만들지 말고 해석 섹션에 필요한 내용만 흡수합니다.
+- 이미지 파일명이 없거나 하위 폴더를 포함하면 해당 figure를 만들지 않고 `[확인 필요]`를 남깁니다.
+- 섹션을 불필요하게 추가하지 않습니다.
+- `final_conclusion` 같은 legacy payload 값이 있어도 별도 결론 섹션을 만들지 말고 `해석` 섹션에 필요한 내용만 흡수합니다.
 - payload에 없는 값을 새로 계산하지 않습니다.
 - payload에 없는 그래프를 새로 만들었다고 쓰지 않습니다.
 - 최종 리포트에는 예시 문장을 남기지 않습니다.
-- 연구 전용 또는 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
+- 실패한 전략을 실전 적용 가능한 전략처럼 쓰지 않습니다.
 
 작성할 payload:
 
@@ -240,8 +324,9 @@ payload와 이미지는 같은 artifact folder에 있어야 합니다. 이 프�
 ## Usage Notes
 
 - `<BACKTEST_REPORT_PAYLOAD>` 자리에 `docs/blog/backtest_report_data_rules.md` 규칙에 맞춘 payload를 붙입니다.
-- 작성 에이전트는 `report-ko.md`에 들어갈 Markdown만 출력해야 합니다.
+- 작성 에이전트는 `report-ko.html`로 저장할 완성 HTML만 출력해야 합니다.
 - 내부 추적값이 payload에 섞여 있더라도 최종 리포트에는 쓰지 않습니다.
 - 누락된 수치가 있으면 `[확인 필요]`로 남깁니다.
 - 이미지 생성이 필요하면 이 프롬프트가 아니라 `docs/blog/image_generation_prompt.md`를 먼저 사용합니다.
-- full report workflow에서는 이 프롬프트의 결과를 payload/images와 같은 폴더의 `report-ko.md`로 저장합니다.
+- 이미지 생성 단계는 stable visual contract를 따라야 합니다. 대표 거래 이미지는 주변 candle context와 별도 annotation band를 갖고, crop이나 label overlap이 없어야 합니다.
+- full report workflow에서는 이 프롬프트의 결과를 payload/images와 같은 폴더의 `report-ko.html`로 저장합니다.

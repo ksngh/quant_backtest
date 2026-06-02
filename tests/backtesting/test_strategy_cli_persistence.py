@@ -456,6 +456,10 @@ def test_strategy_cli_persists_reproducibility_metadata(monkeypatch, capsys) -> 
 
     assert output["backtest_run_id"] == 77
     assert "reproducibility" in payload.run.metadata
+    assert "cost_aware_entry_filter" in payload.run.metadata
+    assert payload.run.metadata["cost_aware_entry_filter"]["enabled"] is False
+    assert "cost_profile" in payload.run.metadata
+    assert "workflow_settings" in payload.run.metadata
     assert payload.run.metadata["reproducibility"]["dataset"]["candle_count"] == 2
     assert "secret" not in json.dumps(payload.run.metadata)
 

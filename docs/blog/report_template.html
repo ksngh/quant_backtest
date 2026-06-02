@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{REPORT_TITLE}}</title>
+
+  <!--
+    Tistory hELLO Skin Daily Report Template
+    - Replace {{...}} placeholders.
+    - Put report content inside <article class="report-content">.
+    - Wrap wide tables with <div class="table-scroll">...</div>.
+    - Use <figure class="report-figure"> for images.
+    - Default body width: 1120px for the Tistory hELLO skin.
+    - Keep the document responsive for narrower Tistory/mobile widths.
+  -->
+
+  <style>
+    :root {
+      --page: #ffffff;
+      --ink: #15171a;
+      --muted: #60666d;
+      --line: #d9dde3;
+      --soft-line: #eceff3;
+      --code-bg: #f6f7f9;
+      --table-head: #f7f8fa;
+      --page-max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+    }
+
+    .report-page {
+      max-width: var(--page-max-width);
+      width: calc(100% - 32px);
+      margin: 0 auto;
+      padding: 42px 0 88px;
+    }
+
+    .report-header {
+      margin-bottom: 42px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .report-kicker {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0;
+    }
+
+    .report-title {
+      margin: 0;
+      font-size: clamp(2rem, 3.2vw, 3rem);
+      line-height: 1.12;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .report-subtitle {
+      max-width: 980px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.25vw, 1.16rem);
+      line-height: 1.68;
+    }
+
+    .report-content {
+      width: 100%;
+    }
+
+    .report-content > *:first-child { margin-top: 0; }
+
+    h2 {
+      margin: 86px 0 22px;
+      padding-top: 26px;
+      font-size: clamp(1.35rem, 1.8vw, 2rem);
+      line-height: 1.32;
+      font-weight: 720;
+      letter-spacing: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .report-content > h2:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    h3 {
+      margin: 44px 0 14px;
+      font-size: clamp(1.06rem, 1.2vw, 1.28rem);
+      line-height: 1.42;
+      font-weight: 680;
+      letter-spacing: 0;
+    }
+
+    h4 {
+      margin: 34px 0 12px;
+      font-size: 1rem;
+      line-height: 1.42;
+      font-weight: 680;
+    }
+
+    p {
+      max-width: 980px;
+      margin: 0 0 17px;
+    }
+
+    .lead {
+      max-width: 1040px;
+      font-size: clamp(1.04rem, 1.18vw, 1.18rem);
+      line-height: 1.74;
+    }
+
+    ul, ol {
+      max-width: 980px;
+      margin: 0 0 22px 0;
+      padding-left: 1.45rem;
+      list-style-position: outside;
+    }
+
+    li { margin: 7px 0; }
+    li::marker {
+      color: var(--ink);
+      font-size: 0.9em;
+    }
+
+    strong { font-weight: 700; }
+
+    a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      max-width: 980px;
+      margin: 20px 0 28px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      border: 1px solid var(--soft-line);
+    }
+
+    pre code {
+      display: block;
+      white-space: pre;
+    }
+
+    blockquote {
+      max-width: 980px;
+      margin: 24px 0 30px;
+      padding: 0 0 0 18px;
+      color: var(--muted);
+      border-left: 3px solid var(--line);
+    }
+
+    .table-scroll {
+      width: 100%;
+      margin: 20px 0 40px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--soft-line);
+      border-left: 0;
+      border-right: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: clamp(0.88rem, 0.92vw, 0.98rem);
+      line-height: 1.46;
+      font-variant-numeric: tabular-nums;
+    }
+
+    thead th {
+      background: var(--table-head);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: #22262a;
+      font-weight: 680;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--soft-line);
+      vertical-align: top;
+      text-align: left;
+      white-space: normal;
+    }
+
+    td:first-child,
+    th:first-child {
+      white-space: normal;
+      min-width: 150px;
+    }
+
+    td.metric,
+    th.metric,
+    td.number,
+    th.number {
+      white-space: nowrap;
+      text-align: right !important;
+    }
+
+    tr:last-child td { border-bottom-color: var(--line); }
+
+    .report-figure {
+      width: 100%;
+      margin: 34px 0 48px;
+    }
+
+    .report-figure img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+    }
+
+    .report-figure figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 48px 0;
+    }
+
+    .note {
+      max-width: 980px;
+      margin: 22px 0 30px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 860px) {
+      .report-page {
+        width: calc(100% - 24px);
+        padding: 34px 16px 72px;
+      }
+      .report-header { margin-bottom: 38px; }
+      h2 { margin-top: 64px; padding-top: 22px; }
+      table { min-width: 760px; }
+      th, td { padding: 9px 10px; }
+    }
+
+    @media print {
+      html { font-size: 12px; }
+      .report-page {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+      }
+      .table-scroll { overflow: visible; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      .report-figure { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="report-page">
+    <header class="report-header">
+      <p class="report-kicker">{{REPORT_TYPE}}</p>
+      <h1 class="report-title">{{REPORT_TITLE}}</h1>
+      <p class="report-subtitle">{{REPORT_SUBTITLE}}</p>
+    </header>
+
+    <article class="report-content">
+      <!--
+        Replace everything below with your report body.
+        Recommended structure:
+        - h2 for main sections
+        - h3 for subsections
+        - p.lead for opening summary paragraph
+        - div.table-scroll around every table
+        - figure.report-figure for images
+      -->
+
+      <h2>1. {{SECTION_TITLE}}</h2>
+      <p class="lead">{{SUMMARY_PARAGRAPH}}</p>
+
+      <figure class="report-figure">
+        <img src="./{{IMAGE_FILE_NAME}}" alt="{{IMAGE_ALT_TEXT}}" loading="lazy">
+        <figcaption>{{IMAGE_CAPTION}}</figcaption>
+      </figure>
+
+      <h3>{{SUBSECTION_TITLE}}</h3>
+      <ul>
+        <li>{{BULLET_ITEM}}</li>
+        <li>{{BULLET_ITEM}}</li>
+        <li>{{BULLET_ITEM}}</li>
+      </ul>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>{{COLUMN_1}}</th>
+              <th>{{COLUMN_2}}</th>
+              <th>{{COLUMN_3}}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{VALUE}}</td>
+              <td>{{VALUE}}</td>
+              <td>{{VALUE}}</td>
+            </tr>
+            <tr>
+              <td>{{VALUE}}</td>
+              <td>{{VALUE}}</td>
+              <td>{{VALUE}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. {{SECTION_TITLE}}</h2>
+      <p>{{BODY_PARAGRAPH}}</p>
+
+      <pre><code>{{CODE_OR_FORMULA}}</code></pre>
+
+      <blockquote>
+        <p>{{OPTIONAL_QUOTE_OR_NOTE}}</p>
+      </blockquote>
+
+      <p class="note">{{OPTIONAL_NOTE}}</p>
+    </article>
+  </main>
+</body>
+</html>

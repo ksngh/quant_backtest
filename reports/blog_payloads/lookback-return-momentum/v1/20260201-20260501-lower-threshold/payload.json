@@ -1,0 +1,387 @@
+{
+  "title": {
+    "strategy_name": "Lookback Return Momentum",
+    "strategy_version": "v1",
+    "strategy_label": "Lookback Return Momentum V1",
+    "market_summary": "Binance BTCUSDT spot-style OHLCV, 1m/5m/15m, 2026-02-01 00:00 UTC ~ 2026-05-01 00:00 UTC 직전",
+    "period": "2026-02-01 00:00 UTC ~ 2026-05-01 00:00 UTC 직전",
+    "pr": null
+  },
+  "artifact": {
+    "schema": "colocated_payload_images_html_report_v1",
+    "strategy_slug": "lookback-return-momentum",
+    "strategy_version_slug": "v1",
+    "period_slug": "20260201-20260501-lower-threshold",
+    "report_filename": "report-ko.html",
+    "image_reference_rule": "filenames_only_colocated_with_payload"
+  },
+  "images": {
+    "primary": "summary_equity_curve.png",
+    "items": [
+      {
+        "id": "summary_equity_curve",
+        "filename": "summary_equity_curve.png",
+        "caption": "진입 기준을 낮춘 비교에서 최종 자본과 진입 후보 수를 함께 본 그래프입니다.",
+        "section": "summary,results"
+      },
+      {
+        "id": "cost_impact",
+        "filename": "cost_impact.png",
+        "caption": "고정 손익비 구조와 최소 거래비용의 관계를 basis point로 비교한 그래프입니다.",
+        "section": "cost_impact"
+      },
+      {
+        "id": "representative_win_trade",
+        "filename": "representative_win_trade.png",
+        "caption": "진입 전 비용 gate에서 후보가 모두 차단되어 대표 수익 거래가 생기지 않았음을 보여주는 그래프입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "representative_loss_trade",
+        "filename": "representative_loss_trade.png",
+        "caption": "진입 전 비용 gate에서 후보가 모두 차단되어 대표 손실 거래가 생기지 않았음을 보여주는 그래프입니다.",
+        "section": "representative_trades"
+      }
+    ]
+  },
+  "setup": {
+    "exchange": "Binance public market data",
+    "symbol": "BTCUSDT",
+    "market": "Spot-style OHLCV backtest accounting",
+    "timeframe": "1m, 5m, 15m",
+    "period": "2026-02-01 00:00 UTC ~ 2026-05-01 00:00 UTC 직전",
+    "comparison_variables": "각 timeframe의 현재 진입 기준과 20%, 40%, 60% 낮춘 진입 기준",
+    "initial_capital": "1,000,000 KRW converted to 666.6667 USDT at 1,500 KRW/USDT",
+    "position_sizing": "거래당 사용 가능 현금의 10%",
+    "entry_conditions_summary": "최근 N개 완료봉의 close-to-close 수익률이 양수 기준 이상이면 Long, 음수 기준 이하이면 Short 후보로 분류",
+    "exit_conditions_summary": "손절 1.0R, 익절 1.5R, holding_bars 경과 시 시간 청산; 같은 캔들에서는 손절 우선",
+    "cost_assumptions": "수수료 10 bps, 스프레드 3 bps, 기본 슬리피지 5 bps와 변동성 슬리피지를 반영",
+    "execution_assumption": "완료된 OHLCV 캔들 기준으로 진입 후보와 청산 가격을 계산"
+  },
+  "hypothesis_and_theory": {
+    "hypotheses": [
+      "진입 기준을 낮추면 최근 수익률이 기준을 넘는 raw momentum 후보 수가 늘어날 것이다.",
+      "후보 수 증가가 의미 있으려면 비용 반영 후 보상/위험 조건을 통과한 진입도 함께 늘어날 것이다."
+    ],
+    "assumptions": [
+      "최근 완료봉 수익률은 단기 주문 흐름과 참여자 반응을 일부 요약합니다.",
+      "가격 반응이 늦거나 추세 추종 참여가 이어지면 최근 방향성이 짧은 보유 구간에도 지속될 수 있습니다.",
+      "신호가 빠를수록 turnover가 늘기 때문에 평균 후속 움직임이 거래비용과 손익비를 넘어야 합니다."
+    ],
+    "economic_meaning": "짧은 구간의 방향성 압력이 다음 몇 개 봉까지 이어지는지 확인하는 기초 모멘텀 실험입니다.",
+    "edge_mechanism": "정보 반영 지연, 추세 추종 주문, 강제 참여 흐름이 남아 있으면 최근 수익률 기준 신호가 일시적 우위를 가질 수 있습니다.",
+    "success_conditions": "후속 가격 이동이 충분히 커서 30 bps gross reward 구조와 수수료, 스프레드, 슬리피지를 모두 넘길 때 작동하기 쉽습니다.",
+    "failure_conditions": "평균 후속 움직임이 작거나 fixed target/risk 구조의 순보상이 비용보다 작으면 후보 수가 늘어도 진입이 막힙니다.",
+    "cost_and_rr_context": "현재 구조는 gross reward 30 bps, gross risk 20 bps입니다. 최소 왕복 비용 36 bps가 gross reward보다 커서 entry_threshold만 낮춰도 net reward/risk는 개선되지 않습니다.",
+    "expectancy": {
+      "formula": "E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost",
+      "p_win": "accepted entry가 없어 계산 불가",
+      "avg_win": "accepted entry가 없어 계산 불가",
+      "p_loss": "accepted entry가 없어 계산 불가",
+      "avg_loss": "accepted entry가 없어 계산 불가",
+      "cost": "실현 비용은 0 USDT이지만, pre-entry 최소 왕복 비용 추정은 36 bps 이상"
+    }
+  },
+  "metrics": {
+    "total_trades": "0 across 12 comparisons",
+    "win_rate": "accepted entry가 없어 계산 불가",
+    "total_return": "0.0000% across all comparisons",
+    "final_equity": "666.6667 USDT across all comparisons",
+    "max_drawdown": "0.0000% across all comparisons",
+    "profit_factor": "accepted entry가 없어 계산 불가",
+    "expectancy": "accepted entry가 없어 계산 불가",
+    "sharpe": "가격 노출이 없어 계산 의미 제한",
+    "sortino": "가격 노출이 없어 계산 의미 제한",
+    "average_win": "accepted entry가 없어 계산 불가",
+    "average_loss": "accepted entry가 없어 계산 불가",
+    "fee_total": "0 USDT realized because no fills occurred",
+    "slippage_total": "0 USDT realized because no fills occurred",
+    "spread_total": "0 USDT realized because no fills occurred",
+    "gross_pnl": "0 USDT across all comparisons",
+    "net_pnl": "0 USDT across all comparisons"
+  },
+  "cost_impact": {
+    "gross_pnl": "0 USDT realized because no entries passed the pre-entry gate",
+    "fee": "0 USDT realized",
+    "spread": "0 USDT realized",
+    "slippage": "0 USDT realized",
+    "total_transaction_cost": "0 USDT realized",
+    "net_pnl": "0 USDT realized",
+    "final_return_after_costs": "0.0000% across all comparisons",
+    "interpretation": "진입 기준을 낮춰 raw 후보는 늘었지만, gross reward 30 bps가 최소 왕복 비용 36 bps보다 작아 비용 반영 보상/위험 gate를 통과하지 못했습니다."
+  },
+  "illusion_checks": {
+    "cost_sensitivity": "이번 결과는 실현 비용 문제가 아니라 pre-entry 비용 추정 단계에서 순보상이 음수로 계산된 문제입니다.",
+    "outlier_dependence": "진입이 없어 수익 outlier 의존도는 계산할 수 없습니다.",
+    "window_dependence": "결과는 2026-02-01부터 2026-05-01 직전까지의 고정 구간에서 확인되었습니다.",
+    "trade_count_quality": "raw 후보는 충분히 많았지만 accepted entry가 0이라 성과 품질을 평가할 거래 표본이 없습니다.",
+    "side_concentration": "Long/Short 후보가 모두 있었지만 양쪽 모두 비용 gate에서 차단되었습니다.",
+    "same_candle_ambiguity": "진입이 없어 동일 캔들 손절/익절 우선순위가 실현 손익에 영향을 주지 않았습니다."
+  },
+  "representative_trades": {
+    "best_trade": null,
+    "worst_trade": null
+  },
+  "interpretation": {
+    "experiment_intent": "entry_threshold를 낮추면 no-entry 문제가 풀리는지 확인했습니다.",
+    "result_interpretation": "후보 수는 1m에서 최대 34.40%, 5m에서 28.69%, 15m에서 25.47% 증가했지만 accepted entry는 모든 비교에서 0이었습니다.",
+    "success_drivers": "성과를 만든 조건은 관찰되지 않았습니다. 가격 노출이 생기지 않았기 때문에 win rate, profit factor, expectancy는 계산할 수 없습니다.",
+    "failure_drivers": "실패 원인은 진입 기준이 높아서 후보가 없었던 것이 아니라, fixed 0.2% risk distance와 1.5R target 구조가 비용 반영 후 순보상을 남기지 못한 것입니다.",
+    "risk_interpretation": "entry_threshold 하향은 신호 빈도만 늘렸고, 비용 반영 reward/risk 구조는 바꾸지 않았습니다. 따라서 같은 gate를 유지하는 한 후보 증가는 체결 증가로 이어지지 않았습니다.",
+    "next_improvements": "보완점은 reward/risk geometry, risk_distance_pct, take_profit_r, timeframe별 비용 가정, 또는 비용 gate threshold를 별도 task에서 사전 정의하고 검증하는 것입니다. 이 요소들이 바뀌지 않으면 threshold만 낮추는 실험은 같은 차단 구조를 반복합니다."
+  },
+  "threshold_grid_results": [
+    {
+      "timeframe": "1m",
+      "label": "현재 비교 기준",
+      "entry_threshold": 0.001,
+      "lookback_bars": 20,
+      "holding_bars": 5,
+      "candidate_entry_count": 79981,
+      "candidate_increase_vs_current_pct": null,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 79981,
+      "blocked_long_entry_count": 39961,
+      "blocked_short_entry_count": 40020,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "1m",
+      "label": "20% 하향",
+      "entry_threshold": 0.0008,
+      "lookback_bars": 20,
+      "holding_bars": 5,
+      "candidate_entry_count": 88660,
+      "candidate_increase_vs_current_pct": 10.8513,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 88660,
+      "blocked_long_entry_count": 44384,
+      "blocked_short_entry_count": 44276,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "1m",
+      "label": "40% 하향",
+      "entry_threshold": 0.0006,
+      "lookback_bars": 20,
+      "holding_bars": 5,
+      "candidate_entry_count": 97860,
+      "candidate_increase_vs_current_pct": 22.3541,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 97860,
+      "blocked_long_entry_count": 49022,
+      "blocked_short_entry_count": 48838,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "1m",
+      "label": "60% 하향",
+      "entry_threshold": 0.0004,
+      "lookback_bars": 20,
+      "holding_bars": 5,
+      "candidate_entry_count": 107492,
+      "candidate_increase_vs_current_pct": 34.3969,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 107492,
+      "blocked_long_entry_count": 54001,
+      "blocked_short_entry_count": 53491,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "5m",
+      "label": "현재 비교 기준",
+      "entry_threshold": 0.0015,
+      "lookback_bars": 12,
+      "holding_bars": 6,
+      "candidate_entry_count": 17171,
+      "candidate_increase_vs_current_pct": null,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 17171,
+      "blocked_long_entry_count": 8554,
+      "blocked_short_entry_count": 8617,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "5m",
+      "label": "20% 하향",
+      "entry_threshold": 0.0012,
+      "lookback_bars": 12,
+      "holding_bars": 6,
+      "candidate_entry_count": 18723,
+      "candidate_increase_vs_current_pct": 9.0385,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 18723,
+      "blocked_long_entry_count": 9345,
+      "blocked_short_entry_count": 9378,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "5m",
+      "label": "40% 하향",
+      "entry_threshold": 0.0009,
+      "lookback_bars": 12,
+      "holding_bars": 6,
+      "candidate_entry_count": 20372,
+      "candidate_increase_vs_current_pct": 18.6419,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 20372,
+      "blocked_long_entry_count": 10180,
+      "blocked_short_entry_count": 10192,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "5m",
+      "label": "60% 하향",
+      "entry_threshold": 0.0006,
+      "lookback_bars": 12,
+      "holding_bars": 6,
+      "candidate_entry_count": 22097,
+      "candidate_increase_vs_current_pct": 28.6879,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 22097,
+      "blocked_long_entry_count": 11051,
+      "blocked_short_entry_count": 11046,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "15m",
+      "label": "현재 비교 기준",
+      "entry_threshold": 0.002,
+      "lookback_bars": 8,
+      "holding_bars": 4,
+      "candidate_entry_count": 5937,
+      "candidate_increase_vs_current_pct": null,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 5937,
+      "blocked_long_entry_count": 2941,
+      "blocked_short_entry_count": 2996,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "15m",
+      "label": "20% 하향",
+      "entry_threshold": 0.0016,
+      "lookback_bars": 8,
+      "holding_bars": 4,
+      "candidate_entry_count": 6411,
+      "candidate_increase_vs_current_pct": 7.9838,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 6411,
+      "blocked_long_entry_count": 3188,
+      "blocked_short_entry_count": 3223,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "15m",
+      "label": "40% 하향",
+      "entry_threshold": 0.0012,
+      "lookback_bars": 8,
+      "holding_bars": 4,
+      "candidate_entry_count": 6899,
+      "candidate_increase_vs_current_pct": 16.2035,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 6899,
+      "blocked_long_entry_count": 3446,
+      "blocked_short_entry_count": 3453,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    },
+    {
+      "timeframe": "15m",
+      "label": "60% 하향",
+      "entry_threshold": 0.0008,
+      "lookback_bars": 8,
+      "holding_bars": 4,
+      "candidate_entry_count": 7449,
+      "candidate_increase_vs_current_pct": 25.4674,
+      "accepted_entry_count": 0,
+      "blocked_entry_count": 7449,
+      "blocked_long_entry_count": 3706,
+      "blocked_short_entry_count": 3743,
+      "blocked_reasons": [
+        "COST_INFEASIBLE_NET_RR"
+      ],
+      "completed_trades": 0,
+      "gross_pnl_usdt": 0,
+      "net_pnl_usdt": 0.0,
+      "total_return_pct": 0.0,
+      "max_drawdown_pct": 0.0
+    }
+  ]
+}

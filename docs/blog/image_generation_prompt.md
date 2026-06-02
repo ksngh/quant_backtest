@@ -6,7 +6,7 @@ You are a chart generation agent for quant backtest daily-report artifacts.
 
 Your job is to generate required chart PNG files from the backtest result payload, trade logs, equity curve data, cost breakdown data, and representative trade metadata.
 
-Do not write the report itself. A separate report-writing step creates the publish-ready `report-ko.md` body after payload and images are ready. That report-writing step must read `docs/blog/DAILY_REPORT_TEMPLATE.md` and `docs/blog/DAILY_REPORT_STYLE.md` before writing. Chart annotations should expose available trade context so the later interpretation can discuss volume, candle range/body, cost share, hold duration, and follow-through without inventing data. Do not create an image plan file.
+Do not write the report itself. A separate report-writing step creates the publish-ready Tistory `report-ko.html` after payload and images are ready. That report-writing step must read `docs/blog/report_template.html`, `docs/blog/DAILY_REPORT_TEMPLATE.md`, and `docs/blog/DAILY_REPORT_STYLE.md` before writing. Chart annotations should expose available trade context so the later interpretation can discuss volume, candle range/body, cost share, hold duration, and follow-through without inventing data. Do not create an image plan file.
 
 ## Working Directory
 
@@ -17,7 +17,7 @@ Expected folder structure:
 ```text
 reports/blog_payloads/[strategy-slug]/[strategy-version-slug]/[period-slug]/
   payload.json
-  report-ko.md
+  report-ko.html
   summary_equity_curve.png
   cost_impact.png
   representative_win_trade.png
@@ -29,13 +29,14 @@ All generated images must be saved in the same directory as `payload.json`.
 Do not create:
 
 ```text
+report-en.html
 report-en.md
 image_plan.md
 image_plan.json
 images/
 ```
 
-If `report-ko.md` already exists, do not delete or modify it during image-only generation.
+If `report-ko.html` already exists, do not delete or modify it during image-only generation.
 
 All image references in payload must be filename-only:
 
@@ -43,10 +44,10 @@ All image references in payload must be filename-only:
 summary_equity_curve.png
 ```
 
-If a Markdown report is written later, image references should use:
+The later HTML report should reference every generated image as:
 
-```text
-./summary_equity_curve.png
+```html
+<img src="./summary_equity_curve.png" alt="...">
 ```
 
 ## Required Fixed Images
@@ -59,6 +60,71 @@ cost_impact.png
 representative_win_trade.png
 representative_loss_trade.png
 ```
+
+Primary readability target:
+
+- Charts should remain readable in a Tistory hELLO skin report body with a default HTML container width of `1120px`.
+- Use the stable canvas sizes below unless a task explicitly defines a different size:
+  - `summary_equity_curve.png`: `1800px x 1000px`.
+  - `cost_impact.png`: `1800px x 1000px`.
+  - `representative_win_trade.png`: `1800px x 1000px`.
+  - `representative_loss_trade.png`: `1800px x 1000px`.
+  - table-heavy or complex optional charts: `1800px x 1200px`.
+- The HTML report will scale images to the full report body width with `width: 100%; max-width: 100%; height: auto;`, so do not generate tiny source images.
+- Keep titles and annotations short enough that they do not crowd the chart.
+- Do not rely on chart text to carry strategy theory, version-change explanation, or long interpretation. The HTML report handles that prose.
+
+## Stable Visual Contract
+
+Use the same visual contract every time a daily-report image is generated.
+
+Canvas and layout:
+
+- Generate the target canvas directly. Do not make a smaller image and crop it to match the target size.
+- Do not use square thumbnail generation, center-crop processing, or post-processing that cuts off chart content.
+- If resizing is unavoidable, preserve aspect ratio and pad unused space with the chart background. Never crop data, axes, tick labels, legends, titles, callouts, stop/target lines, or annotations.
+- Keep a minimum outer padding of `56px` on the left/right and `48px` on the top/bottom for standard charts. Use at least `72px` right padding when price-line labels are placed on the right edge.
+- Keep plot content inside the safe area. No text, marker, dashed line label, legend, or axis label may touch the image boundary.
+- Prefer a clear title band, plot band, and annotation band instead of placing dense text over the data.
+- Use consistent font sizes:
+  - title: `30px` to `38px`;
+  - subtitle: `18px` to `24px`;
+  - axis/tick labels: `16px` to `20px`;
+  - annotations and legends: `16px` to `22px`.
+- Use `tabular` or monospaced numerals where the renderer supports it.
+
+Color semantics:
+
+- Equity: blue.
+- Drawdown: red or muted red.
+- Gross PnL: muted blue or gray-blue.
+- Net PnL: green when positive and red when negative.
+- Cost: orange or amber.
+- Winning trade marker: green.
+- Losing trade marker: red.
+- Entry marker/line: blue.
+- Exit marker/line: green for profitable exit, red for losing exit, gray for neutral/time exit.
+- Stop line: red dashed line.
+- Target line: green dashed line.
+- Avoid one-note palettes. Do not make every chart a variation of the same hue.
+
+Annotation and overlap rules:
+
+- Long annotations belong in a reserved annotation band below or beside the plot, not over candles or equity curves.
+- Keep chart titles short. Use the HTML report for long interpretation.
+- Put legends outside the plotting area when they compete with data.
+- If entry, exit, stop, and target labels would overlap, keep the colored lines and markers, then move the detailed values into a compact annotation band.
+- If right-edge labels overlap, offset them vertically, abbreviate them, or omit lower-priority labels. Do not allow text to stack on top of other text.
+- If a chart needs many labels, use numbered callouts on the plot and a small legend outside the plot.
+- Before finishing, inspect every generated image for clipped text, hidden axes, overlapping labels, and cramped titles.
+
+No-crop QA:
+
+- Confirm the final PNG dimensions match the intended canvas.
+- Confirm no plot element is cut off at the image edge.
+- Confirm all axis labels and tick labels are visible.
+- Confirm stop/target/entry/exit labels, when shown, remain inside the safe area.
+- Confirm padding was added rather than cropping when aspect ratio conversion was needed.
 
 ## Image 1: summary_equity_curve.png
 
@@ -162,7 +228,7 @@ Chart type:
 
 Required elements when available:
 
-- candles around the trade window.
+- candles around the trade window with enough surrounding context.
 - entry marker.
 - exit marker.
 - stop line.
@@ -180,6 +246,19 @@ Required elements when available:
 - whether price followed through, reversed, or chopped after entry.
 - nearby drawdown or equity state if available.
 - exit reason.
+
+Representative trade viewport contract:
+
+- Use `reports/blog_payloads/lookback-return-momentum/v1/20260520-20260528/representative_win_trade.png` as the reference style for representative trade charts: surrounding candles are visible, entry/exit lines are clear, and dense trade metrics sit in a separate lower annotation band instead of covering candles.
+- Do not zoom only to the entry and exit candles.
+- Include pre-entry and post-exit context so the reader can see the setup, follow-through, reversal, or chop.
+- Minimum context window:
+  - include the full entry-to-exit span;
+  - add at least `10` candles before entry and `10` candles after exit when available;
+  - if the trade lasts longer than `20` candles, use at least `30%` of the trade length before entry and after exit, capped at a readable window;
+  - if fewer candles are available, use all available surrounding candles and record the limitation in the payload narrative, not in the chart title.
+- The y-axis must include local high/low plus entry, exit, stop, and target prices with padding. Do not cut off stop or target lines just to make the candles look larger.
+- If the full context window makes candles too dense, keep the context and reduce x-axis tick density instead of cropping the window.
 
 Trade selection priority:
 
@@ -213,7 +292,7 @@ Chart type:
 
 Required elements when available:
 
-- candles around the trade window.
+- candles around the trade window with enough surrounding context.
 - entry marker.
 - exit marker.
 - stop line.
@@ -231,6 +310,14 @@ Required elements when available:
 - whether price followed through, reversed, or chopped after entry.
 - nearby drawdown or equity state if available.
 - exit reason.
+
+Representative trade viewport contract:
+
+- Use the same viewport, padding, annotation-band, and no-crop rules as `representative_win_trade.png`.
+- Do not zoom only to the losing entry and stop/exit candles.
+- Include pre-entry and post-exit candles so the reader can see whether the loss came from false signal, immediate reversal, slow chop, time exit, or cost drag.
+- The y-axis must include local high/low plus entry, exit, stop, and target prices with padding.
+- If labels overlap, keep the price lines and markers but move detailed values into the annotation band.
 
 Trade selection priority:
 
@@ -280,9 +367,15 @@ Before finishing image generation:
 - Confirm `representative_loss_trade.png` exists.
 - Confirm every required PNG is in the same directory as `payload.json`.
 - Confirm no `images/` subdirectory was generated.
-- Confirm no `report-en.md`, `image_plan.md`, or `image_plan.json` was generated.
-- Confirm `report-ko.md`, if present, was not modified by the image generation step.
+- Confirm no `report-en.html`, `report-en.md`, `image_plan.md`, or `image_plan.json` was generated.
+- Confirm `report-ko.html`, if present, was not modified by the image generation step.
 - Confirm every equity curve image includes drawdown in the same image.
 - Confirm no separate `drawdown_curve.png` was generated unless explicitly requested.
 - Confirm every payload image path is filename-only.
-- Confirm the Markdown report can later reference every generated image as `./[filename].png`.
+- Confirm the HTML report can later reference every generated image as `./[filename].png`.
+- Confirm every generated PNG matches its intended canvas dimensions.
+- Confirm no resize/crop operation cut off titles, axes, tick labels, legends, stop/target lines, entry/exit markers, or annotations.
+- Confirm representative trade charts include pre-entry and post-exit candle context when candle data exists.
+- Confirm representative trade y-axis ranges include entry, exit, stop, target, and local high/low with padding.
+- Confirm labels do not overlap. If overlap remains, regenerate with a larger annotation band, fewer labels, external legend, or compact numbered callouts.
+- Confirm dense metrics are in an annotation band rather than placed over candles.
