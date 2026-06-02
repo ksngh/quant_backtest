@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 431: Task 318 current-report Tistory image CSS-only revision completed (2026-06-02).
+Phase 432: Tasks 319-321 daily-report workflow task creation completed (2026-06-02).
 
 ## Current Step
-Completed Task 318 `CURRENT_REPORT_TISTORY_IMAGE_CSS_ONLY_REVISION`.
+Created three owner-requested workflow tasks: Task 319 `DAILY_REPORT_REPRESENTATIVE_TRADE_DIAGNOSTIC_WORKFLOW_REVISION`, Task 320 `DAILY_REPORT_BACKTEST_SETTING_ALGORITHM_EXPLANATION_WORKFLOW_REVISION`, and Task 321 `DAILY_REPORT_STRATEGY_ASSUMPTION_THEORY_DEPTH_WORKFLOW_REVISION`.
 
 ## Current Goal
-Prepare the completed Task 318 current-report CSS update for owner review and PR.
+Prepare the newly created Tasks 319-321 for owner review and future assignment.
 
 ## Current Active Task
-None.
+None. Tasks 319-321 are created but not implemented.
 
 ## Last Completed Step (Short)
-Completed Task 318. Updated only the current Lookback Return Momentum `report-ko.html` artifact CSS so `.section-image` and Tistory image-wrapper output can fill the report content width while preserving local preview images. No report narrative, metrics, payload values, PNGs, reusable docs/templates, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, or `.env` files were changed.
+Created Tasks 319-321 from the owner request for richer daily-report workflow guidance. Task 319 covers integrated representative-trade diagnostics without turning owner prompts into visible headings/checklists. Task 320 covers `백테스트 설정` algorithm/code-snippet explanations for rule mechanics and indicators such as lookback-return momentum and ATR. Task 321 covers deeper `전략에 포함된 가정과 이론적 배경` guidance with mechanism-level momentum explanations, optional formulas, assumptions, caveats, and evidence boundaries. No reusable docs, current report artifacts, images, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, or `.env` files were changed.
 
 ## Recommended Next Step
-Recommended next step: owner review of the current report in Tistory after manually reinserting images; create a separate follow-up task only if Tistory emits an additional wrapper shape that still renders narrowly.
+Recommended next step: owner chooses one of Tasks 319-321 to assign for implementation. Suggested order is Task 319 first, then Task 320, then Task 321, because representative-trade narrative rules can be updated independently before algorithm and theory-depth workflow revisions.
 
 ## Current Blockers (Short)
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
