@@ -44,11 +44,15 @@ All image references in payload must be filename-only:
 summary_equity_curve.png
 ```
 
-The later HTML report should reference every generated image as:
+The later HTML report should preview every generated image inside a full-width `.section-image` wrapper:
 
 ```html
-<img src="./summary_equity_curve.png" alt="...">
+<div class="section-image">
+  <img src="./summary_equity_curve.png" alt="...">
+</div>
 ```
+
+For final Tistory publishing, the owner may replace the local `<img>` with a Tistory upload token such as `[##_Image|...|alignCenter|width="100%"|_##]`. The concrete token is owner/editor generated and must not be hardcoded in reusable docs.
 
 ## Required Fixed Images
 

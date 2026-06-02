@@ -18,7 +18,7 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 
 작성 전에 아래 문서를 기준으로 삼습니다.
 
-- `docs/blog/report_template.html`: HTML 레이아웃, header, article, figure, table-scroll 구조
+- `docs/blog/report_template.html`: HTML 레이아웃, header, article, figure, section-image, table-scroll 구조
 - `docs/blog/DAILY_REPORT_TEMPLATE.md`: 섹션 구조와 이미지/표 배치
 - `docs/blog/DAILY_REPORT_STYLE.md`: 말투, 금지 표현, 내부 용어 변환, 해석 방식
 
@@ -45,7 +45,8 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - `해석` 섹션에서는 현재 결과로 말할 수 있는 범위와 말할 수 없는 범위를 분리합니다.
 - 실패한 리포트에서는 필요한 경우 `현재 버전은 이 조건에서 비용 반영 후 유효한 전략으로 보기 어렵습니다. 다만 이 결과만으로 전략군 전체를 기각하기는 이릅니다.`와 같은 의미의 문장을 쓰고, 왜 기각하기 이른지 저장 근거의 경계를 설명합니다.
 - 비용, 슬리피지, 착시 가능성은 필요한 곳에서 언급합니다.
-- 이미지가 제공되면 `<figure class="report-figure">`와 `<img src="./[filename].png">`로 넣습니다.
+- 이미지가 제공되면 `<figure class="report-figure"><div class="section-image"><img src="./[filename].png" ...></div><figcaption>...</figcaption></figure>`로 넣습니다.
+- Tistory 최종 게시 시 owner가 local `<img>`를 `<div class="section-image">[##_Image|...|alignCenter|width="100%"|_##]</div>` 안의 Tistory 이미지 토큰으로 교체할 수 있게 구조를 유지합니다. `...`는 fake/generic placeholder이며 실제 `kage@...` 토큰을 하드코딩하지 않습니다.
 - 이미지는 본문 폭 전체를 사용하도록 둡니다. 작은 고정 폭을 지정하지 않습니다.
 - 이미지를 HTML에서 억지로 작게 줄이거나 crop해서 문제를 숨기지 않습니다. 이미지가 잘렸거나 글자가 겹쳐 보이면 이미지 생성 규칙에 따라 재생성 대상입니다.
 - 넓은 표는 `<div class="table-scroll">`로 감쌉니다.
@@ -55,7 +56,7 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - payload에 없는 이미지를 새로 만들었다고 쓰지 않습니다.
 - 이미지가 없으면 해당 figure를 만들지 말고 필요한 값에 `[확인 필요]`를 남깁니다.
 - payload에 없는 숫자, 원인, 개선 방향을 새로 계산하거나 추정하지 않습니다.
-- 가설은 반드시 `~할 것이다` 형태로 씁니다.
+- standalone `가설`, `검증 가설`, `실험 가설`, `Hypothesis` 섹션은 만들지 않습니다. 실험 의도나 테스트한 전제는 `핵심 요약`, `백테스트 설정`, `전략에 포함된 가정과 이론적 배경`, 또는 `해석`에 자연스럽게 녹입니다.
 - PR 항목은 payload에 있을 때만 설정 표에 넣습니다.
 - `git commit` 항목은 쓰지 않습니다.
 - task 번호, run id, 내부 candidate id는 제목, 본문, 이미지 설명에 쓰지 않습니다.
@@ -91,16 +92,16 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
   - 산출물 부재 설명
   - 빈 패턴/필터 표 행
   - 별도 결론 섹션
+  - 별도 `가설` / hypothesis 섹션
 
 필수 HTML 섹션:
 
 1. 핵심 요약
-2. 가설
-3. 전략에 포함된 가정과 이론적 배경
-4. 백테스트 설정
-5. 결과
-6. 대표 거래
-7. 해석
+2. 전략에 포함된 가정과 이론적 배경
+3. 백테스트 설정
+4. 결과
+5. 대표 거래
+6. 해석
 
 섹션 작성 규칙:
 
@@ -182,7 +183,7 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
     "execution_assumption": ""
   },
   "hypothesis_and_theory": {
-    "hypotheses": ["", ""],
+    "tested_assumptions": ["", ""],
     "assumptions": ["", "", ""],
     "economic_meaning": "",
     "edge_mechanism": "",

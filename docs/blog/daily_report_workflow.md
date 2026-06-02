@@ -37,7 +37,8 @@
 - `images/` 하위 폴더를 만들지 않습니다.
 - 모든 PNG 이미지는 `payload.json`과 같은 디렉터리에 둡니다.
 - payload의 이미지 참조는 파일명만 사용합니다.
-- `report-ko.html`에서 이미지를 참조할 때는 같은 폴더 기준 `./[filename].png`를 사용합니다.
+- `report-ko.html`에서 이미지 preview를 참조할 때는 같은 폴더 기준 `./[filename].png`를 사용합니다.
+- Tistory 최종 게시 단계에서는 owner가 local `<img>`를 Tistory 업로드 토큰으로 다시 삽입할 수 있습니다. 이때 이미지는 `<div class="section-image">[##_Image|...|alignCenter|width="100%"|_##]</div>` 구조에 들어가야 하며, `...`는 실제 게시 시 교체되는 placeholder입니다.
 - 제공되지 않은 값은 추정하지 않습니다.
 - 누락된 필수 값은 `[확인 필요]`로 남깁니다.
 - 새 백테스트 실행은 별도 task 또는 명시적 실행 지시가 있을 때만 합니다.
@@ -45,6 +46,7 @@
 - 내부 추적값은 payload, 이미지 파일명, chart title, HTML 본문에 쓰지 않습니다.
 - task 번호, run id, 내부 candidate id는 report folder, 이미지 파일명, 그래프 제목, `report-ko.html` 본문에 쓰지 않습니다.
 - live trading, private API, credential 사용은 하지 않습니다.
+- 최종 리포트에는 standalone `가설`, `검증 가설`, `실험 가설`, `Hypothesis` 섹션을 만들지 않습니다. 실험 의도나 테스트한 전제는 `핵심 요약`, `백테스트 설정`, `전략에 포함된 가정과 이론적 배경`, 또는 `해석` 안에 녹입니다.
 - 최종 리포트는 결론 섹션으로 닫지 않고, `해석` 섹션에서 실험 의도, 관찰 결과, 원인, 보완점을 연결합니다.
 - `해석` 섹션은 테스트한 전략/버전의 결론과 전략군 전체에 대한 결론을 분리합니다.
 - 결과가 나쁘면 "현재 버전은 이 조건에서 비용 반영 후 유효한 전략으로 보기 어렵다"는 범위의 결론은 쓸 수 있지만, 저장 근거가 그 폭을 검증하지 않았다면 전략군 전체를 기각하지 않습니다.
@@ -204,12 +206,14 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - `docs/blog/agent_handoff_prompt.md`의 작성 원칙을 따릅니다.
 - 존댓말로 씁니다.
 - payload에 없는 값은 `[확인 필요]`로 남깁니다.
-- 이미지 참조는 HTML에서 `./[filename].png` 형식만 사용합니다.
-- 모든 이미지는 `<figure class="report-figure">`로 감쌉니다.
+- 이미지 preview 참조는 HTML에서 `./[filename].png` 형식을 사용합니다.
+- 모든 이미지는 `<figure class="report-figure"><div class="section-image">...</div><figcaption>...</figcaption></figure>`로 감쌉니다.
+- Tistory 게시용으로 이미지를 다시 넣을 때는 `<div class="section-image">[##_Image|...|alignCenter|width="100%"|_##]</div>` 형태를 사용할 수 있게 HTML 구조를 유지합니다. owner가 실제 Tistory 이미지 토큰으로 교체합니다.
+- `.section-image`와 내부 이미지/Tistory wrapper는 본문 폭 전체를 사용해야 하며, 작은 고정 폭이나 불필요한 좌우 padding을 두지 않습니다.
 - 모든 표는 `<div class="table-scroll">`로 감쌉니다.
 - 표는 목적이 분명할 때만 사용합니다. 너무 넓거나 의미가 섞인 표는 여러 개로 나누거나 핵심 열만 남깁니다.
 - 표는 왼쪽 정렬을 기본으로 합니다. 숫자 컬럼은 필요한 경우에만 오른쪽 정렬합니다. 가운데 정렬은 기본으로 쓰지 않습니다.
-- 가설과 보완점은 `<ul><li>`로 작성하고, bullet marker가 보이는 템플릿 스타일을 유지합니다.
+- standalone 가설 section은 만들지 않습니다. 보완점은 `<ul><li>`로 작성하고, bullet marker가 보이는 템플릿 스타일을 유지합니다.
 - title은 `strategy_label` 또는 전략명+버전만 사용합니다. `낮은 진입 기준 비교` 같은 실험 세부 문구를 main title에 넣지 않습니다.
 - subtitle은 strategy 문서의 stable strategy description을 사용합니다.
 - version이나 메커니즘이 바뀐 경우 `핵심 요약`에 이전/현재 차이를 짧게 넣습니다.
@@ -228,7 +232,7 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - 대표 수익/손실 거래는 가능한 근거만 사용해 당시 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전 여부, equity curve/drawdown 맥락을 설명합니다.
 - 보완점은 무엇을 바꿀지와 왜 이번 결과가 그 보완을 요구하는지를 함께 설명합니다.
 - `그것은`은 최종 리포트 문장에 쓰지 않습니다.
-- 이미지가 제공되면 본문 폭 전체를 사용하도록 둡니다. HTML에서 작은 고정 폭으로 줄이지 않습니다.
+- 이미지가 제공되면 `.section-image` 안에서 본문 폭 전체를 사용하도록 둡니다. HTML에서 작은 고정 폭으로 줄이지 않습니다.
 
 ## 8. 최종 검증
 
@@ -246,17 +250,17 @@ artifact 완료 전에 아래를 확인합니다.
 - 모든 equity curve image는 drawdown을 같은 이미지 안에 포함합니다.
 - 별도의 `drawdown_curve.png`는 명시 요청이 없으면 생성하지 않습니다.
 - payload의 모든 이미지 `filename`은 `/`가 없는 파일명입니다.
-- `report-ko.html`의 모든 이미지 참조는 `./[filename].png` 형식입니다.
+- `report-ko.html`의 local preview 이미지 참조는 `./[filename].png` 형식이며, Tistory 게시 전 owner-side image token 교체가 가능하도록 `.section-image` wrapper를 유지합니다.
 - `report-ko.html`에는 task 번호, run id, 내부 candidate id가 없습니다.
 - cost impact chart title이나 label에 `cost stress`라는 표현이 없습니다.
 - main title이 전략명/버전 중심이고 실험 세부 문구로 길어지지 않았습니다.
 - subtitle이 전략 자체를 설명합니다.
 - `전략 규칙`이 별도 기본 섹션으로 분리되지 않았습니다.
-- 가설 bullet과 보완점 bullet이 보입니다.
+- standalone `가설`/hypothesis 섹션이 없고, 보완점 bullet이 보입니다.
 - 표가 목적별로 읽히고, 너무 넓은 경우 스크롤 또는 분할 처리되었습니다.
 - 표가 왼쪽 정렬 중심으로 읽히고 숫자 컬럼만 필요 시 오른쪽 정렬됩니다.
 - HTML 컨테이너가 hELLO 스킨용 `.report-page`, `--page-max-width: 1120px`, `width: calc(100% - 32px)`를 따릅니다.
-- 이미지가 `.report-figure img`에서 `width: 100%`, `max-width: 100%`, `height: auto`로 본문 폭에 맞게 표시됩니다.
+- 이미지가 `.section-image img`와 `.report-figure img`에서 `width: 100%`, `max-width: 100%`, `height: auto`로 본문 폭에 맞게 표시됩니다.
 - 모든 PNG가 의도한 canvas dimensions를 충족하고, crop으로 잘린 부분이 없습니다.
 - 대표 거래 이미지는 주변 candle context가 보이며, entry/exit/stop/target label과 annotation이 서로 겹치지 않습니다.
 - strategy 문서의 이론/근거/레퍼런스가 반영되었습니다.
@@ -330,7 +334,7 @@ daily report 요청만으로 새 전략 개발이나 새 백테스트를 자동 
 
 payload와 PNG가 준비된 뒤 `report-ko.html`을 작성할 때 `docs/blog/agent_handoff_prompt.md`를 사용합니다.
 
-이때 작성 에이전트는 같은 폴더 기준 `./[filename].png`로 이미지를 참조합니다.
+이때 작성 에이전트는 같은 폴더 기준 `./[filename].png` preview를 `.section-image` 안에 넣습니다. Tistory 게시 직전 owner가 해당 local image tag를 Tistory `[##_Image|...|alignCenter|width="100%"|_##]` 토큰으로 교체할 수 있어야 합니다.
 
 full report workflow에서는 `report-ko.html`을 저장합니다.
 
