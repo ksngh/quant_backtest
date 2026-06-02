@@ -322,6 +322,7 @@ def build_parser(prog: str, include_strategy: bool = True) -> argparse.ArgumentP
     parser.add_argument("--srlbr-target-r-multiple", type=_positive_finite_float, default=4.0)
     parser.add_argument("--srlbr-stop-atr-buffer-multiplier", type=_non_negative_finite_float, default=0.20)
     parser.add_argument("--srlbr-max-bars-in-trade", type=int, default=240)
+    parser.add_argument("--lookback-return-momentum-version", default=None)
     parser.add_argument("--lookback-bars", type=int, default=None)
     parser.add_argument("--entry-threshold", type=_positive_finite_float, default=None)
     parser.add_argument("--holding-bars", type=int, default=None)
@@ -1328,6 +1329,7 @@ def _build_lookback_return_momentum_config(
 ) -> LookbackReturnMomentumConfig:
     return lookback_return_momentum_config_for_timeframe(
         args.interval,
+        strategy_version=getattr(args, "lookback_return_momentum_version", None),
         lookback_bars=getattr(args, "lookback_bars", None),
         entry_threshold=getattr(args, "entry_threshold", None),
         holding_bars=getattr(args, "holding_bars", None),
@@ -1796,7 +1798,11 @@ def _build_actions(
     if _is_lookback_return_momentum_strategy(strategy_key):
         config = lookback_return_momentum_config or LookbackReturnMomentumConfig()
         cost_config = _build_lookback_return_momentum_cost_aware_config(cost_aware_entry_filter_config)
-        strategy = LookbackReturnMomentumStrategy(config=config, cost_aware_config=cost_config)
+        strategy = LookbackReturnMomentumStrategy(
+            config=config,
+            cost_aware_config=cost_config,
+            strategy_version=config.strategy_version,
+        )
         return strategy, build_lookback_return_momentum_actions(
             candles,
             config=config,

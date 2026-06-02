@@ -191,6 +191,49 @@ def test_cli_parameter_overrides_flow_to_output(monkeypatch, capsys) -> None:
     assert filter_metadata["blocked"] is False
 
 
+def test_cli_v2_zero_cost_run_records_version_and_disabled_cost_gate(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        strategy_postgres_runner_cli.PostgresCandleDataProvider,
+        "from_database_url",
+        lambda *args, **kwargs: _FakeProvider(_candles()),
+    )
+
+    assert strategy_postgres_runner_cli.main(
+        [
+            "--strategy",
+            "LOOKBACK_RETURN_MOMENTUM",
+            "--lookback-return-momentum-version",
+            "v2",
+            "--lookback-bars",
+            "1",
+            "--entry-threshold",
+            "0.001",
+            "--holding-bars",
+            "2",
+            "--atr-period",
+            "1",
+            "--cost-profile",
+            "zero",
+            "--no-persist",
+        ]
+    ) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    summary_metadata = output["summary"]["metadata"]
+    lrm_metadata = summary_metadata["lookback_return_momentum"]
+    cost_profile_metadata = summary_metadata["cost_profile"]
+    cost_gate_metadata = summary_metadata["cost_aware_entry_filter"]
+
+    assert output["reproducibility"]["strategy"]["version"] == "v2"
+    assert lrm_metadata["strategy_version"] == "v2"
+    assert cost_profile_metadata["profile_key"] == "zero"
+    assert cost_profile_metadata["zero_cost_profile"] is True
+    assert cost_gate_metadata["enabled"] is False
+    assert output["summary"]["trade_count"] > 0
+    assert all(execution["total_cost"] == 0.0 for execution in output["executions"])
+    assert output["executions"][0]["metadata"]["strategy_version"] == "v2"
+
+
 def test_cli_timeframe_defaults_are_available() -> None:
     parser = build_parser("test")
 

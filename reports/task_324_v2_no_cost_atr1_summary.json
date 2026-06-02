@@ -1,0 +1,202 @@
+{
+  "schema_version": "task_324_v2_no_cost_atr1_summary_v1",
+  "task_id": "TASK_324",
+  "strategy_key": "LOOKBACK_RETURN_MOMENTUM",
+  "strategy_version": "v2",
+  "run_group": "task_324_v2_no_cost_atr1",
+  "window": {
+    "start_inclusive": "2026-02-01T00:00:00Z",
+    "end_exclusive": "2026-05-01T00:00:00Z",
+    "runner_end_time_semantics": "inclusive; commands use the last included closed candle per interval"
+  },
+  "shared_settings": {
+    "symbol": "BTCUSDT",
+    "risk_distance_mode": "atr",
+    "atr_period": 14,
+    "atr_smoothing": "RMA",
+    "stop_loss_atr_multiple": 1.0,
+    "take_profit_atr_multiple": 1.0,
+    "minimum_atr_bps": 0.0,
+    "cost_profile": "zero",
+    "cost_aware_entry_filter_enabled": false,
+    "starting_cash": 1000000.0,
+    "starting_cash_currency": "KRW",
+    "krw_per_usdt": 1500.0,
+    "effective_quote_starting_cash": 666.6666666666666,
+    "position_sizing_mode": "cash_fraction",
+    "position_sizing_value": 0.1
+  },
+  "runs": [
+    {
+      "interval": "1m",
+      "run_id": 1210,
+      "lookback_bars": 20,
+      "holding_bars": 5,
+      "entry_threshold": 0.0004,
+      "runner_end_time": "2026-04-30T23:59:00Z",
+      "candle_count": 128160,
+      "first_candle": "2026-02-01T00:00:00Z",
+      "last_candle": "2026-04-30T23:59:00Z",
+      "duplicate_timestamp_count": 0,
+      "interval_gap_count": 0,
+      "candidate_entry_count": 33225,
+      "accepted_entry_count": 33225,
+      "completed_trade_count": 33225,
+      "invalid_atr_blocked_entry_count": 0,
+      "cost_aware_blocked_entry_count": 0,
+      "atr_too_small_blocked_entry_count": 0,
+      "gross_pnl": -50.578511461318044,
+      "net_pnl": -50.578511461318044,
+      "total_cost": 0.0,
+      "return_pct": -7.586776719198286,
+      "max_drawdown_pct": -7.680554764361452,
+      "hit_ratio_pct": 48.43039879608728,
+      "expectancy": -0.001522302828030641,
+      "average_r": -0.030623842394426847,
+      "profit_factor": 0.9389178507727692,
+      "wins": 16091,
+      "losses": 17122,
+      "breakeven": 12,
+      "exit_mix": {
+        "STOP_LOSS": 15128,
+        "TAKE_PROFIT": 14222,
+        "TIME_EXIT": 3875
+      },
+      "side_attribution": {
+        "LONG": {
+          "completed": 16532,
+          "wins": 8094,
+          "losses": 8431,
+          "net_pnl": -13.441377451045788
+        },
+        "SHORT": {
+          "completed": 16693,
+          "wins": 7997,
+          "losses": 8691,
+          "net_pnl": -37.13713401027203
+        }
+      },
+      "ending_position": 0.0,
+      "warnings": [
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    },
+    {
+      "interval": "5m",
+      "run_id": 1211,
+      "lookback_bars": 12,
+      "holding_bars": 6,
+      "entry_threshold": 0.0006,
+      "runner_end_time": "2026-04-30T23:55:00Z",
+      "candle_count": 25632,
+      "first_candle": "2026-02-01T00:00:00Z",
+      "last_candle": "2026-04-30T23:55:00Z",
+      "duplicate_timestamp_count": 0,
+      "interval_gap_count": 0,
+      "candidate_entry_count": 6222,
+      "accepted_entry_count": 6221,
+      "completed_trade_count": 6220,
+      "invalid_atr_blocked_entry_count": 1,
+      "cost_aware_blocked_entry_count": 0,
+      "atr_too_small_blocked_entry_count": 0,
+      "gross_pnl": -0.8962733614890106,
+      "net_pnl": -0.8962733614890106,
+      "total_cost": 0.0,
+      "return_pct": -0.1344410042232596,
+      "max_drawdown_pct": -1.7356536447530186,
+      "hit_ratio_pct": 49.131832797427656,
+      "expectancy": -0.00014409539573778305,
+      "average_r": -0.011771360420756879,
+      "profit_factor": 0.9977880409095351,
+      "wins": 3056,
+      "losses": 3163,
+      "breakeven": 1,
+      "exit_mix": {
+        "STOP_LOSS": 2817,
+        "TAKE_PROFIT": 2766,
+        "TIME_EXIT": 637
+      },
+      "side_attribution": {
+        "LONG": {
+          "completed": 3072,
+          "wins": 1490,
+          "losses": 1582,
+          "net_pnl": -3.2262545957121396
+        },
+        "SHORT": {
+          "completed": 3148,
+          "wins": 1566,
+          "losses": 1581,
+          "net_pnl": 2.329981234223149
+        }
+      },
+      "ending_position": 0.0008720370716132737,
+      "warnings": [
+        "open position remains at end of backtest",
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    },
+    {
+      "interval": "15m",
+      "run_id": 1212,
+      "lookback_bars": 8,
+      "holding_bars": 4,
+      "entry_threshold": 0.0008,
+      "runner_end_time": "2026-04-30T23:45:00Z",
+      "candle_count": 8544,
+      "first_candle": "2026-02-01T00:00:00Z",
+      "last_candle": "2026-04-30T23:45:00Z",
+      "duplicate_timestamp_count": 0,
+      "interval_gap_count": 0,
+      "candidate_entry_count": 2256,
+      "accepted_entry_count": 2253,
+      "completed_trade_count": 2252,
+      "invalid_atr_blocked_entry_count": 3,
+      "cost_aware_blocked_entry_count": 0,
+      "atr_too_small_blocked_entry_count": 0,
+      "gross_pnl": -20.339463782855184,
+      "net_pnl": -20.339463782855184,
+      "total_cost": 0.0,
+      "return_pct": -3.0509195674282807,
+      "max_drawdown_pct": -3.2735298603883405,
+      "hit_ratio_pct": 48.0461811722913,
+      "expectancy": -0.00903173347373676,
+      "average_r": -0.03188885789277605,
+      "profit_factor": 0.9173902785838494,
+      "wins": 1082,
+      "losses": 1170,
+      "breakeven": 0,
+      "exit_mix": {
+        "STOP_LOSS": 854,
+        "TAKE_PROFIT": 809,
+        "TIME_EXIT": 589
+      },
+      "side_attribution": {
+        "LONG": {
+          "completed": 1123,
+          "wins": 539,
+          "losses": 584,
+          "net_pnl": -8.33876703689104
+        },
+        "SHORT": {
+          "completed": 1129,
+          "wins": 543,
+          "losses": 586,
+          "net_pnl": -12.000696745964133
+        }
+      },
+      "ending_position": 0.0008465700592493041,
+      "warnings": [
+        "open position remains at end of backtest",
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    }
+  ],
+  "raw_output_note": "Full CLI JSON was generated and validated locally during Task 324, but the 1m output is about 386 MB. Persisted run ids and this compact summary are the committed artifacts."
+}

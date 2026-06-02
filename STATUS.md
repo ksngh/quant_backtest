@@ -1,26 +1,26 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 438: Task 324 Lookback Return Momentum V2 no-cost ATR-1 validation task created (2026-06-02).
+Phase 440: Task 324 Lookback Return Momentum V2 no-cost ATR-1 validation completed (2026-06-02).
 
 ## Current Step
-Opened Task 323 PR #177 and created Task 324 `LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION`.
+Completed Task 324 implementation metadata wiring, V2 no-cost ATR-1 backtests, and task report.
 
 ## Current Goal
-Prepare for the next assigned strategy/backtest execution task without starting execution before assignment.
+Prepare for owner review of the Task 324 V2 gross/no-cost result and PR.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 323 and opened draft PR #177. Created Task 324 for `Lookback Return Momentum V2` no-cost validation with symmetric `1 ATR` stop/take-profit exits over the same February-to-May momentum validation window. No Task 324 implementation, backtest execution, strategy document creation, DB mutation, candle backfill, live trading, exchange endpoint, secret, or `.env` change was performed.
+Completed Task 324. Added a narrow `--lookback-return-momentum-version` metadata path while preserving default `v1`, preflighted continuous `BTCUSDT` `1m`/`5m`/`15m` data for the February-to-May window, persisted V2 no-cost ATR-1 runs `1210`/`1211`/`1212`, and saved `reports/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md` plus `reports/task_324_v2_no_cost_atr1_summary.json`. All three intervals were gross/no-cost negative (`1m`: `-7.5868%`, `5m`: `-0.1344%`, `15m`: `-3.0509%`). No post-result tuning, candle backfill, frontend/backend/API change, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 
 ## Recommended Next Step
-Recommended next step: execute Task 324 only when assigned. The executor must read the required state files and strategy docs first; if `docs/strategy/lookback_return_momentum_v2.md` is missing, create/update only that strategy document, update state files, and stop before running backtests.
+Recommended next step: wait for owner review of Task 324. If the owner wants to continue the momentum family, create a new bounded task that first improves gross/no-cost edge with a predeclared path-quality, volatility-regime, or payoff-geometry change before reintroducing costs.
 
 ## Current Blockers (Short)
 - Task 323 note: completed. `docs/api/API_CONTRACT.md`, the backend detail endpoint/service/schema, and the frontend dashboard were updated so large `1m` saved runs can be loaded with bounded chart data instead of an unbounded `graph_points` response. Sampling preserves first/last points, marker/signal/execution points, trade timestamps when present, nearby marker context as budget allows, chronological order, and response metadata. No strategy/backtest execution, DB mutation, candle backfill, live trading behavior, exchange endpoint, secret, or `.env` change was added.
-- Task 324 note: created, not executed. The task defines future `Lookback Return Momentum V2` validation: same signal family and February-to-May window, `1m`/`5m`/`15m`, no transaction-cost calculation, no cost-aware entry filter, and symmetric `1 ATR` stop/take-profit exits. It requires a V2 strategy document before implementation or backtest execution.
+- Task 324 note: completed. `docs/strategy/lookback_return_momentum_v2.md` documents the V2 no-cost ATR-1 diagnostic, and persisted runs `1210`/`1211`/`1212` show that this exact V2 configuration is negative even before costs are reintroduced. The committed task report is `reports/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`; compact metrics are in `reports/task_324_v2_no_cost_atr1_summary.json`. The full raw CLI JSON was generated and validated locally but not committed because the `1m` output was about `386 MB`.
 - Task 322 note: completed. `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/report-ko.html` now applies Task 319 representative-trade diagnostics, Task 320 backtest-setting algorithm/pseudocode explanation, and Task 321 theory/background depth. The standalone `가설` section was removed, saved Task 311 metrics were preserved, and the bounded conclusion still says the tested V1 configuration is ineffective after costs in the tested conditions without rejecting momentum strategies generally. No payload, PNG, new backtest, parameter tuning/search, strategy/code change, DB mutation, candle backfill, reusable workflow-doc edit, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
 - Task 311 note: completed. Persisted runs `1192`-`1209` tested `1 ATR` stop with `2.0/2.5/3.0 ATR` take-profit and `0.0/20.0` minimum ATR bps. Cost-feasible entries appeared at `1m` from `2.5 ATR`, and at `5m`/`15m` from `2.0 ATR`; however all filled variants were net negative after costs. `minimum_atr_bps=20.0` reclassified low-ATR rejected candidates as `ATR_TOO_SMALL_FOR_COST` but did not change accepted trades.
@@ -91,7 +91,7 @@ Recommended next step: execute Task 324 only when assigned. The executor must re
 - Future/deferred candidate work: `BACKLOG.md`
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
-- Current created task: `tasks/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`
+- Last completed task: `tasks/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`
 - Last completed task: `tasks/TASK_323_FRONTEND_LARGE_1M_CANDLE_LOAD_ERROR_FIX.md`
 - Last completed task: `tasks/TASK_320_DAILY_REPORT_BACKTEST_SETTING_ALGORITHM_EXPLANATION_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_319_DAILY_REPORT_REPRESENTATIVE_TRADE_DIAGNOSTIC_WORKFLOW_REVISION.md`

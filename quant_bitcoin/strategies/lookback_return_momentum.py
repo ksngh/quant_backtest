@@ -84,6 +84,7 @@ def _normalize_risk_distance_mode(raw: str) -> str:
 
 @dataclass(frozen=True)
 class LookbackReturnMomentumConfig:
+    strategy_version: str = STRATEGY_VERSION
     lookback_bars: int = 20
     entry_threshold: float = 0.001
     holding_bars: int = 5
@@ -113,6 +114,10 @@ class LookbackReturnMomentumConfig:
         _require_positive_finite("risk_distance_pct", self.risk_distance_pct)
         _require_positive_finite("stop_loss_r", self.stop_loss_r)
         _require_positive_finite("take_profit_r", self.take_profit_r)
+        version = str(self.strategy_version).strip()
+        if not version:
+            raise ValueError("strategy_version must be a non-empty string")
+        object.__setattr__(self, "strategy_version", version)
         object.__setattr__(self, "lookback_bars", int(self.lookback_bars))
         object.__setattr__(self, "holding_bars", int(self.holding_bars))
         object.__setattr__(self, "entry_threshold", float(self.entry_threshold))
@@ -134,7 +139,7 @@ class LookbackReturnMomentumConfig:
             "schema_version": "lookback_return_momentum_config_v1",
             "enabled": True,
             "strategy_key": STRATEGY_KEY,
-            "strategy_version": STRATEGY_VERSION,
+            "strategy_version": self.strategy_version,
             "lookback_bars": self.lookback_bars,
             "entry_threshold": self.entry_threshold,
             "holding_bars": self.holding_bars,
@@ -372,6 +377,7 @@ class LookbackReturnMomentumStrategy:
 def config_for_timeframe(
     interval: str,
     *,
+    strategy_version: str | None = None,
     lookback_bars: int | None = None,
     entry_threshold: float | None = None,
     holding_bars: int | None = None,
@@ -387,6 +393,7 @@ def config_for_timeframe(
 ) -> LookbackReturnMomentumConfig:
     values = dict(TIMEFRAME_DEFAULTS.get(str(interval).lower(), TIMEFRAME_DEFAULTS["1m"]))
     overrides = {
+        "strategy_version": strategy_version,
         "lookback_bars": lookback_bars,
         "entry_threshold": entry_threshold,
         "holding_bars": holding_bars,
@@ -1037,7 +1044,7 @@ def _strategy_metadata(config: LookbackReturnMomentumConfig) -> dict[str, object
     return {
         "strategy_key": STRATEGY_KEY,
         "strategy_name": STRATEGY_NAME,
-        "strategy_version": STRATEGY_VERSION,
+        "strategy_version": config.strategy_version,
         "strategy_type": "lookback_return_momentum",
         "strategy_scope": "offline_backtest_research_only",
         "lookback_bars": config.lookback_bars,

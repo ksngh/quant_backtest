@@ -159,27 +159,27 @@ Important interpretation boundary:
 
 ## Before Implementation
 
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `PROJECT_HISTORY.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read this task.
-- [ ] Read `docs/strategy/lookback_return_momentum_v1.md`.
-- [ ] Find or create `docs/strategy/lookback_return_momentum_v2.md` before implementation/backtest execution.
-- [ ] If the V2 strategy document had to be created, update state files and stop if required by the project strategy-document rule.
-- [ ] Confirm the task matches the current phase and step.
-- [ ] Confirm the current active task is recorded or should be updated.
-- [ ] Confirm this is a no-cost diagnostic strategy/backtest task, not a deployability claim.
-- [ ] Record assumptions, blockers, or unclear status items before coding.
+- [x] Read `BACKLOG.md`.
+- [x] Read `PROJECT_HISTORY.md`.
+- [x] Read `STATUS.md`.
+- [x] Read this task.
+- [x] Read `docs/strategy/lookback_return_momentum_v1.md`.
+- [x] Find or create `docs/strategy/lookback_return_momentum_v2.md` before implementation/backtest execution.
+- [x] If the V2 strategy document had to be created, update state files and stop if required by the project strategy-document rule.
+- [x] Confirm the task matches the current phase and step.
+- [x] Confirm the current active task is recorded or should be updated.
+- [x] Confirm this is a no-cost diagnostic strategy/backtest task, not a deployability claim.
+- [x] Record assumptions, blockers, or unclear status items before coding.
 
 ## After Implementation
 
-- [ ] Update the V2 strategy document if implementation changes strategy logic, cost assumptions, execution assumptions, validation windows, or research/live boundary.
-- [ ] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
-- [ ] Append completion progress to `PROJECT_HISTORY.md`.
-- [ ] Update `BACKLOG.md` if this task was completed, blocked, reprioritized, or split.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
-- [ ] Leave uncertain items open and document the uncertainty.
-- [ ] Confirm the next step is accurate or explicitly left undecided.
+- [x] Update the V2 strategy document if implementation changes strategy logic, cost assumptions, execution assumptions, validation windows, or research/live boundary.
+- [x] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
+- [x] Append completion progress to `PROJECT_HISTORY.md`.
+- [x] Update `BACKLOG.md` if this task was completed, blocked, reprioritized, or split.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Leave uncertain items open and document the uncertainty.
+- [x] Confirm the next step is accurate or explicitly left undecided.
 
 # Acceptance Criteria
 
@@ -274,3 +274,27 @@ Use `reviews/REVIEW_CHECKLIST.md` and `docs/06_PR_REVIEW_PROCESS.md` before merg
 - Codex self-review result
 - known limitations
 - recommended next task
+
+# Prerequisite Strategy Document Creation Note
+
+Completed on 2026-06-02 for the owner request to create only the strategy document.
+
+- Created `docs/strategy/lookback_return_momentum_v2.md` from the strategy-document template structure and the existing V1 strategy context.
+- Documented the V2 identity, same momentum signal family, same February-to-May validation window, `1m`/`5m`/`15m` intervals, disabled cost-aware entry filtering, zero/no-cost PnL assumption, and symmetric `1 ATR` stop/take-profit exits.
+- No strategy implementation, backtest execution, DB mutation, candle backfill, live trading behavior, exchange endpoint behavior, secret, or `.env` change was performed.
+- At the time of this prerequisite note, Task 324 remained not fully executed. The later assigned Task 324 execution had to proceed only after re-reading the required state files, this task, and the V2 strategy document.
+
+# Execution Completion Note
+
+Completed on 2026-06-02 after the owner assigned Task 324 execution.
+
+- Added a narrow `--lookback-return-momentum-version` runner/config metadata path so V2 runs record `strategy_version = v2` while preserving default `v1` behavior.
+- Preflighted local `BTCUSDT` `1m`/`5m`/`15m` candles for `2026-02-01T00:00:00Z <= candle time < 2026-05-01T00:00:00Z`; coverage was continuous with zero duplicate timestamps.
+- Persisted V2 no-cost ATR-1 runs:
+  - `1210`: `1m`, `lookback_bars=20`, `holding_bars=5`, `entry_threshold=0.0004`.
+  - `1211`: `5m`, `lookback_bars=12`, `holding_bars=6`, `entry_threshold=0.0006`.
+  - `1212`: `15m`, `lookback_bars=8`, `holding_bars=4`, `entry_threshold=0.0008`.
+- Saved the task report at `reports/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`.
+- Saved the compact committed summary at `reports/task_324_v2_no_cost_atr1_summary.json`; full CLI JSON was generated and validated locally but not committed because the `1m` raw output was about `386 MB`.
+- Result: all three intervals were gross/no-cost negative (`1m`: `-7.5868%`, `5m`: `-0.1344%`, `15m`: `-3.0509%`), so the exact V2 signal/exit geometry is not effective under the tested conditions before costs are reintroduced.
+- No post-result tuning, frontend/backend/API change, candle backfill, live trading behavior, exchange endpoint behavior, secret, or `.env` change was added.

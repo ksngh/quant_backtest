@@ -102,6 +102,25 @@ def test_atr_risk_levels_are_side_specific() -> None:
     assert short_risk.take_profit_price == pytest.approx(98.0)
 
 
+def test_strategy_version_flows_to_config_and_action_metadata() -> None:
+    config = LookbackReturnMomentumConfig(
+        strategy_version="v2",
+        risk_distance_mode="atr",
+        atr_period=1,
+        lookback_bars=1,
+        entry_threshold=0.001,
+    )
+
+    actions = build_lookback_return_momentum_actions(
+        _candles([100.0, 101.0], highs=[101.0, 102.0], lows=[99.0, 100.0]),
+        config=config,
+    )
+
+    assert config.to_metadata()["strategy_version"] == "v2"
+    assert actions[0].action_type is StrategyActionType.ENTER_LONG
+    assert actions[0].metadata["strategy_version"] == "v2"
+
+
 def test_atr_context_uses_completed_signal_candle_without_future_candle() -> None:
     config = LookbackReturnMomentumConfig(risk_distance_mode="atr", atr_period=2)
     candles = _candles(
