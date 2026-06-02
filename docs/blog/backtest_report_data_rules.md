@@ -153,9 +153,9 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
     "execution_assumption": "[OHLCV 체결 가정]"
   },
   "hypothesis_and_theory": {
-    "hypotheses": [
-      "[...할 것이다.]",
-      "[...할 것이다.]"
+    "tested_assumptions": [
+      "[이번 실험이 확인한 전제 1]",
+      "[이번 실험이 확인한 전제 2]"
     ],
     "assumptions": [
       "[가정 1]",
@@ -277,7 +277,9 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
     ],
     "wide_table_handling": "[split_tables_or_reduce_columns 또는 null]",
     "forbidden_copy_checks": [
-      "그것은"
+      "그것은",
+      "standalone 가설 section",
+      "Hypothesis heading"
     ]
   }
 }
@@ -285,9 +287,9 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 
 ## 4. 리포트 해석 및 누락 항목 저장 규칙
 
-`interpretation`은 별도 결론 문구를 저장하는 곳이 아닙니다. 아래 순서로 future report writer가 `해석` 섹션 안에서 해석을 쓸 수 있도록 저장합니다.
+`interpretation`은 별도 결론 문구나 standalone 가설 섹션을 저장하는 곳이 아닙니다. 아래 순서로 future report writer가 `해석` 섹션 안에서 해석을 쓸 수 있도록 저장합니다.
 
-- `experiment_intent`: 이번 실험이 확인하려는 것.
+- `experiment_intent`: 이번 실험이 확인하려는 것. 최종 리포트에서는 `가설` heading으로 분리하지 말고 `핵심 요약`, `백테스트 설정`, 또는 `해석`에 녹입니다.
 - `result_interpretation`: 저장 결과에서 실제로 일어난 일.
 - `success_drivers`: 결과가 좋을 때 성과를 만든 조건. gross edge, win/loss structure, cost absorption, holding-period behavior, drawdown, reward/risk 등을 저장 근거로 씁니다.
 - `failure_drivers`: 결과가 나쁠 때 성과를 막은 조건. gross-vs-net gap, churn, exit mix, cost drag, insufficient edge, reward/risk geometry 등을 저장 근거로 씁니다.
@@ -309,7 +311,7 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 
 `title.version_change_summary`는 전략 버전이나 핵심 메커니즘이 바뀐 경우에만 채웁니다. 예를 들어 고정 R 손익 기준에서 ATR 기준 손익 기준으로 바뀌면 이 차이를 짧게 저장합니다.
 
-`hypothesis_and_theory.references`는 strategy 문서의 레퍼런스를 report writer가 짧게 연결할 수 있도록 저장합니다. 레퍼런스가 없으면 full report 생성 전에 strategy 문서를 먼저 보강합니다.
+`hypothesis_and_theory`는 legacy object name일 수 있지만 최종 리포트에 standalone `가설` section을 만들라는 뜻이 아닙니다. `tested_assumptions`가 있으면 `가설` heading 없이 `핵심 요약`, `백테스트 설정`, 또는 `해석`에 녹입니다. `references`는 strategy 문서의 레퍼런스를 report writer가 짧게 연결할 수 있도록 저장합니다. 레퍼런스가 없으면 full report 생성 전에 strategy 문서를 먼저 보강합니다.
 
 `presentation_notes.table_purposes`는 큰 표를 만들기 전에 표가 답하는 질문을 기록하기 위한 선택 필드입니다. 목적이 다른 지표를 한 표에 섞지 않도록 돕습니다.
 
@@ -317,7 +319,20 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 
 대표 거래에는 데이터가 있을 때만 시장 상황 맥락을 저장합니다. 거래량, candle body/range, volatility, 보유 시간, 비용 비중, 진입 후 추세 지속/반전/횡보, 근처 drawdown/equity 상태가 없으면 null로 두고 리포트에서 만들지 않습니다.
 
-## 5. 필수 고정 이미지
+## 5. Tistory 이미지 삽입 메모
+
+Payload의 image filename은 계속 filename-only로 저장합니다. `report-ko.html` preview에서는 같은 폴더의 PNG를 `<div class="section-image"><img src="./[filename].png" ...></div>` 안에 넣습니다.
+Tistory 최종 게시 직전 owner가 이미지를 다시 업로드하면 local `<img>` 대신 아래처럼 Tistory token을 넣을 수 있어야 합니다.
+
+```html
+<div class="section-image">
+  [##_Image|...|alignCenter|width="100%"|_##]
+</div>
+```
+
+`...`는 fake/generic placeholder입니다. 실제 Tistory `kage@...` 식별자는 report data rules나 reusable docs에 고정하지 않습니다.
+
+## 6. 필수 고정 이미지
 
 모든 payload/image artifact는 아래 네 이미지를 생성합니다.
 

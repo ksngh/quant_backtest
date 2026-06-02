@@ -1,22 +1,22 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 427: Task 316 image-regeneration and copy-revision completed (2026-06-02).
+Phase 429: Task 317 Tistory image-embed and hypothesis-omission workflow revision completed (2026-06-02).
 
 ## Current Step
-Completed Task 316 `REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION`.
+Completed Task 317 `TISTORY_IMAGE_EMBED_AND_HYPOTHESIS_OMISSION_WORKFLOW_REVISION`.
 
 ## Current Goal
-Prepare the completed Task 316 changes for owner review and PR.
+Prepare the completed Task 317 workflow documentation changes for owner review and PR.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 316. Regenerated the current Lookback Return Momentum V1 report PNGs under Task 315 image rules and replaced awkward `강한 결론` wording in the current report plus reusable `docs/blog` rules.
+Completed Task 317. Updated reusable `docs/blog` workflow/template/style/data/image/handoff rules and `report_template.html` so Tistory image placeholders can sit inside full-width `.section-image` wrappers and future daily reports omit standalone `가설` / hypothesis sections by default.
 
 ## Recommended Next Step
-Recommended next step: review the PR for Tasks 305-316 changes; do not start another task automatically.
+Recommended next step: review the Task 317 PR; do not start another task automatically.
 
 ## Current Blockers (Short)
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
@@ -25,6 +25,7 @@ Recommended next step: review the PR for Tasks 305-316 changes; do not start ano
 - Task 313 note: completed. Reusable `docs/blog` workflow/style/template/data/image/handoff rules and `docs/blog/report_template.html` now encode Tistory hELLO skin layout defaults, full-width image rules, left-first table alignment, and interpretation-boundary rules that avoid rejecting a whole strategy family from a bounded failed version or overclaiming universal success from a narrow pass. Existing report artifacts, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, and `.env` files were not edited by Task 313.
 - Task 314 note: completed. Regenerated the existing Task 312 artifact folder `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/` from saved Task 311 outputs using the Task 313 hELLO skin and interpretation rules. `report-ko.html` now uses the `1120px` centered `.report-page` hELLO layout, full-width image CSS, left-first table styling, and an interpretation that says the tested V1 configuration is not effective after costs under the current conditions while not rejecting momentum strategies generally. `payload.json` narrative fields and same-folder PNGs were refreshed; Task 311 numerical metrics match the saved manifest. No new backtest, DB mutation, strategy/code change, live trading behavior, exchange endpoints, secrets, or `.env` files were added.
 - Task 315 note: completed. Updated reusable `docs/blog` image-generation workflow/rule docs so future daily-report images use stable canvas sizes, no-crop/aspect-ratio-preserving resizing with padding, representative trade charts with pre-entry and post-exit context, the `20260520-20260528` representative win trade reference style, annotation bands for dense metrics, and label-overlap QA. `docs/blog/report_template.html` was preserved. Existing report artifacts and PNGs were not regenerated or edited by Task 315.
+- Task 317 note: completed. Updated reusable `docs/blog` workflow/template/style/handoff/data-rule/image guidance and `docs/blog/report_template.html` so local report PNG previews and owner-reinserted Tistory image tokens can use a full-width `.section-image` wrapper. Final daily reports now avoid standalone `가설`, `검증 가설`, `실험 가설`, or `Hypothesis` sections by default; experiment intent/tested assumptions should be folded into existing narrative sections. Existing report artifacts, backtests, strategy/code, DB records, live trading behavior, exchange endpoints, secrets, and `.env` files were not edited.
 - Task 316 note: completed. Regenerated the six current `Lookback Return Momentum V1` Task 314 artifact PNGs in place under Task 315 image rules, including no-crop 1800px-wide canvases, annotation bands, and representative win/loss trade charts with surrounding `15m` candle context. Updated `report-ko.html`, `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`, and `docs/blog/backtest_report_data_rules.md` so future wording uses `전략군 전체로 판단 범위를 넓히려면` instead of awkward `더 강한 결론` / `강한 결론`. Payload metrics were verified against the Task 311 manifest. No new backtest, DB mutation, strategy/code change, candle backfill, live trading behavior, exchange endpoint behavior, secret, or `.env` change was added.
 - Task 310 note: completed before Task 309. `git diff --name-only -- reports` still lists pre-existing dirty report artifacts from earlier tasks, but Task 310 did not edit report artifacts.
 - Task 279 note: no tested BTCUSDT 1m candidate passed the robustness matrix; Task 278 run `155`/`156` remains a directional diagnostic only, and all Task 279 candidates remain `DIAGNOSTIC_ONLY`.
@@ -87,6 +88,7 @@ Recommended next step: review the PR for Tasks 305-316 changes; do not start ano
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
 - Last completed task: `tasks/TASK_316_REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION.md`
+- Current created task: `tasks/TASK_317_TISTORY_IMAGE_EMBED_AND_HYPOTHESIS_OMISSION_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_314_REGENERATE_TASK312_REPORT_WITH_HELLO_INTERPRETATION_RULES.md`
 - Last completed task: `tasks/TASK_315_DAILY_REPORT_IMAGE_GENERATION_RULE_CONSISTENCY_REVISION.md`
 - Last completed task: `tasks/TASK_258_FRONTEND_FVG_UPTREND_CHANNEL_L1_H1_L2_POINTS.md`

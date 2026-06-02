@@ -30,7 +30,8 @@ HTML 작성 규칙:
 - `docs/blog/report_template.html`의 `<main class="report-page">`, `<header class="report-header">`, `<article class="report-content">` 구조를 사용합니다.
 - `{{REPORT_TITLE}}`, `{{REPORT_TYPE}}`, `{{REPORT_SUBTITLE}}` placeholder를 실제 값으로 바꿉니다.
 - 첫 문단은 `<p class="lead">`로 작성합니다.
-- 이미지는 `<figure class="report-figure">`와 `<img src="./[filename].png">`를 사용합니다.
+- 이미지 preview는 `<figure class="report-figure"><div class="section-image"><img src="./[filename].png" ...></div><figcaption>...</figcaption></figure>` 구조를 사용합니다.
+- Tistory 최종 게시 시 owner가 `<div class="section-image">[##_Image|...|alignCenter|width="100%"|_##]</div>` 형태로 이미지를 다시 삽입할 수 있게 구조를 유지합니다. `...`는 fake/generic placeholder이며 실제 `kage@...` 토큰을 문서에 고정하지 않습니다.
 - 모든 표는 `<div class="table-scroll">`로 감쌉니다.
 - 지나치게 넓은 표는 한 표에 억지로 넣지 말고 목적별로 나누거나, 핵심 수치만 표에 두고 보조 지표는 문장으로 설명합니다.
 - 코드나 수식은 `<pre><code>...</code></pre>`를 사용합니다.
@@ -44,7 +45,8 @@ Tistory hELLO 스킨 레이아웃 규칙:
 - HTML은 내부 CSS를 포함한 단일 파일입니다. 외부 CSS 파일에 의존하지 않습니다.
 - 기본 컨테이너는 `:root { --page-max-width: 1120px; }`와 `.report-page { max-width: var(--page-max-width); width: calc(100% - 32px); margin: 0 auto; }`를 따릅니다.
 - 표는 왼쪽 정렬을 기본으로 합니다. 숫자 컬럼만 필요한 경우 오른쪽 정렬합니다.
-- 이미지는 본문 폭 전체를 사용할 수 있게 둡니다. `.report-figure img`는 `display: block; width: 100%; max-width: 100%; height: auto;`를 따릅니다.
+- 이미지는 본문 폭 전체를 사용할 수 있게 둡니다. `.report-figure img`와 `.section-image img`는 `display: block; width: 100% !important; max-width: 100% !important; height: auto;`를 따릅니다.
+- `.section-image`에는 불필요한 좌우 padding이나 고정 width를 넣지 않습니다. Tistory가 생성하는 image wrapper가 들어와도 본문 column을 꽉 채워야 합니다.
 - 디자인보다 가독성, 폭, 정렬, 담백함을 우선합니다.
 
 ## 1. 헤더
@@ -131,26 +133,19 @@ Tistory hELLO 스킨 레이아웃 규칙:
 </p>
 ```
 
-## 3. 가설
+## 3. 가설 섹션 생략 규칙
+
+최종 daily report에는 standalone `가설`, `검증 가설`, `실험 가설`, `Hypothesis` 섹션을 기본으로 만들지 않습니다.
+실험 의도나 테스트한 전제가 독자 이해에 필요하면 `핵심 요약`, `백테스트 설정`, `전략에 포함된 가정과 이론적 배경`, 또는 마지막 `해석` 안에 자연스럽게 녹입니다.
 
 ```html
-<h2>2. 가설</h2>
-<ul>
-  <li>[가설 1]할 것이다.</li>
-  <li>[가설 2]할 것이다.</li>
-</ul>
+<!-- 사용하지 않음: <h2>가설</h2> -->
 ```
-
-규칙:
-
-- 가설은 `~할 것이다` 형태로 씁니다.
-- payload나 전략 문서에 없는 가설을 새로 만들지 않습니다.
-- 보통 2개로 충분합니다.
 
 ## 4. 전략에 포함된 가정과 이론적 배경
 
 ```html
-<h2>3. 전략에 포함된 가정과 이론적 배경</h2>
+<h2>2. 전략에 포함된 가정과 이론적 배경</h2>
 <p>[전략의 경제적 아이디어]</p>
 <ul>
   <li>[우위가 생길 수 있는 이유]</li>
@@ -207,7 +202,7 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ## 6. 백테스트 설정
 
 ```html
-<h2>4. 백테스트 설정</h2>
+<h2>3. 백테스트 설정</h2>
 ```
 
 포함할 항목:
@@ -233,15 +228,15 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ## 7. 결과
 
 ```html
-<h2>5. 결과</h2>
+<h2>4. 결과</h2>
 ```
 
 기본 하위 섹션:
 
-- `6.1 수익 곡선`
-- `6.2 비교 결과`
-- `6.3 거래비용 영향`
-- `6.4 청산 구성` 또는 결과 해석에 필요한 다른 attribution
+- `4.1 수익 곡선`
+- `4.2 비교 결과`
+- `4.3 거래비용 영향`
+- `4.4 청산 구성` 또는 결과 해석에 필요한 다른 attribution
 
 규칙:
 
@@ -257,7 +252,9 @@ Tistory hELLO 스킨 레이아웃 규칙:
 
 ```html
 <figure class="report-figure">
-  <img src="./cost_impact.png" alt="거래비용 반영 전후 손익 비교" loading="lazy">
+  <div class="section-image">
+    <img src="./cost_impact.png" alt="거래비용 반영 전후 손익 비교" loading="lazy">
+  </div>
   <figcaption>수수료, 스프레드, 슬리피지 반영 전후 손익 차이입니다.</figcaption>
 </figure>
 <p>
@@ -268,7 +265,7 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ## 8. 대표 거래
 
 ```html
-<h2>6. 대표 거래</h2>
+<h2>5. 대표 거래</h2>
 ```
 
 대표 수익 거래:
@@ -276,7 +273,9 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ```html
 <h3>대표 수익 거래</h3>
 <figure class="report-figure">
-  <img src="./representative_win_trade.png" alt="대표 수익 거래" loading="lazy">
+  <div class="section-image">
+    <img src="./representative_win_trade.png" alt="대표 수익 거래" loading="lazy">
+  </div>
   <figcaption>전략이 기대한 구조가 나타난 거래입니다.</figcaption>
 </figure>
 ```
@@ -286,7 +285,9 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ```html
 <h3>대표 손실 거래</h3>
 <figure class="report-figure">
-  <img src="./representative_loss_trade.png" alt="대표 손실 거래" loading="lazy">
+  <div class="section-image">
+    <img src="./representative_loss_trade.png" alt="대표 손실 거래" loading="lazy">
+  </div>
   <figcaption>전략의 약점이 드러난 거래입니다.</figcaption>
 </figure>
 ```
@@ -304,7 +305,7 @@ Tistory hELLO 스킨 레이아웃 규칙:
 ## 9. 해석
 
 ```html
-<h2>7. 해석</h2>
+<h2>6. 해석</h2>
 ```
 
 해석은 별도 결론이 아니라 실험 의도, 결과, 원인, 보완점을 한 섹션에서 연결하는 부분입니다.
@@ -383,7 +384,7 @@ HTML 저장 전 아래를 확인합니다.
 - 이론적 배경이 전략의 경제적 가정, 성공 조건, 실패 조건, 비용/손익비, 레퍼런스를 함께 다루는가?
 - `전략 규칙`이 별도 기본 섹션이 아니라 이론/배경 섹션 안에 들어갔는가?
 - 표가 너무 크거나 목적이 모호하면 나누거나 줄였는가?
-- 가설 bullet이 HTML에서 눈에 보이는가?
+- standalone `가설`/hypothesis 섹션을 만들지 않았는가?
 - 최종 섹션 제목이 `해석`인가?
 - 별도 결론 섹션을 만들지 않았는가?
 - 실패한 버전의 결과를 전략군 전체 기각으로 확대하지 않았는가?

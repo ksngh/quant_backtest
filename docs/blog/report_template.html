@@ -10,7 +10,9 @@
     - Replace {{...}} placeholders.
     - Put report content inside <article class="report-content">.
     - Wrap wide tables with <div class="table-scroll">...</div>.
-    - Use <figure class="report-figure"> for images.
+    - Use <figure class="report-figure"> for local image previews.
+    - For final Tistory publishing, the owner may replace the local <img> with
+      a Tistory token inside <div class="section-image">...</div>.
     - Default body width: 1120px for the Tistory hELLO skin.
     - Keep the document responsive for narrower Tistory/mobile widths.
   -->
@@ -232,12 +234,40 @@
       margin: 34px 0 48px;
     }
 
-    .report-figure img {
+    .section-image {
       display: block;
       width: 100%;
       max-width: 100%;
-      height: auto;
       margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    .report-figure img,
+    .section-image > *,
+    .section-image img,
+    .section-image figure,
+    .section-image span,
+    .section-image a,
+    .section-image [class*="image"],
+    .section-image [class*="Image"] {
+      max-width: 100% !important;
+    }
+
+    .section-image > *,
+    .section-image figure,
+    .section-image [class*="image"],
+    .section-image [class*="Image"] {
+      width: 100% !important;
+    }
+
+    .report-figure img,
+    .section-image img {
+      display: block;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0 auto;
     }
 
     .report-figure figcaption {
@@ -282,6 +312,7 @@
       table { page-break-inside: auto; }
       tr { page-break-inside: avoid; page-break-after: auto; }
       .report-figure { page-break-inside: avoid; }
+      .section-image { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -308,7 +339,12 @@
       <p class="lead">{{SUMMARY_PARAGRAPH}}</p>
 
       <figure class="report-figure">
-        <img src="./{{IMAGE_FILE_NAME}}" alt="{{IMAGE_ALT_TEXT}}" loading="lazy">
+        <div class="section-image">
+          <img src="./{{IMAGE_FILE_NAME}}" alt="{{IMAGE_ALT_TEXT}}" loading="lazy">
+          <!-- Tistory publish replacement example:
+          [##_Image|kage@example/example/placeholder/img.png|alignCenter|width="100%"|_##]
+          -->
+        </div>
         <figcaption>{{IMAGE_CAPTION}}</figcaption>
       </figure>
 
