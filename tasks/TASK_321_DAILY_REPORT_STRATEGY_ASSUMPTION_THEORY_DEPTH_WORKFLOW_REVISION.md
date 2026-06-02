@@ -132,23 +132,23 @@ E[r_{t+1} | r_t^{(L)} > \theta] > E[r_{t+1} | r_t^{(L)} \le \theta]
 
 ## Before Implementation
 
-- [ ] Read `BACKLOG.md`.
-- [ ] Read `PROJECT_HISTORY.md`.
-- [ ] Read `STATUS.md`.
-- [ ] Read this task.
-- [ ] Confirm the task matches the current phase and step.
-- [ ] Confirm the current active task is recorded or should be updated.
-- [ ] Confirm this is documentation/workflow work only, not strategy/backtest implementation.
-- [ ] Record assumptions, blockers, or unclear status items before editing.
+- [x] Read `BACKLOG.md`.
+- [x] Read `PROJECT_HISTORY.md`.
+- [x] Read `STATUS.md`.
+- [x] Read this task.
+- [x] Confirm the task matches the current phase and step.
+- [x] Confirm the current active task is recorded or should be updated.
+- [x] Confirm this is documentation/workflow work only, not strategy/backtest implementation.
+- [x] Record assumptions, blockers, or unclear status items before editing.
 
 ## After Implementation
 
-- [ ] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
-- [ ] Append completion progress to `PROJECT_HISTORY.md`.
-- [ ] Update `BACKLOG.md` for completion, blockers, or follow-up candidates.
-- [ ] Mark checklist items complete only when acceptance criteria and verification are satisfied.
-- [ ] Leave uncertain items open and document the uncertainty.
-- [ ] Confirm the next step is accurate or explicitly left undecided.
+- [x] Update `STATUS.md` if the phase, step, goal, active task, blocker, open question, or completion state changed.
+- [x] Append completion progress to `PROJECT_HISTORY.md`.
+- [x] Update `BACKLOG.md` for completion, blockers, or follow-up candidates.
+- [x] Mark checklist items complete only when acceptance criteria and verification are satisfied.
+- [x] Leave uncertain items open and document the uncertainty.
+- [x] Confirm the next step is accurate or explicitly left undecided.
 
 # Acceptance Criteria
 
@@ -233,3 +233,13 @@ Use `reviews/REVIEW_CHECKLIST.md` and `docs/06_PR_REVIEW_PROCESS.md` before merg
 - Codex self-review result
 - known limitations
 - recommended next task
+
+# Completion Summary (2026-06-02)
+
+- Files changed: `docs/blog/DAILY_REPORT_TEMPLATE.md`, `docs/blog/DAILY_REPORT_STYLE.md`, `docs/blog/daily_report_workflow.md`, `docs/blog/backtest_report_data_rules.md`, `docs/blog/agent_handoff_prompt.md`, `STATUS.md`, `BACKLOG.md`, `PROJECT_HISTORY.md`, and this task file.
+- Implementation summary: updated reusable daily-report guidance so future `전략에 포함된 가정과 이론적 배경` sections explain assumptions, mechanisms, failure modes, optional formulas, evidence boundaries, and momentum-specific mechanisms beyond reference-name listing.
+- Tests added or updated: none; documentation/workflow task only.
+- Tests run: required docs `rg`, `git diff --check`, safety grep, and self-review.
+- Codex self-review result: scope respected; no report artifact, backtest, strategy/code, DB record, live trading behavior, exchange endpoint, secret, or `.env` change was introduced.
+- Known limitations: this task updates workflow rules only; existing published/generated reports were not rewritten.
+- Recommended next task: no automatic next task. Create a separate current-report regeneration task if the owner wants these new workflow rules applied to an existing report artifact.

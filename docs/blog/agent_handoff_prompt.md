@@ -73,7 +73,16 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - 결론 섹션을 따로 만들지 않습니다. `해석` 섹션에서 실험 의도, 결과, 원인, 보완점을 함께 정리합니다.
 - 패턴/필터/이미지/비교 타임프레임이 없다는 사실은 기본적으로 본문에 쓰지 않습니다. 필요하면 한계나 보완점에만 씁니다.
 - 대표 거래는 가능한 경우 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전, equity curve/drawdown 맥락을 함께 설명합니다. 없는 데이터는 추정하지 않습니다.
-- 이론적 배경은 전략이 왜 우위를 가질 수 있는지, 어떤 경제적/행동적 메커니즘을 가정하는지, 어떤 조건에서 성공/실패하는지, 비용과 손익비가 어떻게 작동하는지까지 다룹니다.
+- 대표 거래 설명에는 왜 거래가 발생했는지, 진입/청산 조건이 저장된 규칙대로 작동했는지, 손익이 전략 논리에서 나온 것인지 변동성에 좌우된 것인지, 전체 성과를 왜곡하는지, 같은 유형이 반복되는지, 백테스트 엔진이나 체결 로직 이상 신호가 있는지를 가능한 근거 안에서 녹입니다.
+- 대표 거래 diagnostic 질문을 `진입 조건`, `청산 조건`, `버그 가능성` 같은 별도 heading, 목차, 체크리스트로 만들지 않습니다.
+- 반복 유형, 성과 왜곡, 엔진/체결 로직 sanity check에 필요한 aggregate 근거가 없으면 한계나 보완점으로 짧게 남기고 추정하지 않습니다.
+- `백테스트 설정`은 중요한 rule/indicator/cost guard를 파라미터 표로만 끝내지 않습니다. 작동 방식을 plain Korean과 짧은 의사코드로 설명합니다.
+- 의사코드는 기본적으로 `explanatory pseudocode`로 표시합니다. 실제 source code를 그대로 옮기거나 정확 구현이라고 주장할 때만 source reference를 둡니다.
+- 완료봉 기준, no-lookahead, indicator warm-up, entry fill timing, stop/target/time exit, 같은 캔들 처리처럼 결과 해석에 영향을 주는 실행 규칙을 필요한 만큼 설명합니다.
+- 이론적 배경은 전략이 왜 우위를 가질 수 있는지, 어떤 경제적/행동적/시장구조적 메커니즘을 가정하는지, 어떤 조건에서 성공/실패하는지, 비용과 손익비가 어떻게 작동하는지까지 다룹니다.
+- 이론적 배경은 레퍼런스 이름만 나열하지 않습니다. 레퍼런스가 설명하는 메커니즘과 현재 전략 규칙의 연결을 설명합니다.
+- 모멘텀 전략이면 strategy 문서와 payload 근거 안에서 과소반응, 느린 포지션 조정, 리스크 프리미엄/tail risk, 헤저/투기자 구조, spot Bitcoin 적용 한계를 필요한 만큼 다룹니다.
+- 수학식이 도움이 되면 짧게 쓰고, 식 바로 뒤에 쉬운 말로 풉니다.
 - 이론적 배경은 strategy document와 payload의 references를 근거로 씁니다. 레퍼런스가 없으면 `[확인 필요]`로 남기고 임의 문헌을 만들지 않습니다.
 - `전략 규칙`은 별도 기본 섹션으로 만들지 않습니다. 진입/청산/비용/동일 캔들 처리 규칙은 `전략에 포함된 가정과 이론적 배경` 안에 편입합니다.
 - 결과가 좋으면 gross edge, win/loss structure, cost absorption, holding-period behavior, drawdown, reward/risk 등 저장 근거로 성공 원인을 설명합니다.
@@ -180,13 +189,46 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
     "entry_conditions_summary": "",
     "exit_conditions_summary": "",
     "cost_assumptions": "",
-    "execution_assumption": ""
+    "execution_assumption": "",
+    "algorithm_explanation": {
+      "plain_language_summary": "",
+      "entry_logic_pseudocode": "",
+      "exit_logic_pseudocode": "",
+      "indicator_calculations": [
+        {
+          "name": "",
+          "pseudocode": "",
+          "inputs": "",
+          "window": "",
+          "warmup_policy": ""
+        }
+      ],
+      "no_lookahead_note": "",
+      "fill_timing_note": "",
+      "source_reference": ""
+    }
   },
   "hypothesis_and_theory": {
     "tested_assumptions": ["", ""],
     "assumptions": ["", "", ""],
     "economic_meaning": "",
     "edge_mechanism": "",
+    "mechanism_detail": "",
+    "failure_mechanism": "",
+    "evidence_boundary": "",
+    "optional_formulas": [
+      {
+        "formula": "",
+        "plain_language": ""
+      }
+    ],
+    "momentum_mechanisms": {
+      "underreaction": "",
+      "slow_position_adjustment": "",
+      "risk_premium_tail_risk": "",
+      "hedger_speculator_structure": "",
+      "bitcoin_spot_caveat": ""
+    },
     "success_conditions": "",
     "failure_conditions": "",
     "cost_and_rr_context": "",
@@ -256,7 +298,21 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
       "gross_pnl": "",
       "transaction_cost": "",
       "hold_duration": "",
+      "entry_candle_context": "",
+      "volume_context": "",
+      "follow_through_context": "",
+      "equity_context": "",
       "exit_reason": "",
+      "diagnostic_narrative_inputs": {
+        "why_trade_happened": "",
+        "entry_condition_check": "",
+        "exit_condition_check": "",
+        "pnl_source_interpretation": "",
+        "performance_distortion_check": "",
+        "recurrence_evidence": "",
+        "engine_fill_sanity_check": "",
+        "missing_evidence_note": ""
+      },
       "reason": ""
     },
     "worst_trade": {
@@ -271,7 +327,21 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
       "gross_pnl": "",
       "transaction_cost": "",
       "hold_duration": "",
+      "entry_candle_context": "",
+      "volume_context": "",
+      "follow_through_context": "",
+      "equity_context": "",
       "exit_reason": "",
+      "diagnostic_narrative_inputs": {
+        "why_trade_happened": "",
+        "entry_condition_check": "",
+        "exit_condition_check": "",
+        "pnl_source_interpretation": "",
+        "performance_distortion_check": "",
+        "recurrence_evidence": "",
+        "engine_fill_sanity_check": "",
+        "missing_evidence_note": ""
+      },
       "reason": ""
     }
   },
