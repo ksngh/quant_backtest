@@ -4,7 +4,7 @@
 Frontend dashboard integration with read-only backtest API verified in Task 078.
 
 ## Active Task
-No active frontend task. Task 259 completed trade-bounded FVG v2 channel overlay clipping.
+No active frontend task. Task 323 completed bounded graph payload fetching for large `1m` dashboard runs.
 
 ## Stack Decision Boundary
 - Selected stack: Next.js App Router + React + TypeScript.
@@ -30,3 +30,4 @@ No active frontend task. Task 259 completed trade-bounded FVG v2 channel overlay
 - FVG v2 channel overlays are now rendered as multiple channel-specific bounded segments rather than a single first-channel overlay projected across the full viewport.
 - Uptrend FVG v2 channel overlays label saved construction points as `L1`, `H1`, and `L2` from channel geometry metadata.
 - FVG v2 channel overlay lines now end at the saved entry/retest point when present rather than extending to the later exit boundary.
+- The dashboard now requests bounded saved-run detail graph data by default with `graph_max_points=3000` and `graph_sampling_mode=preserve_markers`, and displays a chart sampling notice when the backend returns reduced graph points.

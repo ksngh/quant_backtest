@@ -1,24 +1,25 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 435: Task 322 current-report workflow application completed (2026-06-02).
+Phase 437: Task 323 large 1m frontend load-error fix completed (2026-06-02).
 
 ## Current Step
-Completed Task 322 `APPLY_DAILY_REPORT_WORKFLOW_REVISIONS_TO_CURRENT_LOOKBACK_REPORT` by applying the completed Task 319-321 workflow revisions to the current `Lookback Return Momentum V1` Tistory HTML report artifact.
+Completed Task 323 `FRONTEND_LARGE_1M_CANDLE_LOAD_ERROR_FIX` and prepared the frontend/backend/API changes for PR.
 
 ## Current Goal
-Keep the existing `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/report-ko.html` artifact aligned with the latest daily-report workflow rules while preserving saved Task 311 metrics.
+Open the Task 323 PR, then create the owner-requested next strategy task for `Lookback Return Momentum V2`.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 322. Revised only the current `report-ko.html` artifact to add integrated representative-trade diagnostics, backtest-setting pseudocode/mechanics, deeper theory/background, and bounded interpretation. No payload, image, backtest, strategy/code, DB, live trading, exchange endpoint, secret, or `.env` change was added.
+Completed Task 323. The read-only detail API now supports bounded graph payloads through `graph_max_points` and `graph_sampling_mode=preserve_markers`, returns `chart_metadata.graph_points`, and the frontend dashboard requests a bounded `3000`-point chart payload by default with a sampled-data notice. Tests passed: `pytest backend/tests`, `npm --prefix frontend run typecheck`, `npm --prefix frontend run test:helpers`, and `git diff --check`.
 
 ## Recommended Next Step
-Recommended next step: owner review of the revised current report artifact or PR preparation for the accumulated completed work.
+Recommended next step: open the Task 323 PR. After the frontend PR is opened, create a separate task for `Lookback Return Momentum V2` no-cost validation with 1 ATR stop/take-profit exits over the same period as the prior momentum validation.
 
 ## Current Blockers (Short)
+- Task 323 note: completed. `docs/api/API_CONTRACT.md`, the backend detail endpoint/service/schema, and the frontend dashboard were updated so large `1m` saved runs can be loaded with bounded chart data instead of an unbounded `graph_points` response. Sampling preserves first/last points, marker/signal/execution points, trade timestamps when present, nearby marker context as budget allows, chronological order, and response metadata. No strategy/backtest execution, DB mutation, candle backfill, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 - Task 322 note: completed. `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/report-ko.html` now applies Task 319 representative-trade diagnostics, Task 320 backtest-setting algorithm/pseudocode explanation, and Task 321 theory/background depth. The standalone `가설` section was removed, saved Task 311 metrics were preserved, and the bounded conclusion still says the tested V1 configuration is ineffective after costs in the tested conditions without rejecting momentum strategies generally. No payload, PNG, new backtest, parameter tuning/search, strategy/code change, DB mutation, candle backfill, reusable workflow-doc edit, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
 - Task 311 note: completed. Persisted runs `1192`-`1209` tested `1 ATR` stop with `2.0/2.5/3.0 ATR` take-profit and `0.0/20.0` minimum ATR bps. Cost-feasible entries appeared at `1m` from `2.5 ATR`, and at `5m`/`15m` from `2.0 ATR`; however all filled variants were net negative after costs. `minimum_atr_bps=20.0` reclassified low-ATR rejected candidates as `ATR_TOO_SMALL_FOR_COST` but did not change accepted trades.
@@ -70,7 +71,7 @@ Recommended next step: owner review of the revised current report artifact or PR
 - Live trading remains blocked pending explicit owner approval for Task 138, credential policy, allowed endpoint policy, and kill-switch design.
 - Task 170 audit confirms live execution also needs max-notional guards, symbol filter checks, stale-data checks, duplicate-order idempotency, restart reconciliation, cancel/replace and partial-fill policy, monitoring/alerting, and secret-management policy before Task 138 can be unblocked.
 - Local Docker runtime verification remains deferred to a Docker-capable environment.
-- Backend FastAPI route tests are not runnable in the current Python environment because `fastapi` is not installed; FastAPI-independent service/repository tests and frontend checks passed.
+- Backend FastAPI route tests are runnable after installing the project `api,test` extras into the active local Python environment; Task 323 backend tests passed.
 - In-app browser automation could not be used in this session because the required Node REPL browser-control tool was not exposed; local Next server HTML response was verified with `curl`.
 - Full browser visual verification for the channel overlay was not run in this task because the local API was not reachable from this shell; frontend type/helper tests passed.
 - `npm --prefix frontend run test` is unavailable because `frontend/package.json` has no `test` script; `npm --prefix frontend run test:helpers` passed.
@@ -89,8 +90,8 @@ Recommended next step: owner review of the revised current report artifact or PR
 - Future/deferred candidate work: `BACKLOG.md`
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
-- Current created task: `tasks/TASK_322_APPLY_DAILY_REPORT_WORKFLOW_REVISIONS_TO_CURRENT_LOOKBACK_REPORT.md`
-- Last completed task: `tasks/TASK_321_DAILY_REPORT_STRATEGY_ASSUMPTION_THEORY_DEPTH_WORKFLOW_REVISION.md`
+- Last completed task: `tasks/TASK_323_FRONTEND_LARGE_1M_CANDLE_LOAD_ERROR_FIX.md`
+- Current created task: none
 - Last completed task: `tasks/TASK_320_DAILY_REPORT_BACKTEST_SETTING_ALGORITHM_EXPLANATION_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_319_DAILY_REPORT_REPRESENTATIVE_TRADE_DIAGNOSTIC_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_316_REGENERATE_LOOKBACK_MOMENTUM_REPORT_IMAGES_AND_COPY_RULE_REVISION.md`

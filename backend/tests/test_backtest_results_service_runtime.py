@@ -37,6 +37,7 @@ def _row(metadata):
         "actual_start_time": None,
         "actual_end_time": None,
         "candle_count": 10,
+        "starting_cash": 10000.0,
         "final_equity": 1.0,
         "total_return": 0.1,
         "trade_count": 2,

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
 
 import { getBacktestRun, getHealth, listBacktestRuns } from "../lib/api";
+import { buildChartSamplingNotice } from "../lib/chartSampling";
 import { buildExecutionAssumptionModel } from "../lib/executionAssumptions";
 import {
   buildFvgChannelOverlays,
@@ -1678,6 +1679,10 @@ export default function DashboardPage() {
     () => Boolean(detail && detail.graph_points.length && detail.graph_points.every((point) => point.equity === 0)),
     [detail],
   );
+  const chartSamplingNotice = useMemo(
+    () => buildChartSamplingNotice(detail?.chart_metadata?.graph_points),
+    [detail],
+  );
 
   return (
     <main>
@@ -1749,6 +1754,16 @@ export default function DashboardPage() {
               )}
 
               {allEquityZero && <p className="error">Equity series is all zero; treat this run as placeholder-neutral.</p>}
+
+              {chartSamplingNotice && (
+                <section className="panel warning">
+                  <SectionHeader title={chartSamplingNotice.title} />
+                  <p className="muted">{chartSamplingNotice.detail}</p>
+                  <p className={chartSamplingNotice.markerWarning ? "diagnostic-warning" : "muted"}>
+                    {chartSamplingNotice.markerDetail}
+                  </p>
+                </section>
+              )}
 
               <div className="chart-grid">
                 <Chart
