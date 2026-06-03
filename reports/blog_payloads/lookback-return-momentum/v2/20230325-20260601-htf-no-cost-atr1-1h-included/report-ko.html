@@ -102,6 +102,8 @@ stop_loss -&gt; take_profit -&gt; time_exit</code></pre>
 
     <h2>4. 결과</h2>
     <p>결과는 한 문장으로 정리하기 어렵습니다. 1h는 두 조합 모두 비용 0에서도 음수였고, 4h는 짧은 lookback 조합이 음수, 긴 lookback 조합이 소폭 양수였습니다. 1d 두 조합은 모두 양수였습니다. 이는 정보 반영 지연 전제가 더 느린 시간축에서 더 나을 수 있다는 쪽에 일부 근거를 주지만, higher timeframe 전체가 자동으로 우월하다는 뜻은 아닙니다.</p>
+    <p>비교 대상 라벨은 `사용한 candle 간격 / 과거를 본 기간 / 최대 보유 기간` 순서로 읽습니다. 예를 들어 `1h 1d to 6h`는 1시간봉으로 최근 1일 수익률을 계산하고, 진입 후 최대 6시간 안에 1 ATR 손절·익절 또는 시간 청산으로 종료한다는 뜻입니다. 표의 lookback과 hold는 이 기간을 candle 개수로 바꾼 값입니다.</p>
+    <div class="table-scroll"><table><tr><th>비교 대상</th><th>뜻</th></tr><tr><td>1h 1d to 6h</td><td>1시간봉 기준, 최근 1일 움직임을 보고 다음 최대 6시간을 검증</td></tr><tr><td>1h 3d to 1d</td><td>1시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증</td></tr><tr><td>4h 1d to 12h</td><td>4시간봉 기준, 최근 1일 움직임을 보고 다음 최대 12시간을 검증</td></tr><tr><td>4h 3d to 1d</td><td>4시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증</td></tr><tr><td>1d 1w to 1d</td><td>일봉 기준, 최근 1주 움직임을 보고 다음 최대 1일을 검증</td></tr><tr><td>1d 1m to 1w</td><td>일봉 기준, 최근 1개월 움직임을 보고 다음 최대 1주를 검증</td></tr></table></div>
     <figure class="report-figure" data-purpose="result comparison">
       <div class="section-image">
         <img src="./htf_variant_comparison.png" alt="1h, 4h, 1d 조합별 수익률과 낙폭 비교" loading="lazy">

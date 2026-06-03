@@ -91,6 +91,36 @@
     "cost_assumptions": "수수료, 스프레드, 슬리피지 0",
     "execution_assumption": "진입은 signal candle close, 청산 평가는 다음 완료봉부터, 같은 candle 충돌은 손절 우선"
   },
+  "variant_label_guide": {
+    "format": "사용한 candle 간격 / 과거를 본 기간 / 최대 보유 기간",
+    "bar_note": "결과 표의 lookback과 hold는 이 기간을 candle 개수로 바꾼 값입니다.",
+    "items": [
+      {
+        "label": "1h 1d to 6h",
+        "meaning": "1시간봉 기준, 최근 1일 움직임을 보고 다음 최대 6시간을 검증"
+      },
+      {
+        "label": "1h 3d to 1d",
+        "meaning": "1시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증"
+      },
+      {
+        "label": "4h 1d to 12h",
+        "meaning": "4시간봉 기준, 최근 1일 움직임을 보고 다음 최대 12시간을 검증"
+      },
+      {
+        "label": "4h 3d to 1d",
+        "meaning": "4시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증"
+      },
+      {
+        "label": "1d 1w to 1d",
+        "meaning": "일봉 기준, 최근 1주 움직임을 보고 다음 최대 1일을 검증"
+      },
+      {
+        "label": "1d 1m to 1w",
+        "meaning": "일봉 기준, 최근 1개월 움직임을 보고 다음 최대 1주를 검증"
+      }
+    ]
+  },
   "hypothesis_and_theory": {
     "tested_assumptions": [
       "정보 반영 지연과 느린 포지션 조정이 분봉보다 시간/일 단위에서 더 잘 드러나는지 확인합니다.",

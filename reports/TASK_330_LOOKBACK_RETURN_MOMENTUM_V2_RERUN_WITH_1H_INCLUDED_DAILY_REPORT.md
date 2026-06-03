@@ -27,6 +27,25 @@ Attempted bounded Binance public `1h` backfill for the 7 full-window missing ran
 
 All runs used zero fee/spread/slippage, disabled cost-aware entry filtering, `ATR(14, RMA)`, `1 ATR` stop, `1 ATR` take-profit, signal-close entry, next-candle exit checks, and `--enforce-candle-continuity`.
 
+## Variant Label Guide
+
+Variant labels use this order:
+
+```text
+candle interval / lookback horizon / maximum holding horizon
+```
+
+For example, `1h_1d_to_6h` means the backtest uses `1h` candles, computes the signal from the last `1d` close-to-close return, and exits no later than `6h` after entry if neither the `1 ATR` stop nor the `1 ATR` take-profit is reached first.
+
+| variant | meaning | lookback bars | holding bars |
+| --- | --- | ---: | ---: |
+| 1h_1d_to_6h | 1h candles, last 1 day return -> next max 6 hours | 24 | 6 |
+| 1h_3d_to_1d | 1h candles, last 3 days return -> next max 1 day | 72 | 24 |
+| 4h_1d_to_12h | 4h candles, last 1 day return -> next max 12 hours | 6 | 3 |
+| 4h_3d_to_1d | 4h candles, last 3 days return -> next max 1 day | 18 | 6 |
+| 1d_1w_to_1d | 1d candles, last 1 week return -> next max 1 day | 7 | 1 |
+| 1d_1m_to_1w | 1d candles, last 1 month return -> next max 1 week | 30 | 7 |
+
 ## Results
 
 | interval | variant | run | candles | lookback | holding | threshold | candidates | accepted | completed | invalid ATR | gross PnL | net PnL | cost | return | max DD | avg R | hit | PF |
