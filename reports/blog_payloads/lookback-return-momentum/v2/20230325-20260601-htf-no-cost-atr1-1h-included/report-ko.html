@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lookback Return Momentum V2</title>
+  <style>
+    :root { --page: #ffffff; --ink: #15171a; --muted: #60666d; --line: #d9dde3; --soft-line: #eceff3; --code-bg: #f6f7f9; --table-head: #f7f8fa; --page-max-width: 1120px; }
+    * { box-sizing: border-box; }
+    html { background: var(--page); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif; font-size: 16px; line-height: 1.72; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body { margin: 0; background: var(--page); }
+    .report-page { max-width: var(--page-max-width); width: calc(100% - 32px); margin: 0 auto; padding: 42px 0 88px; }
+    .report-header { margin-bottom: 42px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .report-kicker { margin: 0 0 8px; color: var(--muted); font-size: .9rem; letter-spacing: 0; }
+    .report-title { margin: 0; font-size: clamp(2rem, 3.2vw, 3rem); line-height: 1.12; font-weight: 720; letter-spacing: 0; }
+    .report-subtitle { max-width: 980px; margin: 18px 0 0; color: var(--muted); font-size: clamp(1rem, 1.25vw, 1.16rem); line-height: 1.68; }
+    .report-content { width: 100%; } .report-content > *:first-child { margin-top: 0; }
+    h2 { margin: 86px 0 22px; padding-top: 26px; font-size: clamp(1.35rem, 1.8vw, 2rem); line-height: 1.32; font-weight: 720; letter-spacing: 0; border-top: 1px solid var(--line); }
+    .report-content > h2:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+    h3 { margin: 44px 0 14px; font-size: clamp(1.06rem, 1.2vw, 1.28rem); line-height: 1.42; font-weight: 680; letter-spacing: 0; }
+    p { max-width: 980px; margin: 0 0 17px; }
+    .lead { max-width: 1040px; font-size: clamp(1.04rem, 1.18vw, 1.18rem); line-height: 1.74; }
+    ul, ol { max-width: 980px; margin: 0 0 22px 0; padding-left: 1.45rem; list-style-position: outside; }
+    li { margin: 7px 0; } li::marker { color: var(--ink); font-size: .9em; }
+    a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: .92em; }
+    pre { max-width: 980px; margin: 20px 0 28px; padding: 16px 18px; overflow-x: auto; background: var(--code-bg); border: 1px solid var(--soft-line); } pre code { display: block; white-space: pre; }
+    .table-scroll { width: 100%; margin: 20px 0 40px; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--soft-line); border-left: 0; border-right: 0; }
+    table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: clamp(.88rem, .92vw, .98rem); line-height: 1.46; font-variant-numeric: tabular-nums; }
+    thead th { background: var(--table-head); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: #22262a; font-weight: 680; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--soft-line); vertical-align: top; text-align: left; white-space: normal; }
+    td:first-child, th:first-child { white-space: normal; min-width: 150px; } td.number, th.number { white-space: nowrap; text-align: right !important; } tr:last-child td { border-bottom-color: var(--line); }
+    .report-figure { width: 100%; margin: 34px 0 48px; } .section-image { display: block; width: 100%; max-width: 100%; margin: 0; padding: 0; text-align: center; }
+    .report-figure img, .section-image img { display: block; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 auto; }
+    .report-figure figcaption { margin-top: 8px; color: var(--muted); font-size: .88rem; line-height: 1.45; } .note { max-width: 980px; margin: 22px 0 30px; color: var(--muted); font-size: .95rem; }
+    @media (max-width: 860px) { .report-page { width: calc(100% - 24px); padding: 34px 16px 72px; } h2 { margin-top: 64px; padding-top: 22px; } table { min-width: 760px; } th, td { padding: 9px 10px; } }
+  </style>
+</head>
+<body>
+<main class="report-page">
+  <header class="report-header">
+    <p class="report-kicker">백테스트 리포트</p>
+    <h1 class="report-title">Lookback Return Momentum V2</h1>
+    <p class="report-subtitle">과거 일정 구간의 수익률을 확인하는 모멘텀 전략.</p>
+  </header>
+
+  <article class="report-content">
+    <h2>1. 핵심 요약</h2>
+    <p class="lead">Lookback Return Momentum은 최근 완료봉들의 종가 수익률이 충분히 크면 이후 구간도 같은 방향으로 이어지는지 확인하는 전략입니다. V2는 이 아이디어를 분 단위 비교군에서 1h, 4h, 1d 비교군으로 옮겨, 정보 반영 지연과 느린 포지션 조정이라는 전제가 더 긴 시간축에서 더 잘 드러나는지 확인했습니다.</p>
+    <p>이번 결과는 이전 V2 산출물과 다릅니다. 1h를 제외하지 않았고, 2021년부터의 전체 구간에 남은 1h 내부 gap을 public backfill로 복구하지 못했기 때문에 2023-03-25부터 2026-06-01 직전까지의 공통 연속 구간으로 다시 실행했습니다. 이 구간에서 1h 두 조합은 비용 0에서도 음수였고, 4h는 mixed, 1d는 양수였습니다.</p>
+    <figure class="report-figure" data-purpose="summary equity and drawdown">
+      <div class="section-image">
+        <img src="./summary_equity_curve.png" alt="최고 성과 조합의 수익 곡선과 낙폭" loading="lazy">
+      </div>
+      <figcaption>최고 성과 조합의 equity curve와 drawdown입니다. 비용 0 조건에서도 path와 낙폭을 함께 확인해야 합니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>항목</th><th>내용</th></tr><tr><td>시장/심볼</td><td>Binance BTCUSDT</td></tr><tr><td>기간</td><td>2023-03-25 00:00 UTC ~ 2026-06-01 00:00 UTC 직전</td></tr><tr><td>비교 대상</td><td>1h, 4h, 1d higher-timeframe lookback-return 조합</td></tr><tr><td>전체 window 처리</td><td>2021-2026 1h 내부 gap이 남아 fallback 공통 연속 window 사용</td></tr><tr><td>비용 조건</td><td>수수료, 스프레드, 슬리피지 0</td></tr><tr><td>청산 조건</td><td>진입 시점 ATR 기준 1 ATR 손절, 1 ATR 익절, holding_bars 도달 시 시간 청산</td></tr><tr><td>포지션 크기</td><td>초기 1,000,000 KRW를 666.67 USDT로 환산하고 거래당 10% 사용</td></tr></table></div>
+    <p>핵심은 V2가 V1의 단순 반복이 아니라는 점입니다. V1은 1m, 5m, 15m에서 비용과 ATR 보상 구조를 견디는지를 확인했습니다. V2는 같은 신호식을 유지하되, 정보 반영 지연이라는 전제를 더 잘 맞는 시간축에서 다시 확인합니다. 따라서 이번 결과는 V1과 직접적인 수익률 경쟁이 아니라, 비교군을 바꾼 이유가 타당했는지를 보는 실험입니다.</p>
+
+    <h2>2. 전략에 포함된 가정과 이론적 배경</h2>
+    <p>이 전략의 중심 전제는 최근 수익률이 아직 완전히 해소되지 않은 정보, 자금 흐름, 포지션 조정, 추세 추종 참여를 압축한다는 점입니다. 모든 참여자가 같은 속도로 정보를 반영하지 않고, 큰 포지션 조정이 여러 시간 또는 여러 날에 걸쳐 진행되면 최근 움직임 뒤에 같은 방향의 후속 흐름이 남을 수 있습니다.</p>
+    <p>V1의 분봉 비교군은 실행 비용과 짧은 방향 지속성을 확인하는 데 의미가 있었지만, 정보 반영 지연을 직접 확인하기에는 시간축이 짧았습니다. 1m와 5m에서는 스프레드 통과, 짧은 청산 연쇄, 국지적 주문 불균형, 빠른 되돌림이 신호에 많이 섞입니다. 그래서 분봉에서 약하거나 실패한 결과만으로 정보 반영 지연 기반 모멘텀 전체를 기각하기 어렵습니다.</p>
+    <ul>
+      <li>1h는 분봉 노이즈를 줄이면서 intraday 정보 전파와 당일 포지션 조정을 확인하기 위한 시간축입니다.</li>
+      <li>4h는 세션 단위 흐름과 cross-session 조정을 확인하기 위한 시간축입니다.</li>
+      <li>1d는 일 단위 자금 흐름, 위험 선호 변화, 느린 allocation 변화를 확인하기 위한 시간축입니다.</li>
+      <li>Jegadeesh and Titman(1993)은 가격 모멘텀과 과소반응 배경을 제공합니다. Moskowitz, Ooi, and Pedersen(2012)은 한 자산의 과거 수익률이 이후 방향 정보가 될 수 있다는 넓은 배경을 제공합니다.</li>
+      <li>Hong and Stein(1999)은 정보가 천천히 확산될 때 underreaction과 momentum trading이 연결될 수 있음을 설명합니다. Barberis, Shleifer, and Vishny(1998), Daniel, Hirshleifer, and Subrahmanyam(1998)은 투자자 심리와 under/overreaction을 설명하는 배경입니다.</li>
+      <li>이 문헌들은 BTCUSDT의 현재 구현이 작동한다는 증거가 아닙니다. 이번 백테스트는 문헌의 메커니즘과 더 맞는 시간축으로 검증 범위를 옮겼을 때 저장 결과가 어떻게 달라지는지 확인한 것입니다.</li>
+    </ul>
+    <pre><code>r_t(L) = close[t] / close[t - L] - 1
+
+if r_t(L) &gt;= threshold:
+    enter long
+elif r_t(L) &lt;= -threshold:
+    enter short
+else:
+    stay flat</code></pre>
+    <p>전략이 성공하려면 최근 수익률이 단기 과열이나 청산 후 되돌림이 아니라, 후속 참여와 느린 정보 반영을 요약해야 합니다. 반대로 최근 움직임이 이미 소진된 상태라면 같은 규칙은 늦게 진입하거나 시간 청산과 손절을 반복합니다.</p>
+
+    <h2>3. 백테스트 설정</h2>
+    <p>신호와 ATR은 signal candle까지의 완료봉만 사용합니다. 진입은 signal candle close에서 처리하고, 손절·익절·시간 청산 확인은 다음 완료봉부터 시작합니다. 같은 candle에서 손절과 익절이 모두 닿으면 손절을 먼저 적용합니다.</p>
+    <pre><code># explanatory pseudocode
+lookback_return = close[t] / close[t - lookback_bars] - 1
+risk_distance = ATR_14_RMA[t]
+
+long_stop = entry_price - risk_distance
+long_target = entry_price + risk_distance
+short_stop = entry_price + risk_distance
+short_target = entry_price - risk_distance
+
+# exit priority from next completed candle
+stop_loss -&gt; take_profit -&gt; time_exit</code></pre>
+    <p>시간 청산은 이번 실험에서 중요합니다. holding_bars는 lookback 신호가 예측해야 할 forward horizon을 정합니다. 이 규칙이 없으면 포지션이 훨씬 나중의 손절이나 익절까지 남아 있어, 짧은 정보 반영 지연 검증이 아니라 무기한 추세 추종 테스트로 바뀝니다. 시간 청산이 많다면 가격이 정해진 horizon 안에서 1 ATR 손절이나 1 ATR 목표에 충분히 닿지 않았다는 뜻이므로, 보유 기간과 ATR 폭을 함께 다시 확인해야 합니다.</p>
+    <figure class="report-figure" data-purpose="data coverage">
+      <div class="section-image">
+        <img src="./data_coverage.png" alt="선택된 공통 연속 구간의 데이터 coverage" loading="lazy">
+      </div>
+      <figcaption>data coverage입니다. 전체 2021-2026 구간은 1h gap이 남아 있고, 이번 실행은 1h가 포함되는 공통 연속 구간으로 맞췄습니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>타임프레임</th><th>선택 구간 상태</th><th class="number">저장 candle</th><th class="number">missing</th><th>시작</th><th>마지막</th></tr><tr><td>1h</td><td>실행</td><td class="number">27,936</td><td class="number">0</td><td>2023-03-25</td><td>2026-05-31</td></tr><tr><td>4h</td><td>실행</td><td class="number">6,984</td><td class="number">0</td><td>2023-03-25</td><td>2026-05-31</td></tr><tr><td>1d</td><td>실행</td><td class="number">1,164</td><td class="number">0</td><td>2023-03-25</td><td>2026-05-31</td></tr></table></div>
+
+    <h2>4. 결과</h2>
+    <p>결과는 한 문장으로 정리하기 어렵습니다. 1h는 두 조합 모두 비용 0에서도 음수였고, 4h는 짧은 lookback 조합이 음수, 긴 lookback 조합이 소폭 양수였습니다. 1d 두 조합은 모두 양수였습니다. 이는 정보 반영 지연 전제가 더 느린 시간축에서 더 나을 수 있다는 쪽에 일부 근거를 주지만, higher timeframe 전체가 자동으로 우월하다는 뜻은 아닙니다.</p>
+    <figure class="report-figure" data-purpose="result comparison">
+      <div class="section-image">
+        <img src="./htf_variant_comparison.png" alt="1h, 4h, 1d 조합별 수익률과 낙폭 비교" loading="lazy">
+      </div>
+      <figcaption>조합별 총수익률, 거래 수, 최대 낙폭을 함께 비교합니다. 1h 음수, 4h mixed, 1d 양수라는 구조가 핵심입니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>비교 대상</th><th>TF</th><th class="number">lookback</th><th class="number">hold</th><th class="number">threshold</th><th class="number">거래</th><th class="number">수익률</th><th class="number">MDD</th><th class="number">순손익</th><th class="number">평균 R</th><th class="number">승률</th><th class="number">PF</th></tr><tr><td>1h 1d to 6h</td><td>1h</td><td class="number">24</td><td class="number">6</td><td class="number">0.005</td><td class="number">5,783</td><td class="number">-12.36%</td><td class="number">-13.15%</td><td class="number">-82.40</td><td class="number">-0.031</td><td class="number">+47.95%</td><td class="number">0.928</td></tr><tr><td>1h 3d to 1d</td><td>1h</td><td class="number">72</td><td class="number">24</td><td class="number">0.015</td><td class="number">4,112</td><td class="number">-9.09%</td><td class="number">-10.44%</td><td class="number">-60.58</td><td class="number">-0.035</td><td class="number">+48.05%</td><td class="number">0.939</td></tr><tr><td>4h 1d to 12h</td><td>4h</td><td class="number">6</td><td class="number">3</td><td class="number">0.010</td><td class="number">1,517</td><td class="number">-4.44%</td><td class="number">-7.39%</td><td class="number">-29.63</td><td class="number">-0.013</td><td class="number">+47.99%</td><td class="number">0.946</td></tr><tr><td>4h 3d to 1d</td><td>4h</td><td class="number">18</td><td class="number">6</td><td class="number">0.030</td><td class="number">845</td><td class="number">+1.60%</td><td class="number">-4.96%</td><td class="number">+10.68</td><td class="number">0.023</td><td class="number">+51.24%</td><td class="number">1.026</td></tr><tr><td>1d 1w to 1d</td><td>1d</td><td class="number">7</td><td class="number">1</td><td class="number">0.030</td><td class="number">363</td><td class="number">+7.72%</td><td class="number">-2.07%</td><td class="number">+51.48</td><td class="number">0.057</td><td class="number">+51.52%</td><td class="number">1.276</td></tr><tr><td>1d 1m to 1w</td><td>1d</td><td class="number">30</td><td class="number">7</td><td class="number">0.100</td><td class="number">137</td><td class="number">+3.38%</td><td class="number">-3.57%</td><td class="number">+22.54</td><td class="number">0.061</td><td class="number">+52.55%</td><td class="number">1.145</td></tr></table></div>
+    <p>비용 조건은 결과 해석의 경계입니다. 이번 실행은 수수료, 스프레드, 슬리피지를 모두 0으로 두었기 때문에 gross PnL과 net PnL이 같습니다. 수익 조합은 비용을 이겨서 양수가 된 것이 아니라, 비용을 아직 넣지 않은 상태에서 raw 방향성과 ATR-1 청산 구조가 양수였다는 뜻입니다.</p>
+    <figure class="report-figure" data-purpose="gross net no cost">
+      <div class="section-image">
+        <img src="./cost_impact.png" alt="비용 0 조건에서 gross와 net 손익 비교" loading="lazy">
+      </div>
+      <figcaption>비용 0 조건의 cost impact입니다. gross와 net이 같다는 점은 비용 검증이 아직 남아 있음을 뜻합니다.</figcaption>
+    </figure>
+    <p>exit mix는 시간 청산의 의미를 보여줍니다. 1h와 4h의 짧은 lookback 조합은 거래 수가 많지만 손절과 시간 청산이 많아 기대값이 낮았습니다. 1d 1개월 lookback 조합은 거래 수가 적고 목표가 비중이 상대적으로 높아 가장 좋은 결과를 만들었습니다.</p>
+    <figure class="report-figure" data-purpose="exit mix">
+      <div class="section-image">
+        <img src="./exit_mix.png" alt="조합별 손절 익절 시간 청산 구성" loading="lazy">
+      </div>
+      <figcaption>exit mix는 손절, 익절, 시간 청산의 비중을 비교합니다. 시간 청산이 많은 조합은 horizon과 ATR 폭을 다시 확인해야 합니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>비교 대상</th><th class="number">손절</th><th class="number">익절</th><th class="number">시간 청산</th><th class="number">시간 청산 비중</th></tr><tr><td>1h 1d to 6h</td><td class="number">2473</td><td class="number">2354</td><td class="number">956</td><td class="number">+16.53%</td></tr><tr><td>1h 3d to 1d</td><td class="number">2106</td><td class="number">1967</td><td class="number">39</td><td class="number">+0.95%</td></tr><tr><td>4h 1d to 12h</td><td class="number">460</td><td class="number">484</td><td class="number">573</td><td class="number">+37.77%</td></tr><tr><td>4h 3d to 1d</td><td class="number">353</td><td class="number">379</td><td class="number">113</td><td class="number">+13.37%</td></tr><tr><td>1d 1w to 1d</td><td class="number">36</td><td class="number">61</td><td class="number">266</td><td class="number">+73.28%</td></tr><tr><td>1d 1m to 1w</td><td class="number">57</td><td class="number">67</td><td class="number">13</td><td class="number">+9.49%</td></tr></table></div>
+    <p>side attribution도 대칭적이지 않습니다. 일부 양수 조합은 Long과 Short가 모두 기여했지만, 방향별 기여가 균등하지 않습니다. 이 결과는 양방향 모멘텀 전체가 안정적으로 작동한다는 결론보다, 특정 시간축과 특정 방향의 조합이 raw edge를 만든다는 해석에 가깝습니다.</p>
+    <figure class="report-figure" data-purpose="side attribution">
+      <div class="section-image">
+        <img src="./side_attribution.png" alt="Long과 Short 순손익 기여" loading="lazy">
+      </div>
+      <figcaption>side attribution은 Long과 Short 손익을 분리합니다. 방향별 편중은 다음 검증에서 따로 확인해야 합니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>비교 대상</th><th class="number">Long 거래</th><th class="number">Long 순손익</th><th class="number">Short 거래</th><th class="number">Short 순손익</th></tr><tr><td>1h 1d to 6h</td><td class="number">3,011</td><td class="number">-33.44</td><td class="number">2,772</td><td class="number">-48.95</td></tr><tr><td>1h 3d to 1d</td><td class="number">2,186</td><td class="number">-9.86</td><td class="number">1,926</td><td class="number">-50.72</td></tr><tr><td>4h 1d to 12h</td><td class="number">782</td><td class="number">-0.50</td><td class="number">735</td><td class="number">-29.14</td></tr><tr><td>4h 3d to 1d</td><td class="number">463</td><td class="number">+13.50</td><td class="number">382</td><td class="number">-2.82</td></tr><tr><td>1d 1w to 1d</td><td class="number">200</td><td class="number">+29.18</td><td class="number">163</td><td class="number">+22.30</td></tr><tr><td>1d 1m to 1w</td><td class="number">88</td><td class="number">+14.84</td><td class="number">49</td><td class="number">+7.71</td></tr></table></div>
+    <p>yearly attribution은 regime을 거칠게 확인하는 표입니다. 2023년, 2024년, 2025년, 2026년은 trend, 변동성, 자금 흐름 조건이 다를 수 있습니다. 이 표는 calendar year proxy일 뿐이며, bull/bear, 변동성, 유동성, 위험 선호 regime을 직접 분류한 결과는 아닙니다.</p>
+    <figure class="report-figure" data-purpose="yearly attribution">
+      <div class="section-image">
+        <img src="./yearly_attribution.png" alt="연도별 수익률 기여" loading="lazy">
+      </div>
+      <figcaption>yearly attribution입니다. 특정 연도에 성과가 몰리는지 확인하되, 이것을 완전한 regime 분석으로 해석하지 않습니다.</figcaption>
+    </figure>
+    <div class="table-scroll"><table><tr><th>비교 대상</th><th class="number">2023</th><th class="number">2024</th><th class="number">2025</th><th class="number">2026</th></tr><tr><td>1h 1d to 6h</td><td class="number">-3.46%</td><td class="number">-2.76%</td><td class="number">-4.89%</td><td class="number">-1.25%</td></tr><tr><td>1h 3d to 1d</td><td class="number">-2.08%</td><td class="number">+0.98%</td><td class="number">-3.57%</td><td class="number">-4.42%</td></tr><tr><td>4h 1d to 12h</td><td class="number">-1.68%</td><td class="number">+2.74%</td><td class="number">-5.33%</td><td class="number">-0.18%</td></tr><tr><td>4h 3d to 1d</td><td class="number">+2.01%</td><td class="number">+2.97%</td><td class="number">-2.48%</td><td class="number">-0.90%</td></tr><tr><td>1d 1w to 1d</td><td class="number">-0.60%</td><td class="number">+4.18%</td><td class="number">+2.26%</td><td class="number">+1.88%</td></tr><tr><td>1d 1m to 1w</td><td class="number">+1.44%</td><td class="number">+2.34%</td><td class="number">+1.22%</td><td class="number">-1.63%</td></tr></table></div>
+
+    <h2>5. 대표 거래</h2>
+    <p>대표 거래는 최고 성과 조합인 1d 1w to 1d에서 골랐습니다. 이 조합은 최근 1개월 수익률이 기준을 넘으면 다음 1주 안에 같은 방향의 흐름이 이어지는지 확인합니다. 대표 수익 거래와 손실 거래 모두 같은 규칙에서 나왔지만, 하나는 1 ATR 목표가에 닿았고 다른 하나는 손절로 끝났습니다.</p>
+    <div class="table-scroll"><table><tr><th>구분</th><th>방향</th><th>진입</th><th>청산</th><th>청산 사유</th><th class="number">순손익</th><th class="number">실현 R</th><th class="number">momentum</th></tr><tr><td>수익 거래</td><td>SHORT</td><td>2025-03-03</td><td>2025-03-04</td><td>TAKE_PROFIT</td><td class="number">+3.74</td><td class="number">1.000</td><td class="number">-0.0582</td></tr><tr><td>손실 거래</td><td>SHORT</td><td>2025-04-10</td><td>2025-04-11</td><td>STOP_LOSS</td><td class="number">-3.62</td><td class="number">-1.000</td><td class="number">-0.0433</td></tr></table></div>
+    <p>수익 거래는 진입 뒤 정해진 horizon 안에서 목표가에 도달했습니다. 이 사례는 V2가 기대한 느린 방향 지속이 실제로 발생한 예입니다. 다만 한 거래가 전체 결과를 설명하지는 않습니다. 최고 조합 전체에서도 거래 수는 제한적이고, 연도별 기여와 방향별 기여가 균등하지 않습니다.</p>
+    <figure class="report-figure" data-purpose="representative win trade">
+      <div class="section-image">
+        <img src="./representative_win_trade.png" alt="대표 수익 거래의 진입과 청산" loading="lazy">
+      </div>
+      <figcaption>대표 수익 거래는 진입 전후와 청산 이후 candle context를 함께 보여줍니다. trade 구간만 잘라 보지 않습니다.</figcaption>
+    </figure>
+    <p>손실 거래는 같은 momentum 구조에서 나왔지만, 진입 뒤 흐름이 이어지지 않고 손절에 닿았습니다. 이 사례는 V2의 실패 경로를 보여줍니다. 최근 수익률이 컸더라도 이후 구간이 이미 소진되었거나 변동성 반전으로 바뀌면 1 ATR 손절이 먼저 발생합니다.</p>
+    <figure class="report-figure" data-purpose="representative loss trade">
+      <div class="section-image">
+        <img src="./representative_loss_trade.png" alt="대표 손실 거래의 진입과 청산" loading="lazy">
+      </div>
+      <figcaption>대표 손실 거래는 같은 규칙이 손절로 끝나는 경로를 보여줍니다. 진입 전후 시야를 함께 두어 반전 맥락을 확인합니다.</figcaption>
+    </figure>
+
+    <h2>6. 해석</h2>
+    <p>이번 rerun은 이전 산출물에서 비어 있던 1h 질문을 채웠습니다. 결론은 단순히 higher timeframe이 좋다는 쪽이 아닙니다. 1h는 비용 0에서도 양수 edge를 보이지 않았고, 4h도 lookback과 holding 조합에 따라 결과가 갈렸습니다. 양수 근거는 1d 쪽에서 더 분명했습니다.</p>
+    <p>따라서 현재 결과는 `Lookback Return Momentum V2`의 일봉 중심 조합에는 raw no-cost 가능성이 있지만, 1h close-to-close momentum까지 넓게 유효하다고 말하기 어렵다는 쪽으로 해석합니다. 동시에 이 결과만으로 모멘텀 전략 전체를 기각하거나 채택할 수 없습니다. 비용을 제거했고, 기간은 fallback 공통 구간으로 줄었으며, regime filter와 외부 risk-flow 정보가 빠져 있습니다.</p>
+    <ul>
+      <li>V1과 비교하면, 단기 분봉의 비용·turnover 문제가 이번 V2에서는 비용 0으로 제거됐습니다. 그래서 V2 양수 결과는 비용을 이긴 결과가 아니라 raw 방향성과 청산 구조를 확인한 결과입니다.</li>
+      <li>비교군을 바꾼 이유는 정보 반영 지연 전제와 시간축을 맞추기 위해서입니다. 분봉 실패는 execution/cost 관점에서 중요하지만, 느린 정보 확산을 검정하기에는 충분하지 않을 수 있습니다.</li>
+      <li>1h가 음수였다는 점은 중요합니다. 정보 반영 지연이 있다면 1h부터 좋아질 것이라는 단순 기대는 이번 결과에서 약해졌습니다.</li>
+      <li>1d가 양수였다는 점은 더 느린 horizon의 가능성을 남깁니다. 다만 거래 수가 줄고 regime 의존성이 커질 수 있어 비용 반영과 OOS/WFO가 필요합니다.</li>
+      <li>시간 청산은 보완 대상입니다. 시간 청산이 많은 조합은 목표가까지 갈 만큼 충분히 강하지 않았거나, holding_bars와 ATR 폭이 맞지 않았을 수 있습니다.</li>
+      <li>regime이 반영되지 않은 점도 큰 한계입니다. 다음 검증은 가격이 장기 이동평균 위/아래인지, ATR 또는 실현 변동성 percentile이 높은지, drawdown/recovery 상태인지, 거래대금 proxy가 충분한지를 사전에 정의해 나눠야 합니다.</li>
+    </ul>
+    <p>보완점은 다음과 같습니다.</p>
+    <ul>
+      <li>양수였던 1d 조합부터 거래비용을 다시 넣어야 합니다. 비용 0 결과는 viability가 아니라 raw edge 확인입니다.</li>
+      <li>holding_bars를 사전 정의된 작은 grid로 비교해야 합니다. 시간 청산이 많은 조합은 forward horizon과 ATR-1 target이 맞지 않았을 가능성이 있습니다.</li>
+      <li>exit reason별 평균 R을 다음 리포트에서 별도로 보여줘야 합니다. 시간 청산이 손익에 기여하는지, target/stop이 대부분을 설명하는지 분리해야 합니다.</li>
+      <li>regime task를 별도로 만들어야 합니다. trend state, volatility percentile, drawdown/recovery, trading-value proxy를 먼저 정의하고, 같은 V2 조합을 regime별로 나눈 뒤 OOS/WFO로 넘어가야 합니다.</li>
+    </ul>
+  </article>
+</main>
+</body>
+</html>

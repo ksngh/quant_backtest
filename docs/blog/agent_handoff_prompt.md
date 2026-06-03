@@ -39,6 +39,10 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - 매일 작성 가능한 길이로 유지합니다.
 - 제공된 숫자와 문장만 사용합니다.
 - 누락된 값은 추정하지 말고 `[확인 필요]`로 남깁니다.
+- 형식과 데이터 표시는 V2 report처럼 구성합니다. data coverage, setup, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trades가 payload에 있으면 목적을 정해 보여줍니다.
+- 해석 논리는 V1 report처럼 촘촘하게 씁니다. strategy idea, version/experiment change, main result, supporting driver, limiting evidence, bounded conclusion, cannot conclude, next improvement with reason을 연결합니다.
+- 모든 주요 표와 이미지는 본문에서 `무엇을 보여주는가`, `왜 중요한가`, `해석을 어떻게 바꾸는가`를 회수합니다.
+- `해석` 섹션에서는 앞에서 제시한 주요 표, 이미지, 대표 거래 근거를 다시 사용해서 bounded conclusion을 만듭니다.
 - 결과가 좋아 보여도 과장하지 않습니다.
 - 결과가 나빠도 테스트한 전략/버전의 실패를 전략군 전체 실패로 확대하지 않습니다.
 - 결과가 좋아도 넓은 검증 없이 보편적 유효성을 주장하지 않습니다.
@@ -70,6 +74,10 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
   - 주문 관련 자명한 고지 문구
   - short exposure를 가짜 포지션이라고 설명하는 문구
   - `그것은`
+  - sentence-final `봅니다.`
+  - `라고 봅니다`
+  - `로 봅니다`
+  - `해 봅니다`
 - 결론 섹션을 따로 만들지 않습니다. `해석` 섹션에서 실험 의도, 결과, 원인, 보완점을 함께 정리합니다.
 - 패턴/필터/이미지/비교 타임프레임이 없다는 사실은 기본적으로 본문에 쓰지 않습니다. 필요하면 한계나 보완점에만 씁니다.
 - 대표 거래는 가능한 경우 거래량, 캔들 range/body, 보유 시간, 비용 비중, 진입 후 추세 지속/반전, equity curve/drawdown 맥락을 함께 설명합니다. 없는 데이터는 추정하지 않습니다.
@@ -87,6 +95,7 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - `전략 규칙`은 별도 기본 섹션으로 만들지 않습니다. 진입/청산/비용/동일 캔들 처리 규칙은 `전략에 포함된 가정과 이론적 배경` 안에 편입합니다.
 - 결과가 좋으면 gross edge, win/loss structure, cost absorption, holding-period behavior, drawdown, reward/risk 등 저장 근거로 성공 원인을 설명합니다.
 - 결과가 나쁘면 gross-vs-net gap, churn, exit mix, cost drag, insufficient edge, reward/risk geometry 등 저장 근거로 실패 원인을 설명합니다.
+- 결과가 섞여 있으면 interval, side, year, exit reason, variant별로 무엇이 결과를 밀었는지 분리합니다. 평균 결과 하나로 덮지 않습니다.
 - 결과가 나쁠 때는 현재 버전과 조건에서의 결론을 먼저 쓰고, 전략군 전체를 기각하려면 왜 추가 검증이 필요한지 설명합니다. 구현 버전, 기간, 심볼, 타임프레임, 비용 가정, 파라미터 범위, 적용하지 않은 regime/유동성/확인 필터, OOS/WFO 또는 기준선 비교 부족을 저장 근거 범위 안에서 다룹니다.
 - 결과가 좋을 때는 현재 조건에서 성공한 이유를 쓰되, 넓은 기간/시장/비용/OOS 검증이 없으면 보편적 성공으로 과장하지 않습니다.
 - ATR, liquidation, delayed-exit, microstructure, behavior, regime 설명은 payload, strategy document, 또는 명시된 source가 뒷받침할 때만 씁니다.
@@ -124,6 +133,8 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
 - 각 보완점에는 왜 이번 결과가 그 보완을 요구하는지까지 씁니다.
 - `첫째`, `둘째`, `셋째`로 나열하지 않습니다.
 - 표는 목적이 분명할 때만 사용합니다. 너무 큰 표는 나누거나 핵심 열만 남깁니다.
+- 표와 이미지를 넣었다면 `해석`에서 다시 회수합니다. 회수할 수 없는 표나 이미지는 줄이거나 제거합니다.
+- 최종 report-facing 문장에 sentence-final `봅니다.`를 남기지 않습니다.
 
 입력 payload 구조:
 
@@ -358,8 +369,20 @@ Tistory hELLO 스킨 본문에 붙여 넣을 단일 HTML입니다.
   },
   "presentation_notes": {
     "table_purposes": [""],
+    "chart_purposes": [""],
+    "required_interpretive_takeaways": [""],
+    "logic_chain": {
+      "strategy_idea": "",
+      "version_or_experiment_change": "",
+      "main_result": "",
+      "supporting_drivers": [""],
+      "limiting_evidence": [""],
+      "bounded_conclusion": "",
+      "cannot_conclude": "",
+      "next_action_with_reason": ""
+    },
     "wide_table_handling": "",
-    "forbidden_copy_checks": ["그것은"]
+    "forbidden_copy_checks": ["그것은", "sentence-final 봅니다."]
   }
 }
 ```

@@ -329,9 +329,33 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
     "table_purposes": [
       "[표 이름: 이 표가 답하는 질문]"
     ],
+    "chart_purposes": [
+      "[이미지 파일명: 이 이미지가 답하는 질문]"
+    ],
+    "required_interpretive_takeaways": [
+      "[표/이미지/metric -> 해석에서 반드시 회수할 문장]"
+    ],
+    "logic_chain": {
+      "strategy_idea": "[전략이 이용하려는 현상]",
+      "version_or_experiment_change": "[이번 버전 또는 실험에서 바뀐 점]",
+      "main_result": "[가장 중요한 결과]",
+      "supporting_drivers": [
+        "[결과를 만든 근거]"
+      ],
+      "limiting_evidence": [
+        "[결과를 약하게 만들거나 일반화를 제한하는 근거]"
+      ],
+      "bounded_conclusion": "[현재 조건에서 말할 수 있는 결론]",
+      "cannot_conclude": "[현재 결과만으로 말할 수 없는 결론]",
+      "next_action_with_reason": "[다음 보완점과 그 이유]"
+    },
     "wide_table_handling": "[split_tables_or_reduce_columns 또는 null]",
     "forbidden_copy_checks": [
       "그것은",
+      "sentence-final 봅니다.",
+      "라고 봅니다",
+      "로 봅니다",
+      "해 봅니다",
       "standalone 가설 section",
       "Hypothesis heading"
     ]
@@ -372,6 +396,11 @@ Markdown 파일은 기본 최종 산출물이 아닙니다. 명시적으로 요�
 `setup.algorithm_explanation`은 `백테스트 설정`에서 rule mechanics를 설명하기 위한 선택 필드입니다. 중요한 진입/청산/indicator/cost guard가 있으면 의사코드와 no-lookahead 설명을 저장합니다. 기본값은 explanatory pseudocode입니다. 정확 구현 인용일 때만 `source_reference`를 채우고, 일반 daily report에서는 내부 구현 세부사항을 불필요하게 노출하지 않습니다.
 
 `presentation_notes.table_purposes`는 큰 표를 만들기 전에 표가 답하는 질문을 기록하기 위한 선택 필드입니다. 목적이 다른 지표를 한 표에 섞지 않도록 돕습니다.
+`presentation_notes.chart_purposes`는 각 이미지가 답하는 질문을 기록합니다. 이미지가 `해석`에서 쓰이지 않으면 생성하거나 본문에 넣지 않습니다.
+`presentation_notes.required_interpretive_takeaways`는 future report writer가 `해석`에서 반드시 다시 회수해야 할 표, 이미지, metric 근거를 저장합니다. 예: `result comparison table -> 4h_3d_to_1d만 gross no-cost가 양수였고, side attribution은 short 쪽 편중을 보였다`.
+`presentation_notes.logic_chain`은 V1처럼 촘촘한 논리를 쓰기 위한 선택 필드입니다. 전략 아이디어, 실험 변경점, 핵심 결과, supporting driver, limiting evidence, bounded conclusion, cannot conclude, next action with reason을 저장합니다.
+V2-style data display를 위해 data coverage, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trades를 가능한 범위에서 저장합니다. 단, reader-facing 표나 이미지는 반드시 `table_purposes`, `chart_purposes`, 또는 `required_interpretive_takeaways` 중 하나와 연결되어야 합니다.
+V1-style logic density를 위해 표와 이미지가 결과의 성공, 실패, 혼합 원인 중 무엇을 설명하는지 저장합니다. 원인을 설명하지 못하는 표는 payload metadata에 남기고 본문 표로 승격하지 않습니다.
 
 패턴, 필터, 이미지, 타임프레임 coverage가 없다는 사실은 기본 payload 설명문에 넣지 않습니다. 의사결정에 중요하면 `risk_interpretation` 또는 `next_improvements`에만 넣습니다. 예를 들어 `5m` local closed candle coverage가 없어 빠진 비교는 리드 문장이 아니라 `next_improvements`에 저장합니다.
 

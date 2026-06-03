@@ -20,6 +20,10 @@
 - 없는 패턴, 필터, 이미지, 비교 타임프레임은 기본적으로 쓰지 않습니다. 꼭 필요하면 한계나 보완점에만 씁니다.
 - 최종 리포트는 `report-ko.html`입니다. Markdown 문체나 Markdown 이미지 문법을 최종 산출물 기준으로 쓰지 않습니다.
 - Tistory hELLO 스킨에 게시할 HTML 글이라는 전제로 씁니다. 본문 컨테이너 기본 폭은 `1120px`이며, 좁은 화면에서도 제목, subtitle, bullet, 표가 읽혀야 합니다.
+- 형식과 데이터 표시는 V2 report처럼 충분히 보여주되, 해석 논리는 V1 report처럼 촘촘하게 씁니다.
+- 모든 주요 표와 이미지는 `무엇을 보여주는가`, `왜 중요한가`, `해석을 어떻게 바꾸는가`를 본문에서 회수합니다.
+- 결과는 strategy idea -> experiment/version change -> main result -> supporting driver -> limiting evidence -> bounded conclusion -> next improvement 순서로 연결합니다.
+- 최종 report-facing 문장은 sentence-final `봅니다.`를 쓰지 않습니다. 직접 판단, 확인, 비교, 필요성을 말합니다.
 
 ## 2. HTML 문체 규칙
 
@@ -42,7 +46,7 @@
 좋은 예:
 
 ```text
-Lookback Return Momentum은 최근 N개 완료봉의 종가 수익률이 충분히 크면 그 방향의 흐름이 다음 몇 개 봉에도 이어질 수 있다고 보는 전략입니다.
+Lookback Return Momentum은 최근 N개 완료봉의 종가 수익률이 충분히 크면 그 방향의 흐름이 다음 몇 개 봉에도 이어질 수 있는지를 검증하는 전략입니다.
 ```
 
 피할 예:
@@ -88,6 +92,10 @@ Hypothesis
 놀라운 결과
 인상적인 결과
 매우 유의미하다
+봅니다.
+라고 봅니다
+로 봅니다
+해 봅니다
 ```
 
 아래 유형도 피합니다.
@@ -227,6 +235,19 @@ hit ratio
 전략 우위로 해석하기 어렵습니다.
 ```
 
+## 7.1 데이터 표시와 해석 회수
+
+V2-style data display는 독자가 비교할 수 있게 충분한 표와 이미지를 제공하는 방식입니다. V1-style logic density는 그 데이터가 어떤 결론으로 이어지는지 빠짐없이 설명하는 방식입니다.
+
+리포트는 두 기준을 함께 만족해야 합니다.
+
+- data coverage, setup, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trades가 payload에 있으면 목적을 정하고 보여줍니다.
+- 표는 질문을 답해야 합니다. 예: `어느 타임프레임이 좋았는가`, `gross edge가 cost를 넘었는가`, `성과가 특정 side나 year에 몰렸는가`.
+- 이미지는 시각적 근거를 답해야 합니다. 예: `equity curve가 한 구간에 몰렸는가`, `대표 거래가 전략 논리와 맞았는가`.
+- `해석`에서는 주요 표와 이미지를 다시 회수합니다. 표나 이미지를 넣고도 해석에서 쓰지 않으면 제거하거나 보완합니다.
+- 성과가 좋으면 success driver를 씁니다. 성과가 나쁘면 failure driver를 씁니다. 결과가 섞이면 interval, side, year, exit reason, variant별 driver를 분리합니다.
+- 다음 보완점은 결과의 빈칸에서 나와야 합니다. 단순히 더 해볼 일을 나열하지 않습니다.
+
 ## 8. 모멘텀 리포트 표현 규칙
 
 시장/심볼은 테스트 개요나 제목에서 이미 보이면 전략 소개 문장에 반복하지 않습니다.
@@ -345,7 +366,7 @@ ATR을 사용했습니다.
 좋은 예:
 
 ```text
-이 전략은 최근 수익률이 단기 주문 흐름을 일부 요약한다고 봅니다.
+이 전략은 최근 수익률이 단기 주문 흐름을 일부 요약한다는 전제를 둡니다.
 가격 반응이 늦거나 추세 추종 참여가 이어지면 최근 움직임이 다음 몇 개 봉까지 지속될 수 있습니다.
 하지만 신호가 빠를수록 거래 수가 늘고 비용 부담도 커집니다.
 평균 후속 움직임이 비용과 손익비를 넘지 못하면 기대값은 낮아집니다.
@@ -439,17 +460,26 @@ Jegadeesh and Titman(1993)와 Moskowitz, Ooi, and Pedersen(2012)가 모멘텀의
 
 - 비용 차감 전 우위가 충분했는지 설명합니다.
 - 비용 반영 후에도 기대값이 남은 이유를 설명합니다.
-- 승률, 평균 이익, 평균 손실, 손익비, 목표가 도달 비중, drawdown을 함께 봅니다.
+- 승률, 평균 이익, 평균 손실, 손익비, 목표가 도달 비중, drawdown을 함께 확인합니다.
+- 어느 interval, side, year, exit reason, variant가 성과를 만들었는지 attribution으로 분리합니다.
+- 현재 조건에서의 성공과 넓은 일반화의 한계를 함께 씁니다.
 
 성과가 나쁠 때:
 
-- gross-vs-net gap을 봅니다.
-- turnover와 비용 부담을 봅니다.
-- exit mix를 봅니다.
-- 신호 threshold와 hold window가 충분했는지 봅니다.
-- reward/risk 구조가 비용 이후에도 의미가 있었는지 봅니다.
+- gross-vs-net gap을 확인합니다.
+- turnover와 비용 부담을 확인합니다.
+- exit mix를 확인합니다.
+- 신호 threshold와 hold window가 충분했는지 확인합니다.
+- reward/risk 구조가 비용 이후에도 의미가 있었는지 확인합니다.
 - 테스트한 전략/버전과 더 넓은 전략군을 구분합니다.
 - 저장 결과가 특정 구현, 기간, 심볼, 타임프레임, 비용 가정, 파라미터 그리드에 묶여 있으면 전략군 전체를 기각하지 않습니다.
+
+성과가 섞여 있을 때:
+
+- 평균 결과 하나로 덮지 않습니다.
+- interval, side, year, exit reason, variant별로 무엇이 결과를 밀었는지 분리합니다.
+- result comparison, exit mix, side attribution, yearly/regime attribution을 함께 회수합니다.
+- 특정 구간이나 방향이 결과를 만든 경우 regime-specific 또는 side-specific으로 한정합니다.
 
 경계 문장 예시:
 
@@ -500,7 +530,7 @@ Jegadeesh and Titman(1993)와 Moskowitz, Ooi, and Pedersen(2012)가 모멘텀의
 
 ## 14. 최종 검수 기준
 
-리포트 작성 후 아래 기준으로 문장을 다시 봅니다.
+리포트 작성 후 아래 기준으로 문장을 다시 점검합니다.
 
 - 사람이 블로그에 직접 쓸 문장인가?
 - 최종 파일이 `report-ko.html`인가?
@@ -528,3 +558,7 @@ Jegadeesh and Titman(1993)와 Moskowitz, Ooi, and Pedersen(2012)가 모멘텀의
 - `백테스트 설정`에서 핵심 rule/indicator가 파라미터 표만으로 끝나지 않고 작동 방식이나 의사코드로 설명됐는가?
 - 이론적 배경이 레퍼런스 이름 나열이 아니라 메커니즘, 실패 조건, 현재 백테스트의 증거 경계를 설명하는가?
 - 비용, 승률, 기대값, drawdown, exit mix 중 핵심 원인을 직접 말했는가?
+- 주요 표와 이미지가 `해석`에서 다시 회수됐는가?
+- 표와 이미지마다 무엇을 보여주는지, 왜 중요한지, 해석을 어떻게 바꾸는지 설명했는가?
+- 성공/실패/혼합 결과의 driver가 저장된 수치와 attribution으로 설명됐는가?
+- 최종 report-facing 문장에 sentence-final `봅니다.`가 남아 있지 않은가?

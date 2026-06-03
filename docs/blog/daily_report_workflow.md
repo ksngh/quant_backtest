@@ -45,6 +45,11 @@
 - 저장된 결과가 없으면 payload나 이미지를 꾸며서 만들지 않습니다.
 - 내부 추적값은 payload, 이미지 파일명, chart title, HTML 본문에 쓰지 않습니다.
 - task 번호, run id, 내부 candidate id는 report folder, 이미지 파일명, 그래프 제목, `report-ko.html` 본문에 쓰지 않습니다.
+- 최종 리포트는 V2처럼 데이터 표시가 충분해야 합니다. 사용 가능한 근거가 있으면 data coverage, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trade chart를 목적에 맞게 사용합니다.
+- 최종 리포트는 V1처럼 논리가 촘촘해야 합니다. 전략 아이디어, 변경점, 핵심 결과, 성공/실패 driver, 반대 근거 또는 한계, 말할 수 있는 결론, 말할 수 없는 결론, 다음 보완점과 이유를 연결합니다.
+- 표와 이미지는 단순 장식이나 metric dump가 아닙니다. 모든 표와 이미지는 본문에서 `무엇을 보여주는지`, `왜 중요한지`, `해석을 어떻게 바꾸는지`를 회수해야 합니다.
+- `해석` 섹션은 앞에서 보여준 주요 표, 이미지, 대표 거래를 다시 연결해야 합니다. headline result만 반복하지 않습니다.
+- 최종 report-facing 문장은 sentence-final `봅니다.`를 쓰지 않습니다. `~라고 봅니다`, `~로 봅니다`, `~해 봅니다` 대신 `해석합니다`, `판단합니다`, `확인했습니다`, `비교했습니다`, `필요합니다`처럼 직접적인 표현을 사용합니다.
 - live trading, private API, credential 사용은 하지 않습니다.
 - 최종 리포트에는 standalone `가설`, `검증 가설`, `실험 가설`, `Hypothesis` 섹션을 만들지 않습니다. 실험 의도나 테스트한 전제는 `핵심 요약`, `백테스트 설정`, `전략에 포함된 가정과 이론적 배경`, 또는 `해석` 안에 녹입니다.
 - 최종 리포트는 결론 섹션으로 닫지 않고, `해석` 섹션에서 실험 의도, 관찰 결과, 원인, 보완점을 연결합니다.
@@ -212,6 +217,15 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - `.section-image`와 내부 이미지/Tistory wrapper는 본문 폭 전체를 사용해야 하며, 작은 고정 폭이나 불필요한 좌우 padding을 두지 않습니다.
 - 모든 표는 `<div class="table-scroll">`로 감쌉니다.
 - 표는 목적이 분명할 때만 사용합니다. 너무 넓거나 의미가 섞인 표는 여러 개로 나누거나 핵심 열만 남깁니다.
+- 표 또는 차트를 넣으면 바로 앞뒤 문단에서 해당 표/차트가 답하는 질문과 해석상 의미를 설명합니다.
+- 비교 리포트는 가능한 경우 아래 데이터 표시를 검토합니다. 단, 저장 근거가 있고 독자 판단에 도움이 될 때만 사용합니다.
+  - data coverage: 누락/제외된 타임프레임이나 구간이 결론에 어떤 제한을 주는지 설명합니다.
+  - result comparison: 어떤 variant, timeframe, side, year가 핵심 성과를 만들었는지 설명합니다.
+  - cost impact: gross와 net의 차이 또는 no-cost boundary가 결론에 어떤 의미인지 설명합니다.
+  - exit mix: 손절, 익절, 시간 청산 비중이 전략 논리와 맞는지 설명합니다.
+  - side attribution: Long/Short 중 어느 쪽이 결과를 주도했는지 설명합니다.
+  - yearly/regime attribution: 특정 연도나 regime에 과도하게 의존하는지 설명합니다.
+  - representative trades: 개별 사례가 aggregate 결과와 어떻게 연결되는지 설명합니다.
 - 표는 왼쪽 정렬을 기본으로 합니다. 숫자 컬럼은 필요한 경우에만 오른쪽 정렬합니다. 가운데 정렬은 기본으로 쓰지 않습니다.
 - standalone 가설 section은 만들지 않습니다. 보완점은 `<ul><li>`로 작성하고, bullet marker가 보이는 템플릿 스타일을 유지합니다.
 - title은 `strategy_label` 또는 전략명+버전만 사용합니다. `낮은 진입 기준 비교` 같은 실험 세부 문구를 main title에 넣지 않습니다.
@@ -221,6 +235,7 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - 첫 문단을 시장/심볼/기간 요약으로 시작하지 않습니다.
 - 어색한 `기본값` 비교 라벨, 영어식 micro-heading, 별도 주의사항 기본 섹션을 만들지 않습니다.
 - 최종 해석 섹션 제목은 `해석`입니다.
+- `해석`은 결과를 다시 쓰는 섹션이 아닙니다. 앞선 표/이미지/대표 거래에서 나온 evidence를 회수해 성공 원인, 실패 원인, 한계, 다음 보완점을 연결합니다.
 - task 번호, run id, 내부 candidate id, DB dump, config dump, git commit은 쓰지 않습니다.
 - source file path는 기본적으로 쓰지 않습니다. 다만 `백테스트 설정`의 코드 블록을 정확 구현 인용으로 명시하는 별도 report task라면 짧은 source reference를 허용합니다.
 - 실패한 전략은 실전 적용 가능하다고 쓰지 않습니다.
@@ -239,6 +254,7 @@ PNG 생성 후 `report-ko.html`을 만듭니다.
 - 모멘텀 전략은 strategy 문서가 뒷받침하는 범위에서 과소반응, 느린 포지션 조정, 리스크 프리미엄/tail risk, hedger/speculator 구조, spot Bitcoin 적용 한계를 설명합니다.
 - 보완점은 무엇을 바꿀지와 왜 이번 결과가 그 보완을 요구하는지를 함께 설명합니다.
 - `그것은`은 최종 리포트 문장에 쓰지 않습니다.
+- `봅니다.`로 끝나는 문장은 최종 리포트에 쓰지 않습니다.
 - 이미지가 제공되면 `.section-image` 안에서 본문 폭 전체를 사용하도록 둡니다. HTML에서 작은 고정 폭으로 줄이지 않습니다.
 
 ## 8. 최종 검증
@@ -265,6 +281,9 @@ artifact 완료 전에 아래를 확인합니다.
 - `전략 규칙`이 별도 기본 섹션으로 분리되지 않았습니다.
 - standalone `가설`/hypothesis 섹션이 없고, 보완점 bullet이 보입니다.
 - 표가 목적별로 읽히고, 너무 넓은 경우 스크롤 또는 분할 처리되었습니다.
+- 모든 주요 표와 이미지에 해석상 takeaway가 붙어 있습니다.
+- `해석` 섹션이 result comparison, cost impact, exit mix, side/year attribution, 대표 거래 중 중요한 evidence를 다시 회수했습니다.
+- 성공/실패/mixed result에 대해 driver가 저장 근거로 설명되었습니다.
 - 표가 왼쪽 정렬 중심으로 읽히고 숫자 컬럼만 필요 시 오른쪽 정렬됩니다.
 - HTML 컨테이너가 hELLO 스킨용 `.report-page`, `--page-max-width: 1120px`, `width: calc(100% - 32px)`를 따릅니다.
 - 이미지가 `.section-image img`와 `.report-figure img`에서 `width: 100%`, `max-width: 100%`, `height: auto`로 본문 폭에 맞게 표시됩니다.
@@ -278,6 +297,7 @@ artifact 완료 전에 아래를 확인합니다.
 - `대표 거래`가 왜 거래가 발생했는지, 진입/청산 정상 작동 여부, 전략 논리 대 변동성 해석, 성과 왜곡 여부, 반복 여부, 엔진/체결 로직 이상 신호를 자연스러운 narrative 안에서 다룹니다.
 - 대표 거래 diagnostic 항목이 별도 목차, 하위 heading, 기계적 체크리스트로 노출되지 않았습니다.
 - `그것은` 표현이 없습니다.
+- `봅니다.`로 끝나는 문장이 없습니다.
 - 실패한 버전의 결과를 전략군 전체 기각으로 확대하지 않았습니다.
 - 성공한 버전의 결과를 보편적 유효성으로 과장하지 않았습니다.
 
@@ -348,6 +368,9 @@ daily report 요청만으로 새 전략 개발이나 새 백테스트를 자동 
 - 결과 해석.
 - 위험 해석.
 - 보완점.
+- table/chart purpose notes.
+- success/failure/mixed result driver notes.
+- interpretation reclaim notes: 어떤 표와 이미지가 `해석`에서 다시 연결되어야 하는지.
 
 필드 이름과 구조는 `docs/blog/backtest_report_data_rules.md`를 따릅니다.
 
