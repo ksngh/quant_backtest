@@ -244,9 +244,9 @@ def test_backfill_uses_public_market_data_endpoint_without_signed_request_data()
 
 @pytest.mark.parametrize(
     ("interval", "interval_ms"),
-    [("1h", 3_600_000), ("1d", 86_400_000)],
+    [("1h", 3_600_000), ("4h", 14_400_000), ("1d", 86_400_000)],
 )
-def test_backfill_accepts_hour_and_day_intervals_for_public_kline_requests(
+def test_backfill_accepts_higher_timeframe_intervals_for_public_kline_requests(
     interval: str, interval_ms: int
 ):
     repository = InMemoryCandleRepository()
@@ -276,18 +276,19 @@ def test_backfill_accepts_hour_and_day_intervals_for_public_kline_requests(
 
 @pytest.mark.parametrize(
     ("interval", "expected_ms"),
-    [("1h", 3_600_000), ("1d", 86_400_000)],
+    [("1h", 3_600_000), ("4h", 14_400_000), ("1d", 86_400_000)],
 )
-def test_interval_milliseconds_maps_hour_and_day_intervals(
+def test_interval_milliseconds_maps_higher_timeframe_intervals(
     interval: str, expected_ms: int
 ):
     assert _interval_milliseconds(interval) == expected_ms
 
 
 def test_interval_list_parser_trims_deduplicates_and_preserves_order():
-    assert parse_interval_list("1m, 1h,1d,1h,5m") == (
+    assert parse_interval_list("1m, 1h,4h,1d,1h,5m") == (
         "1m",
         "1h",
+        "4h",
         "1d",
         "5m",
     )
@@ -319,15 +320,15 @@ def test_multi_interval_runner_calls_backfiller_once_per_interval():
 
     result = MultiIntervalBinanceBackfillRunner(FakeBackfiller()).run(
         symbol="btcusdt",
-        intervals=("1m", "1h", "1d"),
+        intervals=("1m", "1h", "4h", "1d"),
         start_time=1,
         end_time=2,
         limit=100,
     )
 
     assert result.symbol == "BTCUSDT"
-    assert result.intervals == ("1m", "1h", "1d")
-    assert [call["interval"] for call in calls] == ["1m", "1h", "1d"]
+    assert result.intervals == ("1m", "1h", "4h", "1d")
+    assert [call["interval"] for call in calls] == ["1m", "1h", "4h", "1d"]
     assert all(call["symbol"] == "BTCUSDT" for call in calls)
 
 

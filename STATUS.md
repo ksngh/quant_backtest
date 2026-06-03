@@ -1,24 +1,25 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 440: Task 324 Lookback Return Momentum V2 no-cost ATR-1 validation completed (2026-06-02).
+Phase 442: Task 325 backfill 4h interval support completed (2026-06-03).
 
 ## Current Step
-Completed Task 324 implementation metadata wiring, V2 no-cost ATR-1 backtests, and task report.
+Completed the narrow Task 325 implementation for adding `4h` to the Binance public REST candle backfill interval path.
 
 ## Current Goal
-Prepare for owner review of the Task 324 V2 gross/no-cost result and PR.
+Prepare for owner review of Task 325. If actual `4h` candles should be populated in PostgreSQL, create or assign a separate bounded data-backfill execution task.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 324. Added a narrow `--lookback-return-momentum-version` metadata path while preserving default `v1`, preflighted continuous `BTCUSDT` `1m`/`5m`/`15m` data for the February-to-May window, persisted V2 no-cost ATR-1 runs `1210`/`1211`/`1212`, and saved `reports/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md` plus `reports/task_324_v2_no_cost_atr1_summary.json`. All three intervals were gross/no-cost negative (`1m`: `-7.5868%`, `5m`: `-0.1344%`, `15m`: `-3.0509%`). No post-result tuning, candle backfill, frontend/backend/API change, live trading behavior, exchange endpoint, secret, or `.env` change was added.
+Completed Task 325 `BACKFILL_4H_INTERVAL_SUPPORT`. Added `4h` to the shared Binance public REST kline interval allowlist, updated README supported interval docs, and updated focused fake-backed market-data tests for downloader validation, backfill request dispatch, interval duration, interval-list parsing, multi-interval runner/CLI dispatch, CLI help, and `4h` continuity. Verification passed (`68` focused tests, `124` full market-data tests, py_compile, diff check, contract grep, and safety grep). No real DB backfill execution, DB mutation, strategy-context wiring, strategy/backtest execution, live trading behavior, exchange order/account/private endpoint behavior, secret, or `.env` change was added.
 
 ## Recommended Next Step
-Recommended next step: wait for owner review of Task 324. If the owner wants to continue the momentum family, create a new bounded task that first improves gross/no-cost edge with a predeclared path-quality, volatility-regime, or payoff-geometry change before reintroducing costs.
+Recommended next step: if the owner wants actual data loaded, create a separate bounded data-backfill execution task for `BTCUSDT` `4h` candles. Task 265 remains the broader `1h`/`4h` strategy-context task.
 
 ## Current Blockers (Short)
+- Task 325 note: completed. `quant-bitcoin-binance-backfill --interval 4h` and multi-interval inputs containing `4h` are now accepted by the Binance public REST candle backfill path. The task did not run a real DB backfill or wire higher-timeframe strategy context; Task 265 remains the broader context task.
 - Task 323 note: completed. `docs/api/API_CONTRACT.md`, the backend detail endpoint/service/schema, and the frontend dashboard were updated so large `1m` saved runs can be loaded with bounded chart data instead of an unbounded `graph_points` response. Sampling preserves first/last points, marker/signal/execution points, trade timestamps when present, nearby marker context as budget allows, chronological order, and response metadata. No strategy/backtest execution, DB mutation, candle backfill, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 - Task 324 note: completed. `docs/strategy/lookback_return_momentum_v2.md` documents the V2 no-cost ATR-1 diagnostic, and persisted runs `1210`/`1211`/`1212` show that this exact V2 configuration is negative even before costs are reintroduced. The committed task report is `reports/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`; compact metrics are in `reports/task_324_v2_no_cost_atr1_summary.json`. The full raw CLI JSON was generated and validated locally but not committed because the `1m` output was about `386 MB`.
 - Task 322 note: completed. `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/report-ko.html` now applies Task 319 representative-trade diagnostics, Task 320 backtest-setting algorithm/pseudocode explanation, and Task 321 theory/background depth. The standalone `가설` section was removed, saved Task 311 metrics were preserved, and the bounded conclusion still says the tested V1 configuration is ineffective after costs in the tested conditions without rejecting momentum strategies generally. No payload, PNG, new backtest, parameter tuning/search, strategy/code change, DB mutation, candle backfill, reusable workflow-doc edit, live trading behavior, exchange endpoint, secret, or `.env` change was added.
@@ -92,6 +93,7 @@ Recommended next step: wait for owner review of Task 324. If the owner wants to 
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
 - Last completed task: `tasks/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`
+- Last completed task: `tasks/TASK_325_BACKFILL_4H_INTERVAL_SUPPORT.md`
 - Last completed task: `tasks/TASK_323_FRONTEND_LARGE_1M_CANDLE_LOAD_ERROR_FIX.md`
 - Last completed task: `tasks/TASK_320_DAILY_REPORT_BACKTEST_SETTING_ALGORITHM_EXPLANATION_WORKFLOW_REVISION.md`
 - Last completed task: `tasks/TASK_319_DAILY_REPORT_REPRESENTATIVE_TRADE_DIAGNOSTIC_WORKFLOW_REVISION.md`
