@@ -54,6 +54,14 @@ def test_validate_standard_candles_rejects_missing_interval_gap_when_enforced() 
             ],
         ),
         (
+            "4h",
+            [
+                "2024-01-01T00:00:00Z",
+                "2024-01-01T04:00:00Z",
+                "2024-01-01T08:00:00Z",
+            ],
+        ),
+        (
             "1d",
             [
                 "2024-01-01T00:00:00Z",

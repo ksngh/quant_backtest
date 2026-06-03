@@ -93,7 +93,9 @@ def test_fetch_historical_candles_builds_public_kline_request_and_normalizes():
     assert list(candles.columns) == list(STANDARD_CANDLE_COLUMNS)
 
 
-@pytest.mark.parametrize("interval", ["1m", "3m", "5m", "15m", "30m", "1h", "1d"])
+@pytest.mark.parametrize(
+    "interval", ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"]
+)
 def test_downloader_supports_configured_kline_intervals(interval):
     requested_urls: list[str] = []
 
