@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lookback Return Momentum V2</title>
+  <style>
+    :root {
+      --page: #ffffff;
+      --ink: #15171a;
+      --muted: #60666d;
+      --line: #d9dde3;
+      --soft-line: #eceff3;
+      --code-bg: #f6f7f9;
+      --table-head: #f7f8fa;
+      --page-max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+    }
+
+    .report-page {
+      max-width: var(--page-max-width);
+      width: calc(100% - 32px);
+      margin: 0 auto;
+      padding: 42px 0 88px;
+    }
+
+    .report-header {
+      margin-bottom: 42px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .report-kicker {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0;
+    }
+
+    .report-title {
+      margin: 0;
+      font-size: clamp(2rem, 3.2vw, 3rem);
+      line-height: 1.12;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .report-subtitle {
+      max-width: 980px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.25vw, 1.16rem);
+      line-height: 1.68;
+    }
+
+    .report-content { width: 100%; }
+    .report-content > *:first-child { margin-top: 0; }
+
+    h2 {
+      margin: 86px 0 22px;
+      padding-top: 26px;
+      font-size: clamp(1.35rem, 1.8vw, 2rem);
+      line-height: 1.32;
+      font-weight: 720;
+      letter-spacing: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .report-content > h2:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    h3 {
+      margin: 44px 0 14px;
+      font-size: clamp(1.06rem, 1.2vw, 1.28rem);
+      line-height: 1.42;
+      font-weight: 680;
+      letter-spacing: 0;
+    }
+
+    p {
+      max-width: 980px;
+      margin: 0 0 17px;
+    }
+
+    .lead {
+      max-width: 1040px;
+      font-size: clamp(1.04rem, 1.18vw, 1.18rem);
+      line-height: 1.74;
+    }
+
+    ul, ol {
+      max-width: 980px;
+      margin: 0 0 22px 0;
+      padding-left: 1.45rem;
+      list-style-position: outside;
+    }
+
+    li { margin: 7px 0; }
+    li::marker {
+      color: var(--ink);
+      font-size: 0.9em;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      max-width: 980px;
+      margin: 20px 0 28px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      border: 1px solid var(--soft-line);
+    }
+
+    pre code {
+      display: block;
+      white-space: pre;
+    }
+
+    .table-scroll {
+      width: 100%;
+      margin: 20px 0 40px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--soft-line);
+      border-left: 0;
+      border-right: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: clamp(0.88rem, 0.92vw, 0.98rem);
+      line-height: 1.46;
+      font-variant-numeric: tabular-nums;
+    }
+
+    thead th {
+      background: var(--table-head);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: #22262a;
+      font-weight: 680;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--soft-line);
+      vertical-align: top;
+      text-align: left;
+      white-space: normal;
+    }
+
+    td:first-child,
+    th:first-child {
+      white-space: normal;
+      min-width: 150px;
+    }
+
+    td.number,
+    th.number {
+      white-space: nowrap;
+      text-align: right !important;
+    }
+
+    tr:last-child td { border-bottom-color: var(--line); }
+
+    .report-figure {
+      width: 100%;
+      margin: 34px 0 48px;
+    }
+
+    .section-image {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    .report-figure img,
+    .section-image img {
+      display: block;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0 auto;
+    }
+
+    .report-figure figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .note {
+      max-width: 980px;
+      margin: 22px 0 30px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 860px) {
+      .report-page {
+        width: calc(100% - 24px);
+        padding: 34px 16px 72px;
+      }
+
+      h2 {
+        margin-top: 64px;
+        padding-top: 22px;
+      }
+
+      table { min-width: 760px; }
+      th, td { padding: 9px 10px; }
+    }
+  </style>
+</head>
+<body>
+<main class="report-page">
+  <header class="report-header">
+    <p class="report-kicker">백테스트 리포트</p>
+    <h1 class="report-title">Lookback Return Momentum V2</h1>
+    <p class="report-subtitle">과거 일정 구간의 수익률을 확인하는 모멘텀 전략.</p>
+  </header>
+
+  <article class="report-content">
+    <h2>1. 핵심 요약</h2>
+    <p class="lead">Lookback Return Momentum은 최근 완료봉들의 종가 수익률이 충분히 크면 이후 구간도 같은 방향으로 이어지는지 확인하는 전략입니다. V2는 이 아이디어를 분 단위가 아니라 1h, 4h, 1d 시간축으로 옮기고, 거래비용을 모두 0으로 둔 상태에서 1 ATR 손절과 1 ATR 익절을 적용했습니다.</p>
+    <p>실행 가능한 4h와 1d 네 조합 중 세 조합은 비용 0 조건에서 양수였습니다. 가장 좋은 조합은 1d에서 최근 1개월 수익률을 보고 다음 1주를 보유한 경우였고, 총수익률은 +21.64%, 최대 낙폭은 -3.57%였습니다. 1h는 native candle 내부 gap 때문에 실행에서 제외됐으며, 전략 실패 결과로 분류하지 않습니다.</p>
+
+    <figure class="report-figure" data-purpose="summary equity and gross/no-cost result">
+      <div class="section-image">
+        <img src="./summary_equity_curve.png" alt="V2 대표 조합의 수익 곡선과 낙폭" loading="lazy">
+      </div>
+      <figcaption>최고 성과 조합의 equity curve와 drawdown입니다. 수익이 플러스였다는 사실과 낙폭이 어느 정도였는지를 함께 확인합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>내용</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>시장/심볼</td>
+            <td>Binance BTCUSDT</td>
+          </tr>
+          <tr>
+            <td>기간</td>
+            <td>2021-01-01 00:00 UTC ~ 2026-06-01 00:00 UTC 직전</td>
+          </tr>
+          <tr>
+            <td>비교 대상</td>
+            <td>1h, 4h, 1d higher-timeframe lookback-return 조합</td>
+          </tr>
+          <tr>
+            <td>비용 조건</td>
+            <td>수수료, 스프레드, 슬리피지 0. gross/no-cost 확인</td>
+          </tr>
+          <tr>
+            <td>청산 조건</td>
+            <td>진입 시점 ATR 기준 1 ATR 손절, 1 ATR 익절, 시간 청산</td>
+          </tr>
+          <tr>
+            <td>데이터 제한</td>
+            <td>1h는 7개 gap, 총 14개 누락 open time 때문에 실행 제외</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>2. 전략에 포함된 가정과 이론적 배경</h2>
+    <p>이 전략은 최근 수익률이 참여자 반응 지연, 자금 흐름, 느린 포지션 조정, 추세 추종 참여를 일부 압축한다는 전제를 둡니다. 가격이 모든 정보를 한 번에 반영하지 않거나 큰 참여자가 여러 시간 또는 여러 날에 걸쳐 포지션을 조정하면, 최근 움직임 뒤에 같은 방향의 후속 흐름이 남을 수 있습니다.</p>
+    <p>V2가 higher timeframe을 쓰는 이유도 여기에 있습니다. 1분이나 5분 봉은 스프레드 통과, 청산 연쇄, 짧은 되돌림, 국지적 주문 흐름이 많이 섞입니다. 반면 4h와 1d는 session 단위 조정, 일 단위 자금 흐름, macro risk appetite 변화, 느린 allocation 변화를 더 직접적으로 반영할 수 있습니다.</p>
+    <ul>
+      <li>1h는 intraday 정보 전파를 확인하려는 시간축이지만, 이번 저장 데이터에서는 연속성 제한으로 실행하지 않았습니다.</li>
+      <li>4h는 session 단위의 방향 지속과 cross-session 포지션 조정을 확인하기 위한 시간축입니다.</li>
+      <li>1d는 일 단위 정보 반영, 자금 흐름, 더 느린 allocation 변화를 확인하기 위한 시간축입니다.</li>
+      <li>Jegadeesh and Titman(1993)은 가격 모멘텀과 과소반응 배경을 제공하고, Moskowitz, Ooi, and Pedersen(2012)은 own-asset past return이 방향 정보를 가질 수 있다는 넓은 배경을 제공합니다. 이 문헌들은 현재 BTCUSDT 구현의 성과를 보장하지 않고, 이번 테스트는 그 메커니즘과의 정합성만 제한적으로 확인합니다.</li>
+    </ul>
+    <pre><code>r_t(L) = close[t] / close[t - L] - 1
+
+if r_t(L) &gt;= threshold:
+    enter long
+elif r_t(L) &lt;= -threshold:
+    enter short
+else:
+    stay flat</code></pre>
+    <p>최근 움직임이 정보 반영이 아니라 과열, 청산 연쇄, 되돌림의 시작이면 같은 규칙은 실패합니다. 그래서 결과는 총수익률 하나가 아니라 청산 구성, 방향별 기여, 연도별 기여, 대표 거래의 규칙 작동 여부까지 함께 해석해야 합니다.</p>
+
+    <h2>3. 백테스트 설정</h2>
+    <p>신호와 ATR은 신호 candle까지의 완료봉만 사용합니다. 진입은 신호 candle close에서 처리하고, 손절·익절·시간 청산 확인은 다음 완료봉부터 시작합니다. 같은 candle에서 손절과 익절이 모두 닿으면 손절을 먼저 적용합니다.</p>
+    <pre><code># explanatory pseudocode
+lookback_return = close[t] / close[t - lookback_bars] - 1
+risk_distance = ATR_14_RMA[t]
+
+long_stop = entry_price - risk_distance
+long_target = entry_price + risk_distance
+short_stop = entry_price + risk_distance
+short_target = entry_price - risk_distance
+
+# exit priority from next completed candle
+stop_loss -&gt; take_profit -&gt; time_exit</code></pre>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>설정</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>초기 자본</td>
+            <td>1,000,000 KRW, 1,500 KRW/USDT 환산 후 666.67 USDT</td>
+          </tr>
+          <tr>
+            <td>포지션 사이징</td>
+            <td>cash_fraction 0.10</td>
+          </tr>
+          <tr>
+            <td>ATR</td>
+            <td>14 period RMA</td>
+          </tr>
+          <tr>
+            <td>손절/익절</td>
+            <td>각각 1 ATR</td>
+          </tr>
+          <tr>
+            <td>비용</td>
+            <td>fee 0, spread 0, slippage 0</td>
+          </tr>
+          <tr>
+            <td>동일 candle 처리</td>
+            <td>손절 우선</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure class="report-figure" data-purpose="data coverage">
+      <div class="section-image">
+        <img src="./data_coverage.png" alt="타임프레임별 candle coverage" loading="lazy">
+      </div>
+      <figcaption>data coverage 차트입니다. 1h는 데이터 연속성 제한, 4h와 1d는 실행 가능 구간으로 분리됩니다.</figcaption>
+    </figure>
+
+    <p>데이터 표는 이번 결론의 범위를 정합니다. 1h가 빠졌기 때문에 V2 결과는 4h와 1d 실행 조합에 대한 판단이며, 1h momentum 자체의 성패 판단은 아닙니다.</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>타임프레임</th>
+            <th>상태</th>
+            <th class="number">저장 candle</th>
+            <th class="number">missing</th>
+            <th>시작</th>
+            <th>마지막</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1h</td>
+            <td>제외</td>
+            <td class="number">47,434</td>
+            <td class="number">14</td>
+            <td>2021-01-01</td>
+            <td>2026-05-31</td>
+          </tr>
+          <tr>
+            <td>4h</td>
+            <td>실행</td>
+            <td class="number">11,862</td>
+            <td class="number">0</td>
+            <td>2021-01-01</td>
+            <td>2026-05-31</td>
+          </tr>
+          <tr>
+            <td>1d</td>
+            <td>실행</td>
+            <td class="number">1,977</td>
+            <td class="number">0</td>
+            <td>2021-01-01</td>
+            <td>2026-05-31</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>4. 결과</h2>
+    <p>result comparison은 평균값 하나로 덮기 어렵습니다. 4h의 짧은 1일 lookback 조합은 -10.40%였지만, 4h의 3일 lookback 조합과 1d 두 조합은 양수였습니다. 이 차이는 정보 반영 지연이 더 긴 관찰 구간에서 더 잘 드러날 수 있다는 쪽을 지지하지만, higher timeframe 자체가 항상 우월하다는 뜻은 아닙니다.</p>
+    <p>비교 대상 라벨은 `사용한 candle 간격 / 과거를 본 기간 / 최대 보유 기간` 순서로 읽습니다. 예를 들어 `4h 3d to 1d`는 4시간봉으로 최근 3일 수익률을 계산하고, 진입 후 최대 1일 안에 1 ATR 손절·익절 또는 시간 청산으로 종료한다는 뜻입니다. 표의 lookback과 hold는 이 기간을 candle 개수로 바꾼 값입니다.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>비교 대상</th>
+            <th>뜻</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>4h 1d to 12h</td>
+            <td>4시간봉 기준, 최근 1일 움직임을 보고 다음 최대 12시간을 검증</td>
+          </tr>
+          <tr>
+            <td>4h 3d to 1d</td>
+            <td>4시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증</td>
+          </tr>
+          <tr>
+            <td>1d 1w to 1d</td>
+            <td>일봉 기준, 최근 1주 움직임을 보고 다음 최대 1일을 검증</td>
+          </tr>
+          <tr>
+            <td>1d 1m to 1w</td>
+            <td>일봉 기준, 최근 1개월 움직임을 보고 다음 최대 1주를 검증</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure class="report-figure" data-purpose="result comparison">
+      <div class="section-image">
+        <img src="./htf_variant_comparison.png" alt="4h와 1d 조합별 수익률과 낙폭 비교" loading="lazy">
+      </div>
+      <figcaption>조합별 총수익률, 거래 수, 최대 낙폭을 함께 비교합니다. 양수 조합과 음수 조합이 같은 V2 안에 공존합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>비교 대상</th>
+            <th>TF</th>
+            <th class="number">lookback</th>
+            <th class="number">hold</th>
+            <th class="number">threshold</th>
+            <th class="number">거래</th>
+            <th class="number">수익률</th>
+            <th class="number">MDD</th>
+            <th class="number">순손익</th>
+            <th class="number">평균 R</th>
+            <th class="number">승률</th>
+            <th class="number">PF</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>4h 1d to 12h</td>
+            <td>4h</td>
+            <td class="number">6</td>
+            <td class="number">3</td>
+            <td class="number">0.010</td>
+            <td class="number">2,746</td>
+            <td class="number">-10.40%</td>
+            <td class="number">-13.25%</td>
+            <td class="number">-69.33</td>
+            <td class="number">-0.012</td>
+            <td class="number">+48.03%</td>
+            <td class="number">0.942</td>
+          </tr>
+          <tr>
+            <td>4h 3d to 1d</td>
+            <td>4h</td>
+            <td class="number">18</td>
+            <td class="number">6</td>
+            <td class="number">0.030</td>
+            <td class="number">1,621</td>
+            <td class="number">+14.82%</td>
+            <td class="number">-4.96%</td>
+            <td class="number">98.83</td>
+            <td class="number">0.039</td>
+            <td class="number">+51.94%</td>
+            <td class="number">1.094</td>
+          </tr>
+          <tr>
+            <td>1d 1w to 1d</td>
+            <td>1d</td>
+            <td class="number">7</td>
+            <td class="number">1</td>
+            <td class="number">0.030</td>
+            <td class="number">663</td>
+            <td class="number">+8.47%</td>
+            <td class="number">-6.04%</td>
+            <td class="number">56.45</td>
+            <td class="number">0.042</td>
+            <td class="number">+50.38%</td>
+            <td class="number">1.125</td>
+          </tr>
+          <tr>
+            <td>1d 1m to 1w</td>
+            <td>1d</td>
+            <td class="number">30</td>
+            <td class="number">7</td>
+            <td class="number">0.100</td>
+            <td class="number">271</td>
+            <td class="number">+21.64%</td>
+            <td class="number">-3.57%</td>
+            <td class="number">144.29</td>
+            <td class="number">0.112</td>
+            <td class="number">+54.98%</td>
+            <td class="number">1.380</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>cost impact는 이번 결과를 해석할 때 가장 먼저 제한해야 하는 부분입니다. 수수료, 스프레드, 슬리피지가 모두 0이라 gross PnL과 net PnL이 동일합니다. 따라서 이 표와 이미지는 수익성을 입증하는 자료가 아니라, 비용을 다시 넣기 전 raw 방향성과 exit geometry를 분리한 자료입니다.</p>
+    <figure class="report-figure" data-purpose="gross/no-cost cost impact">
+      <div class="section-image">
+        <img src="./cost_impact.png" alt="비용 0 조건에서 gross와 net 손익 비교" loading="lazy">
+      </div>
+      <figcaption>비용 0 조건의 cost impact입니다. gross와 net이 같은 이유는 우위가 비용을 이겼기 때문이 아니라 비용을 아직 넣지 않았기 때문입니다.</figcaption>
+    </figure>
+
+    <p>exit mix는 V2의 성패가 단순한 방향 적중만으로 정해지지 않았음을 설명합니다. 최고 조합은 take-profit 134회, stop-loss 101회로 target 기여가 더 컸습니다. 반대로 4h 1일 lookback 조합은 time exit가 1,087회로 많고 전체 기대값이 음수였습니다.</p>
+    <figure class="report-figure" data-purpose="exit mix">
+      <div class="section-image">
+        <img src="./exit_mix.png" alt="조합별 손절 익절 시간 청산 구성" loading="lazy">
+      </div>
+      <figcaption>exit mix는 손절, 익절, 시간 청산 비중을 비교합니다. 수익 조합과 손실 조합의 차이를 청산 구조로 확인합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>비교 대상</th>
+            <th class="number">손절</th>
+            <th class="number">익절</th>
+            <th class="number">시간 청산</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>4h 1d to 12h</td>
+            <td class="number">811</td>
+            <td class="number">848</td>
+            <td class="number">1,087</td>
+          </tr>
+          <tr>
+            <td>4h 3d to 1d</td>
+            <td class="number">663</td>
+            <td class="number">735</td>
+            <td class="number">223</td>
+          </tr>
+          <tr>
+            <td>1d 1w to 1d</td>
+            <td class="number">63</td>
+            <td class="number">104</td>
+            <td class="number">496</td>
+          </tr>
+          <tr>
+            <td>1d 1m to 1w</td>
+            <td class="number">101</td>
+            <td class="number">134</td>
+            <td class="number">36</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>side attribution은 결과가 완전히 대칭적이지 않다는 점을 드러냅니다. 양수 조합은 Long과 Short가 모두 기여했지만, 최고 조합에서는 Short 순손익 94.23 USDT가 Long 순손익 50.05 USDT보다 컸습니다. 따라서 V2의 좋은 결과는 양방향 모멘텀 전체가 균등하게 작동했다기보다, 특정 방향과 구간의 기여를 함께 포함합니다.</p>
+    <figure class="report-figure" data-purpose="side attribution">
+      <div class="section-image">
+        <img src="./side_attribution.png" alt="Long과 Short 순손익 기여" loading="lazy">
+      </div>
+      <figcaption>side attribution은 Long과 Short의 순손익 기여를 분리합니다. 방향별 편중은 다음 검증에서 반드시 다시 확인해야 합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>비교 대상</th>
+            <th class="number">Long 거래</th>
+            <th class="number">Long 순손익</th>
+            <th class="number">Short 거래</th>
+            <th class="number">Short 순손익</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>4h 1d to 12h</td>
+            <td class="number">1,390</td>
+            <td class="number">-22.01</td>
+            <td class="number">1,356</td>
+            <td class="number">-47.32</td>
+          </tr>
+          <tr>
+            <td>4h 3d to 1d</td>
+            <td class="number">850</td>
+            <td class="number">45.24</td>
+            <td class="number">771</td>
+            <td class="number">53.58</td>
+          </tr>
+          <tr>
+            <td>1d 1w to 1d</td>
+            <td class="number">352</td>
+            <td class="number">10.47</td>
+            <td class="number">311</td>
+            <td class="number">45.97</td>
+          </tr>
+          <tr>
+            <td>1d 1m to 1w</td>
+            <td class="number">156</td>
+            <td class="number">50.05</td>
+            <td class="number">115</td>
+            <td class="number">94.23</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>yearly attribution은 결과가 어느 regime에 기대는지 확인합니다. 최고 조합은 2021~2025에 모두 양수였지만 2026에는 -1.55%였습니다. 4h 3일 lookback도 2021~2024는 양수였고 2025~2026은 음수였습니다. 이 패턴은 V2가 느린 시간축과 맞을 가능성을 높이지만, 최근 구간 약화와 regime 의존성을 동시에 남깁니다.</p>
+    <figure class="report-figure" data-purpose="yearly attribution">
+      <div class="section-image">
+        <img src="./yearly_attribution.png" alt="연도별 수익률 기여" loading="lazy">
+      </div>
+      <figcaption>yearly attribution은 성과가 특정 연도에만 몰렸는지 확인합니다. 좋은 조합도 최근 구간에서는 약해졌습니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>연도</th>
+            <th class="number">4h 1d to 12h</th>
+            <th class="number">4h 3d to 1d</th>
+            <th class="number">1d 1w to 1d</th>
+            <th class="number">1d 1m to 1w</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2021</td>
+            <td class="number">-4.10%</td>
+            <td class="number">+5.72%</td>
+            <td class="number">-4.50%</td>
+            <td class="number">+10.79%</td>
+          </tr>
+          <tr>
+            <td>2022</td>
+            <td class="number">-2.20%</td>
+            <td class="number">+6.09%</td>
+            <td class="number">+5.47%</td>
+            <td class="number">+3.98%</td>
+          </tr>
+          <tr>
+            <td>2023</td>
+            <td class="number">-1.58%</td>
+            <td class="number">+2.90%</td>
+            <td class="number">-0.31%</td>
+            <td class="number">+3.99%</td>
+          </tr>
+          <tr>
+            <td>2024</td>
+            <td class="number">+2.79%</td>
+            <td class="number">+2.91%</td>
+            <td class="number">+4.21%</td>
+            <td class="number">+1.95%</td>
+          </tr>
+          <tr>
+            <td>2025</td>
+            <td class="number">-5.24%</td>
+            <td class="number">-2.36%</td>
+            <td class="number">+2.29%</td>
+            <td class="number">+1.18%</td>
+          </tr>
+          <tr>
+            <td>2026</td>
+            <td class="number">-0.20%</td>
+            <td class="number">-0.88%</td>
+            <td class="number">+1.78%</td>
+            <td class="number">-1.55%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>5. 대표 거래</h2>
+    <p>대표 거래는 최고 성과 조합에서 골랐습니다. 두 사례 모두 Short 신호이며, 최근 1개월 수익률이 큰 음수였기 때문에 하락 방향 continuation을 기대한 진입입니다. 수익 거래는 target까지 이어진 경우이고, 손실 거래는 같은 신호가 반등에 막혀 stop으로 끝난 경우입니다.</p>
+
+    <figure class="report-figure" data-purpose="representative trades win">
+      <div class="section-image">
+        <img src="./representative_win_trade.png" alt="대표 수익 거래" loading="lazy">
+      </div>
+      <figcaption>대표 수익 거래는 entry, target, stop, exit 주변 1d candle context를 포함합니다. 개별 사례가 아니라 target 도달 구조의 예시로 읽어야 합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>대표 수익 거래</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>방향</td>
+            <td>SHORT</td>
+          </tr>
+          <tr>
+            <td>진입</td>
+            <td>2021-05-24 00:00 UTC / 38,796.29</td>
+          </tr>
+          <tr>
+            <td>청산</td>
+            <td>2021-05-30 00:00 UTC / 33,499.57</td>
+          </tr>
+          <tr>
+            <td>신호 수익률</td>
+            <td>-22.48%</td>
+          </tr>
+          <tr>
+            <td>ATR</td>
+            <td>5,296.72 / 1,365.26 bps</td>
+          </tr>
+          <tr>
+            <td>손익</td>
+            <td>+9.66 USDT / R +1.00</td>
+          </tr>
+          <tr>
+            <td>청산 사유</td>
+            <td>TAKE_PROFIT</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure class="report-figure" data-purpose="representative trades loss">
+      <div class="section-image">
+        <img src="./representative_loss_trade.png" alt="대표 손실 거래" loading="lazy">
+      </div>
+      <figcaption>대표 손실 거래는 같은 Short continuation 가정이 반등에 의해 stop으로 끝난 사례입니다. 이 사례는 전략 신호가 항상 정보 반영 지연을 잡는 것은 아니라는 한계를 설명합니다.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>대표 손실 거래</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>방향</td>
+            <td>SHORT</td>
+          </tr>
+          <tr>
+            <td>진입</td>
+            <td>2021-06-08 00:00 UTC / 33,380.81</td>
+          </tr>
+          <tr>
+            <td>청산</td>
+            <td>2021-06-09 00:00 UTC / 37,119.18</td>
+          </tr>
+          <tr>
+            <td>신호 수익률</td>
+            <td>-42.68%</td>
+          </tr>
+          <tr>
+            <td>ATR</td>
+            <td>3,738.37 / 1,119.92 bps</td>
+          </tr>
+          <tr>
+            <td>손익</td>
+            <td>-8.11 USDT / R -1.00</td>
+          </tr>
+          <tr>
+            <td>청산 사유</td>
+            <td>STOP_LOSS</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>두 대표 거래는 같은 규칙이 target과 stop으로 갈라지는 모습을 보여줍니다. 전체 최고 조합에서도 take-profit 134회와 stop-loss 101회가 함께 존재하므로, 수익 사례 하나가 전략을 증명하지 않습니다. 다만 aggregate에서 target이 stop보다 많고 profit factor가 1.380이었기 때문에, 이 대표 수익 거래는 전체 결과와 방향이 맞는 예시입니다.</p>
+
+    <h2>6. 해석</h2>
+    <p>이번 V2 결과는 테스트된 higher-timeframe no-cost 구현이 4h와 1d에서 raw edge 후보를 가질 수 있음을 확인했습니다. 실행 가능한 네 조합 중 세 조합이 비용 0 조건에서 양수였고, 최고 조합은 +21.64% 수익률, -3.57% 최대 낙폭, 1.380 profit factor를 기록했습니다.</p>
+    <p>이 결과가 의미 있는 이유는 시간축입니다. 이전 분 단위 테스트는 microstructure noise, 짧은 되돌림, liquidation burst가 많이 섞였을 가능성이 컸습니다. 이번 4h/1d 결과는 정보 반영 지연, 느린 포지션 조정, 추세 추종 참여가 더 느린 시간축에서 포착될 수 있다는 설명과 더 잘 맞습니다.</p>
+    <p>동시에 결론은 제한적입니다. 1h는 데이터 연속성 제한으로 빠졌고, 비용 0 조건이라 gross와 net이 같습니다. 따라서 이 결과는 cost-aware profitability를 뜻하지 않습니다. 또한 4h 1일 lookback 조합은 음수였고, 최고 조합도 2026 구간은 음수였으며 Short 기여가 더 컸습니다. 모멘텀 전략군 전체가 작동한다고 판단할 근거로는 아직 부족합니다.</p>
+    <p>주요 근거를 다시 정리하면 다음과 같습니다.</p>
+    <ul>
+      <li>data coverage는 1h를 전략 실패가 아니라 데이터 제한으로 분리합니다. 현재 결론은 4h와 1d에 한정됩니다.</li>
+      <li>result comparison은 세 조합이 양수였지만 한 조합이 음수였다는 mixed result를 보여줍니다. higher timeframe이라는 이름만으로 충분하지 않습니다.</li>
+      <li>cost impact는 비용이 0이어서 gross/net이 같다는 사실을 고정합니다. 다음 검증에서는 비용이 성과를 얼마나 줄이는지 먼저 확인해야 합니다.</li>
+      <li>exit mix는 최고 조합에서 target이 stop보다 많았다는 성공 driver와, 손실 조합에서 time exit가 많았다는 약점을 함께 설명합니다.</li>
+      <li>side attribution은 Short 기여가 더 큰 조합을 드러냅니다. Long/Short 대칭성을 별도로 확인해야 합니다.</li>
+      <li>yearly attribution은 2021~2024 성과와 2025~2026 약화를 함께 보여줍니다. regime 의존성을 무시하면 결과를 과장하게 됩니다.</li>
+      <li>representative trades는 규칙이 의도대로 target과 stop으로 작동한 사례를 제공합니다. 다만 개별 사례는 aggregate 근거를 보조할 뿐입니다.</li>
+    </ul>
+    <p>보완점은 다음과 같습니다.</p>
+    <ul>
+      <li>비용 반영 검증이 필요합니다. 이번 결과는 fee, spread, slippage를 모두 0으로 둔 gross/no-cost 확인이므로, 양수 조합이 실제 비용을 견디는지는 아직 모릅니다.</li>
+      <li>1h 데이터 정책을 먼저 정해야 합니다. 누락 open time을 그대로 제한으로 둘지, 검증된 보정/집계 규칙을 따로 만들지 결정해야 1h까지 비교할 수 있습니다.</li>
+      <li>연도별·방향별 driver를 분리해야 합니다. 최고 조합은 전체로는 양수지만 2026은 음수였고 Short 기여가 더 컸습니다.</li>
+      <li>OOS/WFO 검증이 필요합니다. 같은 기간의 positive 조합을 본 뒤 바로 채택하면 과적합 위험이 커지므로, 다음 판단은 재튜닝하지 않은 검증 구간에서 확인해야 합니다.</li>
+    </ul>
+  </article>
+</main>
+</body>
+</html>

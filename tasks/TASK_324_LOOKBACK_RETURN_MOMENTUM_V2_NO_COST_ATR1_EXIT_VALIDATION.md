@@ -6,6 +6,16 @@ Define and execute a `Lookback Return Momentum V2` validation that keeps the cur
 
 This is a future strategy/backtest task. It must not be executed until assigned after this task file exists.
 
+Superseded naming note:
+
+- Owner clarified on 2026-06-03 that the higher-timeframe information-delay
+  validation from Task 326/327 should be the active report-facing
+  `Lookback Return Momentum V2`.
+- This Task 324 document remains a historical short-timeframe no-cost ATR-1
+  draft only.
+- Do not execute this task under the active V2 label unless a later task
+  explicitly retitles or re-versions it and updates the strategy document.
+
 # Source Requirement
 
 Owner request after Task 323 frontend PR:
@@ -33,7 +43,7 @@ Interpreted as:
   - Requests the next strategy execution task.
   - Chooses the strategy family, version label, no-cost diagnostic assumption, ATR exit geometry, and period continuity.
 - Supporting roles:
-  - Strategy-document maintainer: create or update the appropriate `docs/strategy/lookback_return_momentum_v2.md` document before any implementation or backtest execution.
+  - Strategy-document maintainer: if this superseded draft is revived, create a new versioned strategy document or retitle this task before any implementation or backtest execution.
   - Strategy/backtest implementer: update only the assigned momentum strategy/config/runner behavior needed for the V2 no-cost ATR-1 diagnostic.
   - Backtest runner: preflight local data coverage and run the predeclared validation only after the strategy document exists.
   - Report writer: save a concise task report that separates the no-cost diagnostic conclusion from real cost-aware deployability.
@@ -81,8 +91,8 @@ Important interpretation boundary:
 
 - Read required state files and this task before implementation.
 - Read `docs/strategy/lookback_return_momentum_v1.md`.
-- If `docs/strategy/lookback_return_momentum_v2.md` does not exist, create it from `docs/strategy/STRATEGY_TEMPLATE.md`, document the V2 rules below, update state files, and stop before implementation/backtest execution if required by the project strategy-document rule.
-- If the V2 strategy document already exists and matches this task, continue with implementation/execution.
+- If this superseded draft is revived, do not use the current `docs/strategy/lookback_return_momentum_v2.md` document because it now belongs to Task 326/327 higher-timeframe validation.
+- Create a new versioned strategy document or retitle this task before implementation/backtest execution, then update state files and stop if required by the project strategy-document rule.
 - Define V2 strategy identity:
   - strategy key/name: keep the `LOOKBACK_RETURN_MOMENTUM` family unless the codebase requires a versioned key.
   - strategy version: `v2`.

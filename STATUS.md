@@ -1,27 +1,33 @@
 # Project Status
 
 ## Current Overall Phase
-Phase 442: Task 325 backfill 4h interval support completed (2026-06-03).
+Phase 452: Task 330 V2 1h-included rerun/report completed (2026-06-04).
 
 ## Current Step
-Completed the narrow Task 325 implementation for adding `4h` to the Binance public REST candle backfill interval path.
+Completed Task 330 by rerunning `Lookback Return Momentum V2` from data preflight/backtest through the daily report artifact, with `1h`, `4h`, and `1d` all included.
 
 ## Current Goal
-Prepare for owner review of Task 325. If actual `4h` candles should be populated in PostgreSQL, create or assign a separate bounded data-backfill execution task.
+Await owner review of the new V2 1h-included report and the next assigned task.
 
 ## Current Active Task
 None.
 
 ## Last Completed Step (Short)
-Completed Task 325 `BACKFILL_4H_INTERVAL_SUPPORT`. Added `4h` to the shared Binance public REST kline interval allowlist, updated README supported interval docs, and updated focused fake-backed market-data tests for downloader validation, backfill request dispatch, interval duration, interval-list parsing, multi-interval runner/CLI dispatch, CLI help, and `4h` continuity. Verification passed (`68` focused tests, `124` full market-data tests, py_compile, diff check, contract grep, and safety grep). No real DB backfill execution, DB mutation, strategy-context wiring, strategy/backtest execution, live trading behavior, exchange order/account/private endpoint behavior, secret, or `.env` change was added.
+Completed `tasks/TASK_330_LOOKBACK_RETURN_MOMENTUM_V2_RERUN_WITH_1H_INCLUDED_DAILY_REPORT.md`. The preferred full native `1h` window from `2021-01-01T00:00:00Z` to `2026-06-01T00:00:00Z` exclusive still had 7 gaps / 14 missing open times after bounded public backfill attempts stored 0 candles, so Task 330 used the documented common continuous fallback window `2023-03-25T00:00:00Z <= candle time < 2026-06-01T00:00:00Z`. Persisted V2 no-cost symmetric `1 ATR` runs `1217`-`1222` for `1h`, `4h`, and `1d`. Results: `1h_1d_to_6h` `-12.36%`, `1h_3d_to_1d` `-9.09%`, `4h_1d_to_12h` `-4.44%`, `4h_3d_to_1d` `+1.60%`, `1d_1w_to_1d` `+7.72%`, and `1d_1m_to_1w` `+3.38%`. Saved `reports/task_330_v2_1h_included_no_cost_atr1_summary.json`, `reports/TASK_330_LOOKBACK_RETURN_MOMENTUM_V2_RERUN_WITH_1H_INCLUDED_DAILY_REPORT.md`, and the detailed Tistory artifact under `reports/blog_payloads/lookback-return-momentum/v2/20230325-20260601-htf-no-cost-atr1-1h-included/`. No strategy/backtest source-code change, frontend/backend change, live trading behavior, order/account/private endpoint behavior, secret, or `.env` change was added.
 
 ## Recommended Next Step
-Recommended next step: if the owner wants actual data loaded, create a separate bounded data-backfill execution task for `BTCUSDT` `4h` candles. Task 265 remains the broader `1h`/`4h` strategy-context task.
+Recommended next step: create a predeclared cost-aware and regime-attribution follow-up for the positive daily-horizon V2 variants, especially `1d_1w_to_1d`, before making any viability claim from the gross/no-cost result.
 
 ## Current Blockers (Short)
+- Task 330 note: completed. `1h` was included in execution and final report. Full `2021`-start native `1h` continuity remains limited by 7 gaps / 14 missing open times that public backfill did not repair, so the completed result uses the documented common continuous fallback window `2023-03-25T00:00:00Z` through `2026-06-01T00:00:00Z` exclusive.
+- Task 329 note: completed. The V2 `report-ko.html` now applies Task 328's data-rich/logic-dense workflow, reclaims data coverage, result comparison, no-cost boundary, exit mix, side attribution, yearly attribution, and representative trades in `해석`, and avoids report-facing `봅니다.` wording. The `payload.json` now includes Task 328 presentation notes. No PNG regeneration was needed because existing PNGs match the current size rules. No new backtests, parameter tuning, strategy/code changes, DB mutation, candle backfill, frontend/backend changes, live trading behavior, order/account/private endpoint behavior, secrets, or `.env` changes were added.
+- Task 328 note: completed. Reusable daily-report workflow docs now require V2-style format/data display and V1-style dense interpretation logic in future `report-ko.html` artifacts. The docs require table/image purpose notes, interpretation reclaim of major evidence, success/failure/mixed-result driver analysis, and direct report-facing Korean wording without sentence-final `봅니다.`. Existing report artifacts and images were not regenerated or edited by Task 328.
+- Task 327 note: completed. Generated the Tistory-ready full daily-report artifact from saved Task 326 V2 data only under `reports/blog_payloads/lookback-return-momentum/v2/20210101-20260601-htf-no-cost-atr1/`. Outputs are `payload.json`, `report-ko.html`, `summary_equity_curve.png`, `cost_impact.png`, `representative_win_trade.png`, `representative_loss_trade.png`, `htf_variant_comparison.png`, `yearly_attribution.png`, `exit_mix.png`, `side_attribution.png`, and `data_coverage.png`. The HTML uses the hELLO `1120px` centered `.report-page` layout, full-width same-folder image references, left-first tables, no standalone `가설` section, and no reader-facing task/run IDs. No new backtest, parameter tuning, DB mutation, candle backfill, strategy/code change, reusable workflow-doc change, frontend/backend change, live trading behavior, order/account/private endpoint behavior, secret, or `.env` change was added.
+- Task 326 note: completed with documented `1h` blocker. Native Binance public `1h` candles from `2021-01-01T00:00:00Z` to `2026-06-01T00:00:00Z` exclusive have 7 internal gaps / 14 missing open times; bounded public backfill attempts stored 0 candles for those gaps, so both `1h` variants were skipped rather than run over incomplete or synthetic data. Executed `4h`/`1d` runs `1213`-`1216`; three of four executed variants were positive gross/no-cost, with best `1d_1m_to_1w` at `+21.6431%`. Results are gross/no-cost diagnostics only.
+- Task 326 creation note: the task defines future `LOOKBACK_RETURN_MOMENTUM` higher-timeframe information-delay validation on `1h`, `4h`, and `1d`, using the same close-to-close signal family, `2021-01-01T00:00:00Z` start, preferred fixed end `2026-06-01T00:00:00Z` exclusive, no transaction costs, no cost-aware entry filter, and symmetric `1 ATR` stop/take-profit.
 - Task 325 note: completed. `quant-bitcoin-binance-backfill --interval 4h` and multi-interval inputs containing `4h` are now accepted by the Binance public REST candle backfill path. The task did not run a real DB backfill or wire higher-timeframe strategy context; Task 265 remains the broader context task.
 - Task 323 note: completed. `docs/api/API_CONTRACT.md`, the backend detail endpoint/service/schema, and the frontend dashboard were updated so large `1m` saved runs can be loaded with bounded chart data instead of an unbounded `graph_points` response. Sampling preserves first/last points, marker/signal/execution points, trade timestamps when present, nearby marker context as budget allows, chronological order, and response metadata. No strategy/backtest execution, DB mutation, candle backfill, live trading behavior, exchange endpoint, secret, or `.env` change was added.
-- Task 324 note: created, not executed. The task defines future `Lookback Return Momentum V2` validation: same signal family and February-to-May window, `1m`/`5m`/`15m`, no transaction-cost calculation, no cost-aware entry filter, and symmetric `1 ATR` stop/take-profit exits. It requires a V2 strategy document before implementation or backtest execution.
+- Task 324 note: created, not executed, and now superseded for version naming. It is a historical short-timeframe no-cost ATR-1 draft. Owner clarified on 2026-06-03 that the Task 326/327 higher-timeframe information-delay path should be the active report-facing `Lookback Return Momentum V2`. Do not execute Task 324 under the active V2 label unless a later task retitles or re-versions it.
 - Task 322 note: completed. `reports/blog_payloads/lookback-return-momentum/v1/20260201-20260501-atr-reward-cost/report-ko.html` now applies Task 319 representative-trade diagnostics, Task 320 backtest-setting algorithm/pseudocode explanation, and Task 321 theory/background depth. The standalone `가설` section was removed, saved Task 311 metrics were preserved, and the bounded conclusion still says the tested V1 configuration is ineffective after costs in the tested conditions without rejecting momentum strategies generally. No payload, PNG, new backtest, parameter tuning/search, strategy/code change, DB mutation, candle backfill, reusable workflow-doc edit, live trading behavior, exchange endpoint, secret, or `.env` change was added.
 - Task 309 note: completed. Persisted validation runs `1180`-`1191`; `1m` had no invalid ATR blocks, `5m` had one early invalid ATR block per variant, and `15m` had three early invalid ATR blocks per variant. All remaining candidates were blocked by `COST_INFEASIBLE_NET_RR`, so accepted entries, trades, realized costs, gross PnL, and net PnL all remained `0`.
 - Task 311 note: completed. Persisted runs `1192`-`1209` tested `1 ATR` stop with `2.0/2.5/3.0 ATR` take-profit and `0.0/20.0` minimum ATR bps. Cost-feasible entries appeared at `1m` from `2.5 ATR`, and at `5m`/`15m` from `2.0 ATR`; however all filled variants were net negative after costs. `minimum_atr_bps=20.0` reclassified low-ATR rejected candidates as `ATR_TOO_SMALL_FOR_COST` but did not change accepted trades.
@@ -92,7 +98,14 @@ Recommended next step: if the owner wants actual data loaded, create a separate 
 - Future/deferred candidate work: `BACKLOG.md`
 - Backend area status: `backend/STATUS.md`
 - Frontend area status: `frontend/STATUS.md`
-- Current created task: `tasks/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`
+- Last completed task: `tasks/TASK_330_LOOKBACK_RETURN_MOMENTUM_V2_RERUN_WITH_1H_INCLUDED_DAILY_REPORT.md`
+- Current Task 330 report artifact: `reports/blog_payloads/lookback-return-momentum/v2/20230325-20260601-htf-no-cost-atr1-1h-included/report-ko.html`
+- Last completed task: `tasks/TASK_329_REGENERATE_LOOKBACK_RETURN_MOMENTUM_V2_REPORT_WITH_TASK328_WORKFLOW.md`
+- Last completed task: `tasks/TASK_328_DAILY_REPORT_DATA_RICH_LOGIC_DENSE_WORKFLOW_REVISION.md`
+- Last completed task: `tasks/TASK_327_LOOKBACK_RETURN_MOMENTUM_V2_HTF_DAILY_REPORT_ARTIFACT_GENERATION.md`
+- Last completed task: `tasks/TASK_326_LOOKBACK_RETURN_MOMENTUM_HTF_INFORMATION_DELAY_NO_COST_ATR1_VALIDATION.md`
+- Current strategy document: `docs/strategy/lookback_return_momentum_v2.md`
+- Superseded version-naming draft: `tasks/TASK_324_LOOKBACK_RETURN_MOMENTUM_V2_NO_COST_ATR1_EXIT_VALIDATION.md`
 - Last completed task: `tasks/TASK_325_BACKFILL_4H_INTERVAL_SUPPORT.md`
 - Last completed task: `tasks/TASK_323_FRONTEND_LARGE_1M_CANDLE_LOAD_ERROR_FIX.md`
 - Last completed task: `tasks/TASK_320_DAILY_REPORT_BACKTEST_SETTING_ALGORITHM_EXPLANATION_WORKFLOW_REVISION.md`

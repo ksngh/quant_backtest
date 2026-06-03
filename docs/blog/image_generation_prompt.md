@@ -8,6 +8,8 @@ Your job is to generate required chart PNG files from the backtest result payloa
 
 Do not write the report itself. A separate report-writing step creates the publish-ready Tistory `report-ko.html` after payload and images are ready. That report-writing step must read `docs/blog/report_template.html`, `docs/blog/DAILY_REPORT_TEMPLATE.md`, and `docs/blog/DAILY_REPORT_STYLE.md` before writing. Chart annotations should expose available trade context so the later interpretation can discuss volume, candle range/body, cost share, hold duration, and follow-through without inventing data. Do not create an image plan file.
 
+Images support the report interpretation. Do not create optional images only because data is available. Each optional chart should answer a specific report question recorded in `presentation_notes.chart_purposes` or `presentation_notes.required_interpretive_takeaways`, such as data coverage, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, or representative-trade behavior. If a chart will not be explained in the `해석` section, omit it or leave it as payload metadata instead of a reader-facing image.
+
 ## Working Directory
 
 Work inside the report-specific artifact folder.
@@ -77,6 +79,8 @@ Primary readability target:
 - The HTML report will scale images to the full report body width with `width: 100%; max-width: 100%; height: auto;`, so do not generate tiny source images.
 - Keep titles and annotations short enough that they do not crowd the chart.
 - Do not rely on chart text to carry strategy theory, version-change explanation, or long interpretation. The HTML report handles that prose.
+- For data-rich reports, prefer charts that the HTML report can interpret directly: data coverage, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, and representative trades. Avoid decorative or redundant charts.
+- Every optional chart must have a clear analytic purpose and a short caption-ready takeaway. The report writer will reclaim that purpose in `해석`.
 
 ## Stable Visual Contract
 
@@ -359,6 +363,8 @@ Rules:
 - Timeframe slug examples: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`.
 - Period slug uses `YYYYMMDD_YYYYMMDD`.
 - Variant slug uses lowercase letters, numbers, and underscores only.
+- Optional images must connect to `presentation_notes.chart_purposes` or `required_interpretive_takeaways`. If that connection is missing, do not generate the image.
+- Do not generate decorative charts or near-duplicate views that the HTML report will not discuss.
 
 ## Final Checks
 

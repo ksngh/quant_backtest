@@ -1,0 +1,918 @@
+{
+  "title": {
+    "strategy_name": "Lookback Return Momentum",
+    "strategy_version": "V2",
+    "strategy_label": "Lookback Return Momentum V2",
+    "stable_strategy_description": "과거 일정 구간의 수익률을 확인하는 모멘텀 전략.",
+    "version_change_summary": "V2는 정보 반영 지연 전제에 맞춰 검증 시간축을 1h, 4h, 1d로 옮기고, 거래비용을 0으로 둔 상태에서 1 ATR 손절과 1 ATR 익절을 적용합니다.",
+    "title_policy": "strategy_name_and_version_only",
+    "market_summary": "Binance BTCUSDT, 1h/4h/1d, 2021-01-01 UTC부터 2026-06-01 UTC 직전까지",
+    "period": "2021-01-01 00:00 UTC ~ 2026-06-01 00:00 UTC 직전",
+    "pr": null
+  },
+  "artifact": {
+    "schema": "colocated_payload_images_html_report_v1",
+    "strategy_slug": "lookback-return-momentum",
+    "strategy_version_slug": "v2",
+    "period_slug": "20210101-20260601-htf-no-cost-atr1",
+    "report_filename": "report-ko.html",
+    "image_reference_rule": "filenames_only_colocated_with_payload"
+  },
+  "images": {
+    "primary": "summary_equity_curve.png",
+    "items": [
+      {
+        "id": "summary_equity_curve",
+        "filename": "summary_equity_curve.png",
+        "caption": "수익 곡선과 drawdown을 함께 표시한 대표 성과 그래프입니다.",
+        "section": "summary,results"
+      },
+      {
+        "id": "cost_impact",
+        "filename": "cost_impact.png",
+        "caption": "거래비용을 0으로 둔 조건에서 gross/net PnL 관계를 보여주는 그래프입니다.",
+        "section": "cost_impact"
+      },
+      {
+        "id": "representative_win_trade",
+        "filename": "representative_win_trade.png",
+        "caption": "대표 수익 거래 차트입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "representative_loss_trade",
+        "filename": "representative_loss_trade.png",
+        "caption": "대표 손실 거래 차트입니다.",
+        "section": "representative_trades"
+      },
+      {
+        "id": "htf_variant_comparison",
+        "filename": "htf_variant_comparison.png",
+        "caption": "높은 시간축 variant별 수익률과 낙폭을 비교한 그래프입니다.",
+        "section": "results"
+      },
+      {
+        "id": "yearly_attribution",
+        "filename": "yearly_attribution.png",
+        "caption": "연도별 성과 기여를 비교한 그래프입니다.",
+        "section": "results,interpretation"
+      },
+      {
+        "id": "exit_mix",
+        "filename": "exit_mix.png",
+        "caption": "손절, 익절, 시간 청산 구성을 비교한 그래프입니다.",
+        "section": "results"
+      },
+      {
+        "id": "side_attribution",
+        "filename": "side_attribution.png",
+        "caption": "Long과 Short의 순손익 기여를 비교한 그래프입니다.",
+        "section": "results"
+      },
+      {
+        "id": "data_coverage",
+        "filename": "data_coverage.png",
+        "caption": "타임프레임별 candle coverage와 1h 제한을 보여주는 그래프입니다.",
+        "section": "setup,limitations"
+      }
+    ]
+  },
+    "setup": {
+    "exchange": "Binance",
+    "symbol": "BTCUSDT",
+    "market": "Spot-style OHLCV data",
+    "timeframe": "1h, 4h, 1d",
+    "period": "2021-01-01 00:00 UTC ~ 2026-06-01 00:00 UTC 직전",
+    "comparison_variables": "1h/4h/1d higher-timeframe lookback-return variants. 1h는 data coverage 제한으로 실행되지 않았습니다.",
+    "initial_capital": "1,000,000 KRW converted at 1,500 KRW/USDT, effective 666.67 USDT",
+    "position_sizing": "cash_fraction 0.10",
+    "entry_conditions_summary": "최근 lookback_bars개 완료봉 종가 수익률이 entry_threshold 이상이면 Long, -entry_threshold 이하이면 Short.",
+    "exit_conditions_summary": "진입 시점 ATR(14, RMA)을 기준으로 1 ATR 손절, 1 ATR 익절, holding_bars 시간 청산. 같은 candle에서 손절과 익절이 모두 닿으면 손절 우선.",
+    "cost_assumptions": "수수료, 스프레드, 슬리피지를 모두 0으로 둔 gross/no-cost 조건.",
+    "execution_assumption": "신호 candle close에서 진입하고 다음 완료봉부터 청산 조건을 확인합니다.",
+    "algorithm_explanation": {
+      "plain_language_summary": "완료봉 종가로 과거 수익률을 계산하고, 기준을 넘는 방향으로만 진입합니다. 청산 거리는 진입 시점 ATR로 고정합니다.",
+      "entry_logic_pseudocode": "lookback_return = close[t] / close[t - lookback_bars] - 1\nif lookback_return >= entry_threshold: signal = \"long\"\nelif lookback_return <= -entry_threshold: signal = \"short\"\nelse: signal = \"flat\"",
+      "exit_logic_pseudocode": "risk_distance = ATR_14_RMA[t]\nlong_stop = entry_price - risk_distance\nlong_target = entry_price + risk_distance\nshort_stop = entry_price + risk_distance\nshort_target = entry_price - risk_distance\ncheck exits from t + 1; stop first, target second, time exit third",
+      "indicator_calculations": [
+        {
+          "name": "ATR(14, RMA)",
+          "pseudocode": "true_range = max(high-low, abs(high-prev_close), abs(low-prev_close))\natr = RMA(true_range, 14)",
+          "inputs": "completed high/low/close",
+          "window": "14",
+          "warmup_policy": "ATR이 유효하지 않으면 진입하지 않습니다."
+        }
+      ],
+      "no_lookahead_note": "신호와 ATR은 신호 candle까지의 완료봉만 사용합니다.",
+      "fill_timing_note": "진입은 신호 candle close, 청산 확인은 다음 완료봉부터 시작합니다.",
+      "source_reference": null
+    }
+  },
+  "variant_label_guide": {
+    "format": "사용한 candle 간격 / 과거를 본 기간 / 최대 보유 기간",
+    "bar_note": "결과 표의 lookback과 hold는 이 기간을 candle 개수로 바꾼 값입니다.",
+    "items": [
+      {
+        "label": "4h 1d to 12h",
+        "meaning": "4시간봉 기준, 최근 1일 움직임을 보고 다음 최대 12시간을 검증"
+      },
+      {
+        "label": "4h 3d to 1d",
+        "meaning": "4시간봉 기준, 최근 3일 움직임을 보고 다음 최대 1일을 검증"
+      },
+      {
+        "label": "1d 1w to 1d",
+        "meaning": "일봉 기준, 최근 1주 움직임을 보고 다음 최대 1일을 검증"
+      },
+      {
+        "label": "1d 1m to 1w",
+        "meaning": "일봉 기준, 최근 1개월 움직임을 보고 다음 최대 1주를 검증"
+      }
+    ]
+  },
+  "hypothesis_and_theory": {
+    "tested_assumptions": [
+      "높은 시간축의 close-to-close momentum이 다음 보유 구간 방향성을 일부 설명하는지 확인했습니다.",
+      "거래비용을 제거한 상태에서 raw edge가 있는지 먼저 확인했습니다."
+    ],
+    "assumptions": [
+      "정보가 모든 참여자에게 동시에 반영되지 않을 수 있습니다.",
+      "큰 참여자의 포지션 조정은 시간 단위 또는 일 단위로 나뉘어 나타날 수 있습니다.",
+      "추세 추종 참여가 최근 움직임을 이어갈 수 있습니다."
+    ],
+    "economic_meaning": "최근 수익률을 느린 정보 반영, 자금 흐름, 포지션 조정의 압축 신호로 해석합니다.",
+    "edge_mechanism": "지연된 반응과 느린 포지션 조정이 이어지면 최근 움직임 이후 같은 방향의 후속 움직임이 생길 수 있습니다.",
+    "mechanism_detail": "1h는 intraday 반응 지연, 4h는 session 단위 조정, 1d는 일 단위 흐름과 allocation 변화를 더 잘 담을 수 있습니다.",
+    "failure_mechanism": "최근 움직임이 정보 반영이 아니라 exhaustion, liquidation burst, 또는 mean reversion이면 ATR 손절과 시간 청산이 성과를 깎을 수 있습니다.",
+    "evidence_boundary": "이번 결과는 BTCUSDT, 2021년 이후, 4h/1d 실행 variant, zero-cost, symmetric 1 ATR exit에 한정됩니다. 1h는 data coverage 제한으로 검증되지 않았고 cost-aware viability도 확인하지 않았습니다.",
+    "optional_formulas": [
+      {
+        "formula": "r_t(L) = close[t] / close[t-L] - 1",
+        "plain_language": "최근 L개 완료봉의 종가 수익률입니다."
+      },
+      {
+        "formula": "E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost",
+        "plain_language": "이번 비용 조건에서는 Cost를 0으로 두고 raw 기대값을 확인했습니다."
+      }
+    ],
+    "momentum_mechanisms": {
+      "underreaction": "정보 반영이 느리면 최근 움직임이 다음 구간까지 이어질 수 있습니다.",
+      "slow_position_adjustment": "큰 참여자는 유동성과 위험 한도 때문에 포지션을 한 번에 바꾸기 어렵습니다.",
+      "risk_premium_tail_risk": "모멘텀 수익은 급격한 반전 위험을 부담한 결과일 수 있습니다.",
+      "hedger_speculator_structure": null,
+      "bitcoin_spot_caveat": "주식·선물 문헌의 모멘텀 메커니즘이 spot BTC에 그대로 적용된다고 볼 수는 없습니다."
+    },
+    "success_conditions": "추세가 이어지고 stop보다 target 또는 유리한 시간 청산이 더 자주 나타나는 구간.",
+    "failure_conditions": "횡보, 급반전, 단기 과열 후 되돌림, 단일 연도나 한쪽 포지션에 의존하는 구간.",
+    "cost_and_rr_context": "이번 조건은 비용을 0으로 두었기 때문에 gross/net 차이가 없습니다. 비용을 다시 넣으면 positive variant도 달라질 수 있습니다.",
+    "rule_summary": "completed close-to-close return으로 진입 방향을 정하고, ATR(14, RMA) 1배로 손절과 익절을 대칭 배치합니다.",
+    "references": [
+      {
+        "id": "jegadeesh_titman_1993",
+        "title": "Returns to Buying Winners and Selling Losers",
+        "reason": "가격 모멘텀과 과소반응 배경을 설명합니다."
+      },
+      {
+        "id": "moskowitz_ooi_pedersen_2012",
+        "title": "Time Series Momentum",
+        "reason": "own-asset past return이 방향 정보를 가질 수 있다는 일반 배경을 제공합니다."
+      }
+    ],
+    "expectancy": {
+      "formula": "E[R] = P(win) x AvgWin - P(loss) x AvgLoss - Cost",
+      "p_win": "+54.98%",
+      "avg_win": "3.52",
+      "p_loss": "+45.02%",
+      "avg_loss": "-3.11",
+      "cost": "0.00 USDT"
+    }
+  },
+  "metrics": {
+    "total_trades": 271,
+    "win_rate": "+54.98%",
+    "total_return": "+21.64%",
+    "final_equity": "810.95",
+    "max_drawdown": "-3.57%",
+    "profit_factor": "1.380",
+    "expectancy": "0.5324",
+    "sharpe": null,
+    "sortino": null,
+    "average_win": "3.52",
+    "average_loss": "-3.11",
+    "fee_total": "0.00",
+    "slippage_total": "0.00",
+    "spread_total": "0.00",
+    "gross_pnl": "144.29",
+    "net_pnl": "144.29"
+  },
+  "cost_impact": {
+    "gross_pnl": "144.29",
+    "fee": "0.00",
+    "spread": "0.00",
+    "slippage": "0.00",
+    "total_transaction_cost": "0.00",
+    "net_pnl": "144.29",
+    "final_return_after_costs": "+21.64%",
+    "interpretation": "이번 결과는 거래비용을 모두 0으로 둔 gross/no-cost 확인입니다. 비용을 반영한 성과로 해석하면 안 됩니다."
+  },
+  "comparison_results": [
+    {
+      "interval": "4h",
+      "variant_id": "4h_1d_to_12h",
+      "status": "executed",
+      "run_id": 1213,
+      "candles": 11862,
+      "lookback_bars": 6,
+      "holding_bars": 3,
+      "entry_threshold": 0.01,
+      "candidate_entry_count": 2752,
+      "accepted_entry_count": 2746,
+      "completed_trade_count": 2746,
+      "invalid_atr_blocked_entry_count": 6,
+      "gross_pnl": -69.3321202682,
+      "net_pnl": -69.3321202682,
+      "total_cost": 0.0,
+      "total_return": -0.1039981804,
+      "max_drawdown": -0.1324929071,
+      "average_r": -0.0124173416,
+      "expectancy": -0.0252484051,
+      "hit_ratio": 0.4803350328,
+      "profit_factor": 0.9421942495,
+      "stop_loss_count": 811,
+      "take_profit_count": 848,
+      "time_exit_count": 1087,
+      "long_completed_count": 1390,
+      "short_completed_count": 1356,
+      "long_net_pnl": -22.0112952473,
+      "short_net_pnl": -47.3208250209,
+      "long_hit_ratio": 0.4935251799,
+      "short_hit_ratio": 0.4668141593,
+      "ending_position": 0.0,
+      "warnings": [
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    },
+    {
+      "interval": "4h",
+      "variant_id": "4h_3d_to_1d",
+      "status": "executed",
+      "run_id": 1214,
+      "candles": 11862,
+      "lookback_bars": 18,
+      "holding_bars": 6,
+      "entry_threshold": 0.03,
+      "candidate_entry_count": 1621,
+      "accepted_entry_count": 1621,
+      "completed_trade_count": 1621,
+      "invalid_atr_blocked_entry_count": 0,
+      "gross_pnl": 98.8254645429,
+      "net_pnl": 98.8254645429,
+      "total_cost": 0.0,
+      "total_return": 0.1482381968,
+      "max_drawdown": -0.0495762346,
+      "average_r": 0.0394080834,
+      "expectancy": 0.06096574,
+      "hit_ratio": 0.5194324491,
+      "profit_factor": 1.0942299503,
+      "stop_loss_count": 663,
+      "take_profit_count": 735,
+      "time_exit_count": 223,
+      "long_completed_count": 850,
+      "short_completed_count": 771,
+      "long_net_pnl": 45.2442934833,
+      "short_net_pnl": 53.5811710596,
+      "long_hit_ratio": 0.5235294118,
+      "short_hit_ratio": 0.5149156939,
+      "ending_position": 0.0,
+      "warnings": [
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    },
+    {
+      "interval": "1d",
+      "variant_id": "1d_1w_to_1d",
+      "status": "executed",
+      "run_id": 1215,
+      "candles": 1977,
+      "lookback_bars": 7,
+      "holding_bars": 1,
+      "entry_threshold": 0.03,
+      "candidate_entry_count": 667,
+      "accepted_entry_count": 663,
+      "completed_trade_count": 663,
+      "invalid_atr_blocked_entry_count": 4,
+      "gross_pnl": 56.4458952789,
+      "net_pnl": 56.4458952789,
+      "total_cost": 0.0,
+      "total_return": 0.0846688429,
+      "max_drawdown": -0.0604291353,
+      "average_r": 0.0415259503,
+      "expectancy": 0.085137097,
+      "hit_ratio": 0.5037707391,
+      "profit_factor": 1.1251344278,
+      "stop_loss_count": 63,
+      "take_profit_count": 104,
+      "time_exit_count": 496,
+      "long_completed_count": 352,
+      "short_completed_count": 311,
+      "long_net_pnl": 10.4745004034,
+      "short_net_pnl": 45.9713948754,
+      "long_hit_ratio": 0.4943181818,
+      "short_hit_ratio": 0.5144694534,
+      "ending_position": 0.0,
+      "warnings": [
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    },
+    {
+      "interval": "1d",
+      "variant_id": "1d_1m_to_1w",
+      "status": "executed",
+      "run_id": 1216,
+      "candles": 1977,
+      "lookback_bars": 30,
+      "holding_bars": 7,
+      "entry_threshold": 0.1,
+      "candidate_entry_count": 271,
+      "accepted_entry_count": 271,
+      "completed_trade_count": 271,
+      "invalid_atr_blocked_entry_count": 0,
+      "gross_pnl": 144.2875960916,
+      "net_pnl": 144.2875960916,
+      "total_cost": 0.0,
+      "total_return": 0.2164313941,
+      "max_drawdown": -0.0356686473,
+      "average_r": 0.1124474023,
+      "expectancy": 0.5324265538,
+      "hit_ratio": 0.5498154982,
+      "profit_factor": 1.3799677205,
+      "stop_loss_count": 101,
+      "take_profit_count": 134,
+      "time_exit_count": 36,
+      "long_completed_count": 156,
+      "short_completed_count": 115,
+      "long_net_pnl": 50.053991182,
+      "short_net_pnl": 94.2336049095,
+      "long_hit_ratio": 0.5320512821,
+      "short_hit_ratio": 0.5739130435,
+      "ending_position": 0.0,
+      "warnings": [
+        "zero_transaction_cost_assumption",
+        "short_economics_simulation_only",
+        "market_regime_disabled"
+      ]
+    }
+  ],
+  "data_coverage": {
+    "schema_version": "task_326_data_coverage_v1",
+    "source": "binance_spot",
+    "symbol": "BTCUSDT",
+    "preferred_start_time": "2021-01-01T00:00:00Z",
+    "preferred_exclusive_end_time": "2026-06-01T00:00:00Z",
+    "runner_end_time_note": "PostgreSQL runner currently loads open_time <= --end-time, so executed variants use the last open_time before the preferred exclusive end.",
+    "intervals": [
+      {
+        "interval": "1h",
+        "expected_count": 47448,
+        "row_count": 47434,
+        "unique_count": 47434,
+        "duplicate_extra_rows": 0,
+        "duplicate_timestamp_group_count": 0,
+        "adjacent_gap_count": 7,
+        "missing_by_count": 14,
+        "first_open_time": "2021-01-01T00:00:00Z",
+        "last_open_time": "2026-05-31T23:00:00Z",
+        "expected_first_open_time": "2021-01-01T00:00:00Z",
+        "expected_last_open_time": "2026-05-31T23:00:00Z",
+        "fixed_exclusive_end_available": false,
+        "blocker": "Native Binance public 1h klines have 7 internal gaps totaling 14 missing open_times; bounded public backfill attempts returned 0 stored candles for those open_times."
+      },
+      {
+        "interval": "4h",
+        "expected_count": 11862,
+        "row_count": 11862,
+        "unique_count": 11862,
+        "duplicate_extra_rows": 0,
+        "duplicate_timestamp_group_count": 0,
+        "adjacent_gap_count": 0,
+        "missing_by_count": 0,
+        "first_open_time": "2021-01-01T00:00:00Z",
+        "last_open_time": "2026-05-31T20:00:00Z",
+        "expected_first_open_time": "2021-01-01T00:00:00Z",
+        "expected_last_open_time": "2026-05-31T20:00:00Z",
+        "fixed_exclusive_end_available": true,
+        "blocker": null
+      },
+      {
+        "interval": "1d",
+        "expected_count": 1977,
+        "row_count": 1977,
+        "unique_count": 1977,
+        "duplicate_extra_rows": 0,
+        "duplicate_timestamp_group_count": 0,
+        "adjacent_gap_count": 0,
+        "missing_by_count": 0,
+        "first_open_time": "2021-01-01T00:00:00Z",
+        "last_open_time": "2026-05-31T00:00:00Z",
+        "expected_first_open_time": "2021-01-01T00:00:00Z",
+        "expected_last_open_time": "2026-05-31T00:00:00Z",
+        "fixed_exclusive_end_available": true,
+        "blocker": null
+      }
+    ],
+    "1h_missing_ranges": [
+      {
+        "missing_start": "2021-02-11T04:00:00Z",
+        "missing_end": "2021-02-11T04:00:00Z",
+        "missing_count": 1
+      },
+      {
+        "missing_start": "2021-03-06T02:00:00Z",
+        "missing_end": "2021-03-06T02:00:00Z",
+        "missing_count": 1
+      },
+      {
+        "missing_start": "2021-04-20T02:00:00Z",
+        "missing_end": "2021-04-20T03:00:00Z",
+        "missing_count": 2
+      },
+      {
+        "missing_start": "2021-04-25T05:00:00Z",
+        "missing_end": "2021-04-25T07:00:00Z",
+        "missing_count": 3
+      },
+      {
+        "missing_start": "2021-08-13T02:00:00Z",
+        "missing_end": "2021-08-13T05:00:00Z",
+        "missing_count": 4
+      },
+      {
+        "missing_start": "2021-09-29T07:00:00Z",
+        "missing_end": "2021-09-29T08:00:00Z",
+        "missing_count": 2
+      },
+      {
+        "missing_start": "2023-03-24T13:00:00Z",
+        "missing_end": "2023-03-24T13:00:00Z",
+        "missing_count": 1
+      }
+    ],
+    "backfill_attempts": {
+      "path": "Binance public spot kline backfill only",
+      "interval": "1h",
+      "gap_ranges_attempted": 7,
+      "stored_candles": 0,
+      "note": "The same missing open_times are not returned by direct Binance public kline requests; no synthetic candles or derived intervals were created."
+    }
+  },
+  "yearly_attribution": {
+    "1h_1d_to_6h": [],
+    "1h_3d_to_1d": [],
+    "4h_1d_to_12h": [
+      {
+        "year": 2021,
+        "completed_trades": 591,
+        "total_return": -0.0410087853,
+        "gross_pnl": -27.3391902218,
+        "net_pnl": -27.3391902218,
+        "average_r": -0.0199785767,
+        "hit_ratio": 0.475465313,
+        "profit_factor": 0.9312482298,
+        "max_drawdown": -0.0781673614,
+        "stop_loss_count": 169,
+        "take_profit_count": 170,
+        "time_exit_count": 252
+      },
+      {
+        "year": 2022,
+        "completed_trades": 525,
+        "total_return": -0.0219761756,
+        "gross_pnl": -14.8566777308,
+        "net_pnl": -14.8566777308,
+        "average_r": -0.0185433092,
+        "hit_ratio": 0.4819047619,
+        "profit_factor": 0.9398760882,
+        "max_drawdown": -0.035464639,
+        "stop_loss_count": 154,
+        "take_profit_count": 155,
+        "time_exit_count": 216
+      },
+      {
+        "year": 2023,
+        "completed_trades": 428,
+        "total_return": -0.0157583015,
+        "gross_pnl": -9.8405991352,
+        "net_pnl": -9.8405991352,
+        "average_r": -0.0078037669,
+        "hit_ratio": 0.4696261682,
+        "profit_factor": 0.9263820044,
+        "max_drawdown": -0.0381323448,
+        "stop_loss_count": 134,
+        "take_profit_count": 143,
+        "time_exit_count": 151
+      },
+      {
+        "year": 2024,
+        "completed_trades": 527,
+        "total_return": 0.027899087,
+        "gross_pnl": 17.147621425,
+        "net_pnl": 17.147621425,
+        "average_r": 0.0459268273,
+        "hit_ratio": 0.4990512334,
+        "profit_factor": 1.0907948843,
+        "max_drawdown": -0.0186390592,
+        "stop_loss_count": 139,
+        "take_profit_count": 180,
+        "time_exit_count": 208
+      },
+      {
+        "year": 2025,
+        "completed_trades": 467,
+        "total_return": -0.0524185617,
+        "gross_pnl": -33.3249218591,
+        "net_pnl": -33.3249218591,
+        "average_r": -0.086014254,
+        "hit_ratio": 0.4689507495,
+        "profit_factor": 0.7963016531,
+        "max_drawdown": -0.0654021315,
+        "stop_loss_count": 156,
+        "take_profit_count": 130,
+        "time_exit_count": 181
+      },
+      {
+        "year": 2026,
+        "completed_trades": 208,
+        "total_return": -0.0019912301,
+        "gross_pnl": -1.1183527462,
+        "net_pnl": -1.1183527462,
+        "average_r": 0.0324508993,
+        "hit_ratio": 0.4903846154,
+        "profit_factor": 0.983677269,
+        "max_drawdown": -0.026336479,
+        "stop_loss_count": 59,
+        "take_profit_count": 70,
+        "time_exit_count": 79
+      }
+    ],
+    "4h_3d_to_1d": [
+      {
+        "year": 2021,
+        "completed_trades": 402,
+        "total_return": 0.0572048418,
+        "gross_pnl": 38.8905159292,
+        "net_pnl": 38.8905159292,
+        "average_r": 0.0370283848,
+        "hit_ratio": 0.5199004975,
+        "profit_factor": 1.1096613852,
+        "max_drawdown": -0.0419370497,
+        "stop_loss_count": 168,
+        "take_profit_count": 183,
+        "time_exit_count": 51
+      },
+      {
+        "year": 2022,
+        "completed_trades": 308,
+        "total_return": 0.0609074632,
+        "gross_pnl": 41.3695186407,
+        "net_pnl": 41.3695186407,
+        "average_r": 0.0745382213,
+        "hit_ratio": 0.5324675325,
+        "profit_factor": 1.2059688014,
+        "max_drawdown": -0.0237456895,
+        "stop_loss_count": 117,
+        "take_profit_count": 142,
+        "time_exit_count": 49
+      },
+      {
+        "year": 2023,
+        "completed_trades": 212,
+        "total_return": 0.0289811954,
+        "gross_pnl": 21.6468286854,
+        "net_pnl": 21.6468286854,
+        "average_r": 0.1054101736,
+        "hit_ratio": 0.5518867925,
+        "profit_factor": 1.2268150012,
+        "max_drawdown": -0.0128492966,
+        "stop_loss_count": 78,
+        "take_profit_count": 102,
+        "time_exit_count": 32
+      },
+      {
+        "year": 2024,
+        "completed_trades": 330,
+        "total_return": 0.0290834597,
+        "gross_pnl": 22.3527773009,
+        "net_pnl": 22.3527773009,
+        "average_r": 0.063370109,
+        "hit_ratio": 0.5303030303,
+        "profit_factor": 1.1185596809,
+        "max_drawdown": -0.0178433952,
+        "stop_loss_count": 131,
+        "take_profit_count": 155,
+        "time_exit_count": 44
+      },
+      {
+        "year": 2025,
+        "completed_trades": 248,
+        "total_return": -0.0235788185,
+        "gross_pnl": -18.6491078228,
+        "net_pnl": -18.6491078228,
+        "average_r": -0.0505351101,
+        "hit_ratio": 0.4717741935,
+        "profit_factor": 0.8638854219,
+        "max_drawdown": -0.0310835569,
+        "stop_loss_count": 113,
+        "take_profit_count": 102,
+        "time_exit_count": 33
+      },
+      {
+        "year": 2026,
+        "completed_trades": 121,
+        "total_return": -0.0087857937,
+        "gross_pnl": -6.7850681904,
+        "net_pnl": -6.7850681904,
+        "average_r": -0.0387526039,
+        "hit_ratio": 0.4958677686,
+        "profit_factor": 0.9061400458,
+        "max_drawdown": -0.0277486857,
+        "stop_loss_count": 56,
+        "take_profit_count": 51,
+        "time_exit_count": 14
+      }
+    ],
+    "1d_1w_to_1d": [
+      {
+        "year": 2021,
+        "completed_trades": 145,
+        "total_return": -0.0449804678,
+        "gross_pnl": -29.986978565,
+        "net_pnl": -29.986978565,
+        "average_r": -0.0257844957,
+        "hit_ratio": 0.4620689655,
+        "profit_factor": 0.8118944687,
+        "max_drawdown": -0.0604291353,
+        "stop_loss_count": 14,
+        "take_profit_count": 16,
+        "time_exit_count": 115
+      },
+      {
+        "year": 2022,
+        "completed_trades": 120,
+        "total_return": 0.0547168067,
+        "gross_pnl": 32.6493178541,
+        "net_pnl": 32.6493178541,
+        "average_r": 0.0646779611,
+        "hit_ratio": 0.4916666667,
+        "profit_factor": 1.3922500816,
+        "max_drawdown": -0.0329827467,
+        "stop_loss_count": 8,
+        "take_profit_count": 20,
+        "time_exit_count": 92
+      },
+      {
+        "year": 2023,
+        "completed_trades": 104,
+        "total_return": -0.003133084,
+        "gross_pnl": -2.0970639957,
+        "net_pnl": -2.0970639957,
+        "average_r": 0.0077541468,
+        "hit_ratio": 0.5,
+        "profit_factor": 0.9635756567,
+        "max_drawdown": -0.0222004352,
+        "stop_loss_count": 16,
+        "take_profit_count": 17,
+        "time_exit_count": 71
+      },
+      {
+        "year": 2024,
+        "completed_trades": 132,
+        "total_return": 0.0420831167,
+        "gross_pnl": 28.079199677,
+        "net_pnl": 28.079199677,
+        "average_r": 0.0856439715,
+        "hit_ratio": 0.5378787879,
+        "profit_factor": 1.4153745194,
+        "max_drawdown": -0.01312982,
+        "stop_loss_count": 11,
+        "take_profit_count": 23,
+        "time_exit_count": 98
+      },
+      {
+        "year": 2025,
+        "completed_trades": 112,
+        "total_return": 0.0229216161,
+        "gross_pnl": 15.1655773896,
+        "net_pnl": 15.1655773896,
+        "average_r": 0.0660265485,
+        "hit_ratio": 0.5089285714,
+        "profit_factor": 1.2497869884,
+        "max_drawdown": -0.0185208166,
+        "stop_loss_count": 11,
+        "take_profit_count": 21,
+        "time_exit_count": 80
+      },
+      {
+        "year": 2026,
+        "completed_trades": 50,
+        "total_return": 0.0177850204,
+        "gross_pnl": 12.6358429187,
+        "net_pnl": 12.6358429187,
+        "average_r": 0.0800538532,
+        "hit_ratio": 0.56,
+        "profit_factor": 1.5605102939,
+        "max_drawdown": -0.0105926824,
+        "stop_loss_count": 3,
+        "take_profit_count": 7,
+        "time_exit_count": 40
+      }
+    ],
+    "1d_1m_to_1w": [
+      {
+        "year": 2021,
+        "completed_trades": 60,
+        "total_return": 0.1078881283,
+        "gross_pnl": 71.5318425043,
+        "net_pnl": 71.5318425043,
+        "average_r": 0.1632374715,
+        "hit_ratio": 0.55,
+        "profit_factor": 1.7486339038,
+        "max_drawdown": -0.0213301078,
+        "stop_loss_count": 20,
+        "take_profit_count": 30,
+        "time_exit_count": 10
+      },
+      {
+        "year": 2022,
+        "completed_trades": 53,
+        "total_return": 0.0398303893,
+        "gross_pnl": 27.3245208338,
+        "net_pnl": 27.3245208338,
+        "average_r": 0.1080567694,
+        "hit_ratio": 0.5660377358,
+        "profit_factor": 1.3247943927,
+        "max_drawdown": -0.0261353878,
+        "stop_loss_count": 18,
+        "take_profit_count": 24,
+        "time_exit_count": 11
+      },
+      {
+        "year": 2023,
+        "completed_trades": 50,
+        "total_return": 0.0398523789,
+        "gross_pnl": 30.2373117883,
+        "net_pnl": 30.2373117883,
+        "average_r": 0.2200227216,
+        "hit_ratio": 0.6,
+        "profit_factor": 1.6742694783,
+        "max_drawdown": -0.0104152958,
+        "stop_loss_count": 15,
+        "take_profit_count": 28,
+        "time_exit_count": 7
+      },
+      {
+        "year": 2024,
+        "completed_trades": 53,
+        "total_return": 0.0195369874,
+        "gross_pnl": 18.3737548674,
+        "net_pnl": 18.3737548674,
+        "average_r": 0.0862586482,
+        "hit_ratio": 0.5471698113,
+        "profit_factor": 1.2484040767,
+        "max_drawdown": -0.0321313876,
+        "stop_loss_count": 23,
+        "take_profit_count": 27,
+        "time_exit_count": 3
+      },
+      {
+        "year": 2025,
+        "completed_trades": 37,
+        "total_return": 0.0117747165,
+        "gross_pnl": 9.5861981486,
+        "net_pnl": 9.5861981486,
+        "average_r": 0.0862429317,
+        "hit_ratio": 0.5405405405,
+        "profit_factor": 1.1973763405,
+        "max_drawdown": -0.017110106,
+        "stop_loss_count": 15,
+        "take_profit_count": 19,
+        "time_exit_count": 3
+      },
+      {
+        "year": 2026,
+        "completed_trades": 18,
+        "total_return": -0.0154980181,
+        "gross_pnl": -12.7660320508,
+        "net_pnl": -12.7660320508,
+        "average_r": -0.211769109,
+        "hit_ratio": 0.3888888889,
+        "profit_factor": 0.6093395856,
+        "max_drawdown": -0.0196632467,
+        "stop_loss_count": 10,
+        "take_profit_count": 6,
+        "time_exit_count": 2
+      }
+    ]
+  },
+  "representative_trades": {
+    "best_trade": {
+      "side": "SHORT",
+      "entry_time": "2021-05-24T00:00:00Z",
+      "exit_time": "2021-05-30T00:00:00Z",
+      "entry_price": 38796.29,
+      "exit_price": 33499.5737316437,
+      "stop_price": 44093.0062683563,
+      "target_price": 33499.5737316437,
+      "net_pnl": 9.658304601745847,
+      "gross_pnl": 9.658304601745847,
+      "transaction_cost": 0.0,
+      "exit_reason": "TAKE_PROFIT",
+      "r": 1.0000000000000004,
+      "momentum_return": -0.22481589615056308,
+      "atr_value": 5296.716268356297,
+      "atr_bps": 1365.2636033899885
+    },
+    "worst_trade": {
+      "side": "SHORT",
+      "entry_time": "2021-06-08T00:00:00Z",
+      "exit_time": "2021-06-09T00:00:00Z",
+      "entry_price": 33380.81,
+      "exit_price": 37119.18360873699,
+      "stop_price": 37119.18360873699,
+      "target_price": 29642.436391263007,
+      "net_pnl": -8.110593318455157,
+      "gross_pnl": -8.110593318455157,
+      "transaction_cost": 0.0,
+      "exit_reason": "STOP_LOSS",
+      "r": -1.0,
+      "momentum_return": -0.42684875424186874,
+      "atr_value": 3738.3736087369907,
+      "atr_bps": 1119.9169848595618
+    }
+  },
+  "interpretation": {
+    "experiment_intent": "분 단위 momentum 결과가 정보 반영 지연 전제와 어긋났을 가능성을 고려해 1h, 4h, 1d로 시간축을 옮겨 raw edge를 확인했습니다.",
+    "result_interpretation": "4h와 1d 네 개 실행 variant 중 세 개가 비용 0 조건에서 양수였습니다. 가장 좋은 결과는 1d 1개월 lookback에서 다음 1주 보유를 보는 variant였습니다.",
+    "success_drivers": "성과가 좋았던 variant는 take-profit 기여가 stop-loss 손실을 넘었고, 특히 Short 기여가 Long보다 컸습니다.",
+    "failure_drivers": "4h 1일 lookback variant는 거래 수가 많고 stop/time exit 구성이 누적되면서 음수였습니다.",
+    "bounded_conclusion": "현재 V2 조건에서는 4h와 1d에서 raw no-cost edge 후보가 관찰됐습니다.",
+    "generalization_boundary": "이 결과는 비용을 제거한 BTCUSDT higher-timeframe 확인이며, 1h는 data coverage 제한으로 빠졌고 OOS/WFO와 비용 반영 검증이 없습니다.",
+    "broader_claim_requirements": "판단 범위를 넓히려면 비용 반영, OOS/WFO, 1h 데이터 정책, 다른 기간과 시장, regime 분해가 필요합니다.",
+    "risk_interpretation": "positive variant도 거래비용과 체결 가정이 들어가면 성과가 달라질 수 있습니다.",
+    "next_improvements": "보완점은 비용 반영 재검증, 1h 데이터 정책 정리, 연도별/side별 driver 분리입니다."
+  },
+  "presentation_notes": {
+    "table_purposes": [
+      "요약 표: 시장, 기간, 비용 0 조건, ATR 청산, 1h 데이터 제한을 한 번에 확인한다.",
+      "데이터 커버리지 표: 1h는 전략 실패가 아니라 native candle gap으로 제외됐고, 4h/1d만 실행 가능했다는 결론 경계를 만든다.",
+      "결과 비교 표: 4h/1d 네 실행 조합 중 세 조합이 양수였고, 짧은 4h 조합만 음수였다는 mixed result를 분리한다.",
+      "청산 구성 표: take-profit, stop-loss, time exit 비중이 수익 조합과 손실 조합에서 어떻게 달랐는지 설명한다.",
+      "Long/Short 기여 표: positive 결과가 완전한 양방향 대칭이 아니라 Short 기여를 더 크게 받은 조합이 있음을 설명한다.",
+      "연도별 표: 2021~2026 성과가 한 해에만 몰렸는지, 2025/2026 약화처럼 regime 제한이 있는지 확인한다.",
+      "대표 거래 표: 개별 수익/손실 사례를 ATR 1배 익절/손절 규칙과 aggregate 청산 구성에 연결한다."
+    ],
+    "chart_purposes": [
+      "summary_equity_curve: 최고 성과 조합의 equity와 drawdown을 함께 보여주어 +21.64% 수익률과 -3.57% 낙폭의 관계를 설명한다.",
+      "data_coverage: 1h 제외가 성과 부진이 아니라 데이터 연속성 문제라는 점을 시각적으로 분리한다.",
+      "htf_variant_comparison: result comparison을 통해 4h/1d 조합별 수익률과 낙폭 차이를 보여준다.",
+      "cost_impact: gross/net이 같은 이유가 비용 0 설정 때문이며, cost-aware 수익성이 아직 검증되지 않았음을 보여준다.",
+      "exit_mix: 수익 조합에서 target 비중이 stop 비중보다 높고, 일부 조합은 time exit가 많아 해석이 제한됨을 보여준다.",
+      "side_attribution: positive variant가 Long/Short 모두 기여했는지, 특정 방향 의존이 있는지 확인한다.",
+      "yearly_attribution: 성과가 2021~2024에 강하고 2025/2026에는 약해진 regime 의존성을 확인한다.",
+      "representative_win_trade 및 representative_loss_trade: 같은 short momentum 신호가 1 ATR target과 1 ATR stop으로 각각 끝나는 사례를 보여준다."
+    ],
+    "required_interpretive_takeaways": [
+      "테스트된 V2 higher-timeframe no-cost 구현은 실행 가능한 4h/1d 네 조합 중 세 조합에서 양수였다.",
+      "이 결과는 이전 분 단위 테스트보다 정보 반영 지연 전제와 느린 시간축의 정합성을 더 지지하지만, 1h가 빠져 있어 higher-timeframe 전체 비교는 불완전하다.",
+      "비용 0 조건이라 gross PnL과 net PnL이 같으며, cost-aware profitability는 아직 판단할 수 없다.",
+      "4h 1일 lookback 조합은 거래 수와 time/stop exit 누적으로 음수였으므로, higher timeframe 자체가 자동으로 우월하다는 주장은 성립하지 않는다.",
+      "1d 1개월 lookback 조합은 낮은 drawdown, 높은 profit factor, target 우위, Short 기여로 가장 강했지만 2026 구간은 음수였다.",
+      "대표 거래는 규칙 작동 예시이지 단독 증거가 아니며, aggregate 결과와 함께 읽어야 한다.",
+      "다음 보완점은 비용 반영 검증, 1h 데이터 정책, 연도/side driver 분해, OOS/WFO 검증이다."
+    ],
+    "logic_chain": [
+      "Lookback Return Momentum은 완료봉 기준 과거 수익률이 이후 방향성을 일부 압축한다는 전략이다.",
+      "V2는 정보 반영 지연 전제와 시간축을 맞추기 위해 1h/4h/1d로 이동했고, 비용을 0으로 둔 뒤 1 ATR 손절과 1 ATR 익절을 적용했다.",
+      "1h는 native candle gap 때문에 실행하지 않았고, 4h/1d 네 조합만 결론에 사용했다.",
+      "4h/1d 네 조합 중 세 조합은 비용 0 조건에서 양수였으며, 최고 조합은 1d 1개월 lookback과 1주 보유였다.",
+      "positive 조합은 take-profit과 Short 기여가 결과를 밀었고, 연도별로는 2021~2024가 더 우호적이었다.",
+      "손실 조합과 2025/2026 약화는 신호 horizon, exit mix, regime 의존성이 결론을 제한한다.",
+      "따라서 현재 결과는 V2 HTF no-cost 후보를 강화하지만, 비용 반영 수익성이나 모멘텀 전략군 전체의 성패를 결론내리지 않는다."
+    ],
+    "wide_table_handling": "split_tables_or_reduce_columns",
+    "forbidden_copy_checks": [
+      "그것은",
+      "standalone 가설 section",
+      "Hypothesis heading",
+      "sentence-final 봅니다.",
+      "강한 결론",
+      "더 강한 결론",
+      "reader-facing task/run/candidate IDs"
+    ]
+  }
+}

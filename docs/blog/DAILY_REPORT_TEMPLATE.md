@@ -41,6 +41,18 @@ HTML 작성 규칙:
 - task 번호, run id, 내부 candidate id, DB dump, git commit, credential, config dump를 본문에 쓰지 않습니다.
 - source file path는 기본적으로 쓰지 않습니다. 다만 `백테스트 설정`의 코드 블록을 "의사코드"가 아니라 정확 구현 인용으로 명시하는 별도 report task라면, 짧은 source reference를 함께 둡니다.
 
+## 0.1 데이터 표시와 논리 밀도 기준
+
+Future report는 V2 report처럼 형식과 데이터 표시를 충분히 갖추되, V1 report처럼 결과를 해석하는 논리까지 촘촘해야 합니다.
+
+- 데이터 표시는 V2처럼 구성합니다. data coverage, setup, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trades가 payload에 있으면 reader-facing section에 우선 배치합니다.
+- 논리는 V1처럼 구성합니다. 전략 아이디어, 이번 버전 또는 실험 변경점, 핵심 결과, 결과를 만든 근거, 결과를 약하게 만든 근거, 현재 결과로 말할 수 있는 결론, 말할 수 없는 결론, 다음 보완점과 이유를 연결합니다.
+- 모든 표와 이미지는 본문에서 역할이 분명해야 합니다. `무엇을 보여주는가`, `왜 중요한가`, `해석을 어떻게 바꾸는가`를 적어도 한 문장으로 회수합니다.
+- 표나 이미지가 많아도 metric dump처럼 보이면 안 됩니다. 표가 답하는 질문이 불분명하면 표를 줄이거나 문장으로 옮깁니다.
+- `해석` 섹션은 앞에서 제시한 주요 표, 이미지, 대표 거래 근거를 다시 회수해서 bounded conclusion을 만듭니다.
+- 성과가 좋을 때, 나쁠 때, 섞여 있을 때 모두 driver analysis가 필요합니다. positive/negative/mixed 결과를 수치와 attribution으로 설명합니다.
+- 최종 report-facing 문장은 sentence-final `봅니다.`를 쓰지 않습니다. `~라고 봅니다`, `~로 봅니다`, `~해 봅니다` 대신 `해석합니다`, `판단합니다`, `확인했습니다`, `비교했습니다`, `필요합니다`처럼 직접적인 표현을 사용합니다.
+
 Tistory hELLO 스킨 레이아웃 규칙:
 
 - HTML은 내부 CSS를 포함한 단일 파일입니다. 외부 CSS 파일에 의존하지 않습니다.
@@ -177,7 +189,7 @@ Tistory hELLO 스킨 레이아웃 규칙:
 
 ```html
 <p>
-  Lookback Return Momentum은 최근 수익률이 단기 주문 흐름과 참여자 반응을 일부 요약한다고 봅니다.
+  Lookback Return Momentum은 최근 수익률이 단기 주문 흐름과 참여자 반응을 일부 요약한다는 전제를 둡니다.
   가격이 모든 정보를 즉시 반영하지 않거나, 추세 추종 참여가 이어지면 최근 움직임이 다음 몇 개 봉까지 지속될 수 있습니다.
 </p>
 <p>
@@ -310,9 +322,12 @@ atr = rolling_or_rma_average(true_range, window=atr_period)</code></pre>
 - 변인별 이미지가 없다는 사실은 본문에 일부러 쓰지 않습니다.
 - 수치 표는 compact하게 작성합니다.
 - 표마다 답하는 질문이 분명해야 합니다. 예: `타임프레임별 비용 반영 후 성과`, `청산 사유별 거래 수`.
+- 표마다 해석에서 어떻게 쓰일지 분명해야 합니다. 결과 표는 결과의 방향을 설명하고, 비용 표는 gross와 net의 차이를 설명하고, exit/side/year attribution은 성과의 driver나 한계를 설명해야 합니다.
 - 한 표에 timeframe, 비용, 청산, 기대값, 대표 거래 설명을 모두 섞지 않습니다.
 - 열이 많아 의미가 흐려지면 작은 표 여러 개나 짧은 문장으로 나눕니다.
 - 넓은 표는 반드시 `<div class="table-scroll">`로 감쌉니다.
+- payload에 data coverage, result comparison, cost impact, exit mix, side attribution, yearly/regime attribution, representative trades가 있으면 V2처럼 독자가 비교하기 쉽게 배치합니다.
+- 표와 이미지를 배치한 뒤에는 V1처럼 왜 그 수치가 성과를 만들었거나 막았는지 설명합니다.
 
 비용 영향 예시:
 
@@ -411,13 +426,15 @@ atr = rolling_or_rma_average(true_range, window=atr_period)</code></pre>
 성과가 좋을 때:
 
 - 비용 차감 전 우위가 충분했는지 설명합니다.
-- 승률, 평균 이익, 평균 손실, 손익비, 목표가 도달 비중, drawdown을 함께 봅니다.
+- 승률, 평균 이익, 평균 손실, 손익비, 목표가 도달 비중, drawdown을 함께 확인합니다.
 - 비용을 흡수한 이유를 저장된 수치로 설명합니다.
+- 어느 interval, side, year, exit reason, variant가 성과를 만들었는지 attribution으로 분리합니다.
+- 현재 조건에서 성공한 이유와 넓은 일반화가 아직 어려운 이유를 함께 씁니다.
 
 성과가 나쁠 때:
 
 - gross-vs-net gap, turnover, exit mix, 비용 부담, threshold, hold window, reward/risk 구조를 저장된 수치로 설명합니다.
-- 비용만 탓하지 않습니다. 비용 차감 전 손익과 신호 품질도 같이 봅니다.
+- 비용만 탓하지 않습니다. 비용 차감 전 손익과 신호 품질도 같이 확인합니다.
 - 저장 근거 없는 ATR, liquidation, delayed-exit, microstructure, behavior 설명을 만들지 않습니다.
 - 테스트한 전략/버전의 실패와 전략군 전체의 실패를 구분합니다.
 - 저장 근거가 특정 구현, 기간, 심볼, 타임프레임, 비용 가정, 파라미터 그리드에 묶여 있으면 전략군 전체를 기각하지 않습니다.
@@ -437,6 +454,13 @@ atr = rolling_or_rma_average(true_range, window=atr_period)</code></pre>
 - 현재 버전과 조건에서 무엇이 잘 작동했는지 설명합니다.
 - 넓은 검증 없이 전략군 전체가 보편적으로 유효하다고 쓰지 않습니다.
 - 전략군 전체로 판단 범위를 넓히려면 OOS/WFO, 기준선 비교, regime segmentation이 필요하다고 씁니다.
+
+성과가 섞여 있을 때는 평균값 하나로 덮지 않습니다.
+
+- interval, side, year, exit reason, variant별로 무엇이 결과를 밀었는지 분리합니다.
+- 한 구간이나 한 방향이 전체 성과를 만든 경우, 결과를 regime-specific 또는 side-specific으로 한정합니다.
+- 1개 표나 1개 대표 거래가 아니라 result comparison, exit mix, side attribution, yearly attribution을 함께 회수합니다.
+- payload에 해당 attribution이 없으면 `[확인 필요]`로 남기거나 보완점에 왜 필요한지 씁니다.
 
 마무리 문장:
 
@@ -478,6 +502,9 @@ HTML 저장 전 아래를 확인합니다.
 - 완료봉 기준, no-lookahead, 지표 warm-up, 청산 우선순위가 필요한 만큼 설명됐는가?
 - 대표 거래가 owner diagnostic 질문을 visible heading/checklist로 만들지 않고 자연스러운 설명 안에 반영하는가?
 - 대표 거래에서 단일 차트 근거, aggregate recurrence 근거, engine/fill sanity check, 누락 근거가 구분되는가?
+- 주요 표와 이미지를 `해석` 섹션에서 다시 회수했는가?
+- 표와 이미지마다 무엇을 보여주는지, 왜 중요한지, 해석을 어떻게 바꾸는지 설명했는가?
+- 성공/실패/혼합 결과의 driver가 저장된 수치와 attribution으로 설명되는가?
 - 표가 너무 크거나 목적이 모호하면 나누거나 줄였는가?
 - standalone `가설`/hypothesis 섹션을 만들지 않았는가?
 - 최종 섹션 제목이 `해석`인가?
@@ -491,3 +518,4 @@ HTML 저장 전 아래를 확인합니다.
 - 표가 왼쪽 정렬 중심으로 읽히는가?
 - 이미지가 본문 폭에 맞춰 크게 보이는가?
 - 내부 추적값, task 번호, run id, 내부 candidate id가 노출되지 않았는가?
+- 최종 report-facing 문장에 sentence-final `봅니다.`가 남아 있지 않은가?
